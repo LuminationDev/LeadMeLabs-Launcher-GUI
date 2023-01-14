@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: 'Poppins', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+div {
+    display: flex;
+}
+
+@layer components {
+    .textfield-primary {
+        @apply mr-1 border-2 rounded-lg p-2 border-black w-9/12;
+    }
+    .textfield-automation {
+        @apply border-2 rounded-lg p-2 border-black w-16;
+    }
+}
+.radio-custom-container {
+    position: relative;
+}
+.radio-hidden {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.radio-custom-background {
+    height: 40px;
+    width: 80px;
+    background-color: #fff;
+    border: 1px solid lightgray;
+}
+
+.radio-custom-text {
+    z-index: 2;
+}
+
+.radio-custom-container input:checked ~ .radio-custom-background {
+    background-color: #2196f3;
+}
