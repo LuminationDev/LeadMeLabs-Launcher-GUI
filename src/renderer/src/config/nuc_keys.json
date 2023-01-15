@@ -1,0 +1,27 @@
+[
+  {
+    "title": "AppKey",
+    "description": "app key",
+    "order": 0
+  },
+  {
+    "title": "CbusIP",
+    "description": "CBus IP address",
+    "order": 1
+  },
+  {
+    "title": "CbusLogin",
+    "description": "CBus login details",
+    "order": 2
+  },
+  {
+    "title": "CbusNucScriptId",
+    "description": "CBus' NUC script ID",
+    "order": 3
+  },
+  {
+    "title": "LabLocation",
+    "description": "lab location",
+    "order": 4
+  }
+]

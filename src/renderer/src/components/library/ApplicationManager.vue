@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
-import { useLibraryStore } from '../../store/libraryStore'
+import { computed, onMounted } from 'vue'
 import * as CONSTANT from '../../assets/constants/_application'
+import { useLibraryStore } from '../../store/libraryStore'
 
 const libraryStore = useLibraryStore()
 const selectedApplication = libraryStore.getSelectedApplication
-const applicationStatus = ref(selectedApplication.status)
+
+const applicationStatus = computed(() => {
+  const app = libraryStore.getSelectedApplication
+  return app !== undefined ? app.status : 'Unselected'
+})
 
 const launchApplication = (): void => {
   if (selectedApplication === undefined) {

@@ -1,0 +1,42 @@
+[
+  {
+    "title": "AppKey",
+    "description": "app key",
+    "order": 0
+  },
+  {
+    "title": "StationId",
+    "description": "station ID",
+    "order": 1
+  },
+  {
+    "title": "SteamUserName",
+    "description": "steam username",
+    "order": 2
+  },
+  {
+    "title": "SteamPassword",
+    "description": "steam password",
+    "order": 3
+  },
+  {
+    "title": "room",
+    "description": "room name",
+    "order": 4
+  },
+  {
+    "title": "NucAddress",
+    "description": "NUC address",
+    "order": 5
+  },
+  {
+    "title": "StationMode",
+    "description": "station launch mode",
+    "order": 6
+  },
+  {
+    "title": "LabLocation",
+    "description": "lab location",
+    "order": 7
+  }
+]

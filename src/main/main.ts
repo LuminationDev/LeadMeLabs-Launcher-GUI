@@ -97,7 +97,16 @@ function downloadApplication(): void {
       message: `Initiating download: ${directoryPath}`
     })
 
+    //Create the main directory to hold the application
     fs.mkdirSync(directoryPath, { recursive: true })
+
+    //If install the Station or NUC software create a .env file
+    if(info.name === 'Station' || info.name === 'NUC') {
+      fs.writeFile(join(directoryPath, 'config.env'), `TIME_CREATED=${new Date()}`, function (err) {
+        if (err) throw err;
+        console.log('Config file is created successfully.');
+      });
+    }
 
     //Override the incoming directory path
     info.properties.directory = directoryPath;
@@ -168,12 +177,42 @@ function launchApplication(): void {
   })
 }
 
+/**
+ * Update an env file that is associated with the Station or NUC applications. If there is a previous entry for a value
+ * with the same key override that key/value pair.
+ */
+function configApplication(): void {
+  ipcMain.on('config_application', (_event, info) => {
+    const config = join(__dirname, '../../../..', `leadme_apps/${info.name}/config.env`)
+
+    //Read the file and remove any previous entries for the same item
+    fs.readFile(config, {encoding: 'utf-8'}, function(err, data) {
+      let dataArray = data.split('\n'); // convert file data in an array
+      const searchKeyword = info.key; // looking for a line that contains a key word in the file
+
+      // Delete all instances of the old key
+      let newDataArray = dataArray.filter(line => !line.startsWith(searchKeyword))
+
+      // Add the new key
+      newDataArray.push(info.key + info.value)
+
+      // UPDATE FILE WITH NEW DATA
+      const updatedData = newDataArray.join('\n');
+      fs.writeFile(config, updatedData, (err) => {
+        if (err) throw err;
+        console.log ('Successfully updated the file data');
+      });
+    });
+  })
+}
+
 app.whenReady().then(() => {
   createWindow();
   setupTrayIcon();
   downloadApplication();
   installedApplications();
   launchApplication();
+  configApplication();
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
