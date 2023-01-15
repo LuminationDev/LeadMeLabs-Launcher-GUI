@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } from 'electron';
 import { join } from 'path';
-import path from 'path';
 import fs from 'fs';
+import { execFile } from 'child_process'
 import extract from "extract-zip";
 import { download } from 'electron-dl';
 
@@ -48,7 +48,7 @@ function setupTrayIcon(): void {
   // Setup tray icon and context menu
   mainWindow.setMenu(null)
 
-  const iconPath = path.join(__dirname, '/static/icon.ico')
+  const iconPath = join(__dirname, '/static/icon.ico')
   const appIcon = new Tray(nativeImage.createFromPath(iconPath))
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -91,8 +91,11 @@ function downloadApplication(): void {
     console.log(info)
 
     //Need to back up from the main file that is being run
-    const directoryPath = path.join(__dirname, '../../../..', `leadme_apps/${info.name}`)
-    mainWindow.webContents.send('status_update', `Initiating download: ${directoryPath}`)
+    const directoryPath = join(__dirname, '../../../..', `leadme_apps/${info.name}`)
+    mainWindow.webContents.send('status_update', {
+      name: info.name,
+      message: `Initiating download: ${directoryPath}`
+    })
 
     fs.mkdirSync(directoryPath, { recursive: true })
 
@@ -107,17 +110,61 @@ function downloadApplication(): void {
 
     // @ts-ignore
     download(BrowserWindow.getFocusedWindow(), info.url, info.properties).then((dl) => {
-        mainWindow.webContents.send('status_update', `Download complete, now extracting. ${dl.getSavePath()}`)
+        mainWindow.webContents.send('status_update', {
+          name: info.name,
+          message: `Download complete, now extracting. ${dl.getSavePath()}`
+        })
 
         //Unzip the project and add it to the local installation folder
         extract(dl.getSavePath(), { dir: directoryPath}).then(() => {
-          mainWindow.webContents.send('status_update', 'Extracting complete, cleaning up.')
+          mainWindow.webContents.send('status_update', {
+            name: info.name,
+            message: 'Extracting complete, cleaning up.'
+          })
 
           //Delete the downloaded zip folder
           fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
-          mainWindow.webContents.send('status_update', 'Clean up complete')
+          mainWindow.webContents.send('status_update', {
+            name: info.name,
+            message: 'Clean up complete'
+          })
         })
     })
+  })
+}
+
+/**
+ * On start up detect what Applications are currently installed on the local machine.
+ */
+function installedApplications(): void {
+  ipcMain.on('installed_applications', (_event, info) => {
+    console.log(_event)
+    console.log(info)
+
+    //Get the application directory
+    const directoryPath = join(__dirname, '../../../..', `leadme_apps`)
+
+    //Hard coded for now
+    const installed = {
+      'Station': fs.existsSync(`${directoryPath}/Station/station.exe`),
+      'NUC': fs.existsSync(`${directoryPath}/NUC/nuc.exe`)
+    }
+
+    mainWindow.webContents.send('applications_installed', installed)
+  })
+}
+
+/**
+ * Launch a requested application.
+ */
+function launchApplication(): void {
+  ipcMain.on('launch_application', (_event, info) => {
+    const exePath = join(__dirname, '../../../..', `leadme_apps/${info.name}/${info.name}.exe`)
+
+    execFile(exePath, function (err, data) {
+      console.log(err)
+      console.log(data.toString());
+    });
   })
 }
 
@@ -125,6 +172,8 @@ app.whenReady().then(() => {
   createWindow();
   setupTrayIcon();
   downloadApplication();
+  installedApplications();
+  launchApplication();
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({

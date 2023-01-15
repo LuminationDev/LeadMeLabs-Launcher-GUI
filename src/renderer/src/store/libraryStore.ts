@@ -18,9 +18,6 @@ const values = {
     )
 }
 
-//First this to do is check if any applications are installed
-
-
 export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
@@ -33,6 +30,41 @@ export const useLibraryStore = defineStore({
          */
         changeApplication(panel: string) {
             this.selectedApplication = panel
+        },
+
+        /**
+         * Update the status of a store application using its unique ID.
+         * @param appID A string representing the unique id of an application.
+         * @param status A string of the new status to be saved.
+         */
+        updateApplicationStatusByID(appID: string, status: string) {
+            const app = this.applications.get(appID)
+            if(app != undefined) {
+                app.status = status
+            }
+        },
+
+        /**
+         * Update the status of a store application using its name.
+         * @param appName A string representing the name of an application.
+         * @param status A string of the new status to be saved.
+         */
+        updateApplicationStatusByName(appName: string, status: string) {
+            const key = this.getKeyFromValue(appName)
+            if(key == undefined) { return; }
+
+            const app = this.applications.get(key)
+            if(app != undefined) {
+                app.status = status
+            }
+        },
+
+        /**
+         * Get the key of the applications Map from a supplied name.
+         * @param val A string that is the name to be searched for.
+         */
+        getKeyFromValue(val: string): string | undefined {
+            return [...this.applications.keys()].find(key => this.applications.get(key)?.name === val)
         }
     },
     getters: {

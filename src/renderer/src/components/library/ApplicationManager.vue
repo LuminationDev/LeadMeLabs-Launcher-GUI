@@ -3,22 +3,19 @@ import {onMounted, ref} from 'vue'
 import { useLibraryStore } from '../../store/libraryStore'
 import * as CONSTANT from '../../assets/constants/_application'
 
-// Does not like require here...
-// const { ipcRenderer } = require('electron')
-
 const libraryStore = useLibraryStore()
 const selectedApplication = libraryStore.getSelectedApplication
-const applicationStatus = ref(selectedApplication.install_status)
+const applicationStatus = ref(selectedApplication.status)
 
 const launchApplication = (): void => {
   if (selectedApplication === undefined) {
       return
   }
 
+  // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_LAUNCH, {
     id: selectedApplication.id,
-    name: selectedApplication.name,
-    properties: { directory: `leadme_apps/${selectedApplication.name}` }
+    name: selectedApplication.name
   })
 }
 
@@ -27,6 +24,7 @@ const downloadApplication = (): void => {
       return
   }
 
+  // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_DOWNLOAD, {
     name: selectedApplication.name,
     url: selectedApplication.url,
@@ -34,7 +32,9 @@ const downloadApplication = (): void => {
   })
 }
 
-//onMounted(() => {
+//Todo maybe move to the libraryStore in the future
+onMounted(() => {
+  // @ts-ignore
   api.ipcRenderer.on('download_progress', (event, progress) => {
     console.log(event)
     console.log(progress) // Progress in fraction, between 0 and 1
@@ -42,13 +42,16 @@ const downloadApplication = (): void => {
     // const cleanProgressInPercentages = Math.floor(progress * 100) // Without decimal point
   })
 
+  // @ts-ignore
   api.ipcRenderer.on('status_update', (event, status) => {
     console.log(event)
-    console.log(status) // Progress in fraction, between 0 and 1
-    // const progressInPercentages = progress * 100 // With decimal point and a bunch of numbers
-    // const cleanProgressInPercentages = Math.floor(progress * 100) // Without decimal point
+    console.log(status)
+
+    if(status.message === 'Clean up complete') {
+      libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_INSTALLED);
+    }
   })
-//})
+})
 
 const pauseDownloadingApplication = (): void => {
     if (selectedApplication === undefined) {
