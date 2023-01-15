@@ -1,5 +1,9 @@
 import {contextBridge, ipcRenderer} from 'electron';
 
-contextBridge.exposeInMainWorld('electron', {
-  ipcRenderer: ipcRenderer,
-})
+contextBridge.exposeInMainWorld("api", {
+  ipcRenderer: {
+    ...ipcRenderer,
+    on: ipcRenderer.on.bind(ipcRenderer),
+    removeListener: ipcRenderer.removeListener.bind(ipcRenderer),
+  },
+});

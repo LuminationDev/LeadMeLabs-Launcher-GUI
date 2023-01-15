@@ -19,6 +19,11 @@ const config = defineConfig({
         emptyOutDir: true,
     },
     plugins: [vuePlugin()],
+    pluginOptions: {
+        electronBuilder: {
+            preload: 'src/main/preload.js',
+        }
+    },
     resolve: {
         alias: {
             path: 'path-browserify',

@@ -1,10 +1,11 @@
-import {app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray} from 'electron';
-import {join} from 'path';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } from 'electron';
+import { join } from 'path';
 import path from 'path';
 import fs from 'fs';
 import extract from "extract-zip";
 import { download } from 'electron-dl';
 
+//Maintain a reference to the window
 let mainWindow
 
 function createWindow () {
@@ -47,7 +48,7 @@ function setupTrayIcon(): void {
   // Setup tray icon and context menu
   mainWindow.setMenu(null)
 
-  const iconPath = path.join(__dirname, '../../build/icon.ico')
+  const iconPath = path.join(__dirname, '/static/icon.ico')
   const appIcon = new Tray(nativeImage.createFromPath(iconPath))
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -89,25 +90,33 @@ function downloadApplication(): void {
     console.log(_event)
     console.log(info)
 
-    //Create the application directory and parent folder if necessary
-    const directoryPath = path.join(__dirname, `leadme_apps/${info.name}`)
+    //Need to back up from the main file that is being run
+    const directoryPath = path.join(__dirname, '../../../..', `leadme_apps/${info.name}`)
+    mainWindow.webContents.send('status_update', `Initiating download: ${directoryPath}`)
+
     fs.mkdirSync(directoryPath, { recursive: true })
 
+    //Override the incoming directory path
+    info.properties.directory = directoryPath;
+
+    //Maintain a trace on the download progress
     info.properties.onProgress = (status): number => {
-        return mainWindow.webContents.send('download progress', status)
+      console.log(status)
+      return mainWindow.webContents.send('download_progress', status)
     }
 
     // @ts-ignore
-    download(BrowserWindow.getFocusedWindow(), info.url, directoryPath).then((dl) => {
-        mainWindow.webContents.send('download complete', dl.getSavePath())
+    download(BrowserWindow.getFocusedWindow(), info.url, info.properties).then((dl) => {
+        mainWindow.webContents.send('status_update', `Download complete, now extracting. ${dl.getSavePath()}`)
 
-        //Unzip the project and add it to the local folder
-        // fs.createReadStream(dl.getSavePath()).pipe(
-            void extract(dl.getSavePath(), { dir: path.join(__dirname, `leadme_apps/${info.name}`)})
-        // )
+        //Unzip the project and add it to the local installation folder
+        extract(dl.getSavePath(), { dir: directoryPath}).then(() => {
+          mainWindow.webContents.send('status_update', 'Extracting complete, cleaning up.')
 
-        //Delete the downloaded zip folder
-        //fs.rmSync(`../leadme_apps/${info.name}/${info.name}.zip`, { recursive: true, force: true })
+          //Delete the downloaded zip folder
+          fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
+          mainWindow.webContents.send('status_update', 'Clean up complete')
+        })
     })
   })
 }
