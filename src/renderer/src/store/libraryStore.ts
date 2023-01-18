@@ -7,13 +7,19 @@ const values = {
     '1': new Application(
         '1',
         'Station',
-        'https://learninglablauncherdevelopment.herokuapp.com/program-station',
+        'http://localhost:8082/program-station',
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '2': new Application(
         '2',
         'NUC',
-        'https://learninglablauncherdevelopment.herokuapp.com/program-nuc',
+        'http://localhost:8082/program-nuc',
+        CONSTANTS.STATUS_NOT_INSTALLED
+    ),
+    '3': new Application(
+        '3',
+        'InputTest',
+        'http://localhost:8082/program-inputtest',
         CONSTANTS.STATUS_NOT_INSTALLED
     )
 }

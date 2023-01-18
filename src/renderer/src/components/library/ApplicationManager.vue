@@ -4,7 +4,10 @@ import * as CONSTANT from '../../assets/constants/_application'
 import { useLibraryStore } from '../../store/libraryStore'
 
 const libraryStore = useLibraryStore()
-const selectedApplication = libraryStore.getSelectedApplication
+
+const selectedApplication = computed(() => {
+  return libraryStore.getSelectedApplication
+})
 
 const applicationStatus = computed(() => {
   const app = libraryStore.getSelectedApplication
@@ -12,27 +15,27 @@ const applicationStatus = computed(() => {
 })
 
 const launchApplication = (): void => {
-  if (selectedApplication === undefined) {
+  if (selectedApplication.value === undefined) {
       return
   }
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_LAUNCH, {
-    id: selectedApplication.id,
-    name: selectedApplication.name
+    id: selectedApplication.value.id,
+    name: selectedApplication.value.name
   })
 }
 
 const downloadApplication = (): void => {
-  if (selectedApplication === undefined) {
+  if (selectedApplication.value === undefined) {
       return
   }
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_DOWNLOAD, {
-    name: selectedApplication.name,
-    url: selectedApplication.url,
-    properties: { directory: `leadme_apps/${selectedApplication.name}` }
+    name: selectedApplication.value.name,
+    url: selectedApplication.value.url,
+    properties: { directory: `leadme_apps/${selectedApplication.value.name}` }
   })
 }
 
@@ -58,24 +61,24 @@ onMounted(() => {
 })
 
 const pauseDownloadingApplication = (): void => {
-    if (selectedApplication === undefined) {
+    if (selectedApplication.value === undefined) {
         return
     }
     // ipcRenderer.send(CONSTANT.APPLICATION_PAUSE_DOWNLOAD, {
-    //     name: selectedApplication.name,
-    //     url: selectedApplication.url
-    //     //properties: { directory: '../leadme_apps/' + selectedApplication.name }
+    //     name: selectedApplication.value.name,
+    //     url: selectedApplication.value.url
+    //     //properties: { directory: '../leadme_apps/' + selectedApplication.value.name }
     // })
 }
 
 const resumeDownloadingApplication = (): void => {
-    if (selectedApplication === undefined) {
+    if (selectedApplication.value === undefined) {
         return
     }
     // ipcRenderer.send(CONSTANT.APPLICATION_RESUME_DOWNLOAD, {
-    //     name: selectedApplication.name,
-    //     url: selectedApplication.url
-    //     //properties: { directory: '../leadme_apps/' + selectedApplication.name }
+    //     name: selectedApplication.value.name,
+    //     url: selectedApplication.value.url
+    //     //properties: { directory: '../leadme_apps/' + selectedApplication.value.name }
     // })
 }
 </script>

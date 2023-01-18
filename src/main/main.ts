@@ -5,6 +5,12 @@ import { execFile } from 'child_process'
 import extract from "extract-zip";
 import { download } from 'electron-dl';
 
+interface AppEntry {
+  type: string
+  id: string
+  name: string
+}
+
 //Maintain a reference to the window
 let mainWindow
 
@@ -48,7 +54,7 @@ function setupTrayIcon(): void {
   // Setup tray icon and context menu
   mainWindow.setMenu(null)
 
-  const iconPath = join(__dirname, '/static/icon.ico')
+  const iconPath = join(__dirname, 'static/icon.ico')
   const appIcon = new Tray(nativeImage.createFromPath(iconPath))
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -100,14 +106,6 @@ function downloadApplication(): void {
     //Create the main directory to hold the application
     fs.mkdirSync(directoryPath, { recursive: true })
 
-    //If install the Station or NUC software create a .env file
-    if(info.name === 'Station' || info.name === 'NUC') {
-      fs.writeFile(join(directoryPath, 'config.env'), `TIME_CREATED=${new Date()}`, function (err) {
-        if (err) throw err;
-        console.log('Config file is created successfully.');
-      });
-    }
-
     //Override the incoming directory path
     info.properties.directory = directoryPath;
 
@@ -119,27 +117,165 @@ function downloadApplication(): void {
 
     // @ts-ignore
     download(BrowserWindow.getFocusedWindow(), info.url, info.properties).then((dl) => {
+      mainWindow.webContents.send('status_update', {
+        name: info.name,
+        message: `Download complete, now extracting. ${dl.getSavePath()}`
+      })
+
+      //Unzip the project and add it to the local installation folder
+      extract(dl.getSavePath(), { dir: directoryPath}).then(() => {
         mainWindow.webContents.send('status_update', {
           name: info.name,
-          message: `Download complete, now extracting. ${dl.getSavePath()}`
+          message: 'Extracting complete, cleaning up.'
         })
 
-        //Unzip the project and add it to the local installation folder
-        extract(dl.getSavePath(), { dir: directoryPath}).then(() => {
-          mainWindow.webContents.send('status_update', {
-            name: info.name,
-            message: 'Extracting complete, cleaning up.'
-          })
-
-          //Delete the downloaded zip folder
-          fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
-          mainWindow.webContents.send('status_update', {
-            name: info.name,
-            message: 'Clean up complete'
-          })
+        //Delete the downloaded zip folder
+        fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
+        mainWindow.webContents.send('status_update', {
+          name: info.name,
+          message: 'Clean up complete'
         })
+
+        //Update the config.env file or the app manifest depending on the application
+        if(info.name === 'Station' || info.name === 'NUC') {
+          extraDownloadCriteria(info.name, directoryPath);
+        } else {
+          updateAppManifest(info.name);
+        }
+      })
     })
   })
+}
+
+/**
+ * There are extra download criteria associated with the Station and NUC software. This function handles the downloading
+ * and folder creation required for installation.
+ */
+function extraDownloadCriteria(appName: string, directoryPath: string): void {
+  //If installing the Station or NUC software edit the .env file with the time created
+  fs.writeFile(join(directoryPath, '_config/config.env'), `TIME_CREATED=${new Date()}`, function (err) {
+    if (err) throw err;
+    console.log('Config file is updated successfully.');
+  });
+
+  if(appName !== 'Station') return;
+
+  //Create a directory to hold the external applications of SetVol
+  const setVolDirectory = join(directoryPath, 'external', 'SetVol');
+  fs.mkdirSync(setVolDirectory, { recursive: true });
+
+  let setVolInfo = {
+    url: "http://localhost:8082/program-setvol",
+    properties: {
+      directory: setVolDirectory
+    }
+  }
+
+  //Download/Extra/Clean up SetVol
+  // @ts-ignore
+  download(BrowserWindow.getFocusedWindow(), setVolInfo.url, setVolInfo.properties).then((dl) => {
+    extract(dl.getSavePath(), { dir: setVolDirectory}).then(() => {
+      //Delete the downloaded zip folder
+      fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
+    });
+
+    mainWindow.webContents.send('status_update', {
+      name: 'SetVol',
+      message: 'SetVol installed successfully'
+    });
+  });
+
+  //Create a directory to hold the external applications of SteamCMD
+  const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
+  fs.mkdirSync(steamCMDDirectory, { recursive: true });
+
+  let steamCMDInfo = {
+    url: "http://localhost:8082/program-steamcmd",
+    properties: {
+      directory: steamCMDDirectory
+    }
+  }
+
+  //Download/Extra/Clean up SteamCMD
+  // @ts-ignore
+  download(BrowserWindow.getFocusedWindow(), steamCMDInfo.url, steamCMDInfo.properties).then((dl) => {
+    extract(dl.getSavePath(), { dir: steamCMDDirectory}).then(() => {
+      //Delete the downloaded zip folder
+      fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
+    });
+
+    mainWindow.webContents.send('status_update', {
+      name: 'SteamCMD',
+      message: 'SteamCMD installed successfully'
+    });
+  });
+}
+
+/**
+ * Update the local app manifest with the details of the newly installed application. This manifest is used by the
+ * Station software to see what Custom experiences are installed.
+ * @param appName
+ */
+function updateAppManifest(appName: string) {
+  const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
+
+  const apps: Array<AppEntry> = [];
+
+  //Create the application entry for the json
+  const appJSON: AppEntry = {
+    type: "Custom",
+    id: "",
+    name: appName
+  }
+
+  //Check if the file exists
+  const exists = fs.existsSync(filePath);
+
+  if(exists) {
+    //Check if the application exists
+    try {
+      const data = fs.readFileSync(filePath);
+      const jsonArray: Array<AppEntry> = JSON.parse(data.toString());
+
+      console.log(jsonArray);
+
+      //Assign the new id
+      appJSON.id = String(jsonArray.length + 1);
+      jsonArray.push(appJSON);
+
+      //Create the file and write the new application entry in
+      fs.writeFile(filePath, JSON.stringify(jsonArray), function (err) {
+        if (err) throw err;
+
+        mainWindow.webContents.send('status_update', {
+          name: 'Manifest',
+          message: 'Manifest file is updated successfully.'
+        });
+      });
+
+    } catch ( err ) {
+      mainWindow.webContents.send('status_update', {
+        name: 'Manifest',
+        message: 'Manifest file is updated failed.'
+      });
+    }
+
+    return;
+  }
+
+  //No apps exist yet can assign first ID
+  appJSON.id = "1";
+  apps.push(appJSON);
+
+  //Create the file and write the new application entry in
+  fs.writeFile(filePath, JSON.stringify(apps), function (err) {
+    if (err) throw err;
+
+    mainWindow.webContents.send('status_update', {
+      name: 'Manifest',
+      message: 'Manifest file is created successfully.'
+    });
+  });
 }
 
 /**
@@ -183,7 +319,7 @@ function launchApplication(): void {
  */
 function configApplication(): void {
   ipcMain.on('config_application', (_event, info) => {
-    const config = join(__dirname, '../../../..', `leadme_apps/${info.name}/config.env`)
+    const config = join(__dirname, '../../../..', `leadme_apps/${info.name}/_config/config.env`)
 
     //Read the file and remove any previous entries for the same item
     fs.readFile(config, {encoding: 'utf-8'}, function(err, data) {
