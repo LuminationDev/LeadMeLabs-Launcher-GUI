@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } from 'electron';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import fs from 'fs';
-import { execFile } from 'child_process'
+import { execFile, exec } from 'child_process'
 import extract from "extract-zip";
 import { download } from 'electron-dl';
 
@@ -160,6 +160,15 @@ function extraDownloadCriteria(appName: string, directoryPath: string): void {
 
   if(appName !== 'Station') return;
 
+  downloadSetVol(directoryPath);
+}
+
+/**
+ * Download and extract the SetVol program into the ~/Station/external/SetVol location, if the location does not exist
+ * it will be created. After extraction the downloadSteamCMD is triggered.
+ * @param directoryPath A string representing the working directory of the LeadMeLauncher program.
+ */
+function downloadSetVol(directoryPath: string) {
   //Create a directory to hold the external applications of SetVol
   const setVolDirectory = join(directoryPath, 'external', 'SetVol');
   fs.mkdirSync(setVolDirectory, { recursive: true });
@@ -183,8 +192,17 @@ function extraDownloadCriteria(appName: string, directoryPath: string): void {
       name: 'SetVol',
       message: 'SetVol installed successfully'
     });
-  });
 
+    downloadSteamCMD(directoryPath);
+  });
+}
+
+/**
+ * Download and extract the SteamCMD program into the ~/Station/external/steamcmd location, if the location does not
+ * exist it will be created.
+ * @param directoryPath A string representing the working directory of the LeadMeLauncher program.
+ */
+function downloadSteamCMD(directoryPath: string) {
   //Create a directory to hold the external applications of SteamCMD
   const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
   fs.mkdirSync(steamCMDDirectory, { recursive: true });
@@ -202,12 +220,56 @@ function extraDownloadCriteria(appName: string, directoryPath: string): void {
     extract(dl.getSavePath(), { dir: steamCMDDirectory}).then(() => {
       //Delete the downloaded zip folder
       fs.rmSync(dl.getSavePath(), { recursive: true, force: true })
-    });
 
-    mainWindow.webContents.send('status_update', {
-      name: 'SteamCMD',
-      message: 'SteamCMD installed successfully'
+      mainWindow.webContents.send('status_update', {
+        name: 'SteamCMD',
+        message: 'SteamCMD installed successfully'
+      });
     });
+  });
+}
+
+/**
+ * Open up SteamCMD for the first time, installing and updating the components and passing the default Steam experience
+ * location and the login parameters, this will pause on the Steam Guard step.
+ */
+function configureSteamCMD() {
+  ipcMain.on('config_steamcmd', (_event) => {
+    //The launcher directory path
+    const directoryPath = join(__dirname, '../../../..', `leadme_apps/Station`)
+
+    //Create a directory to hold the external applications of SteamCMD
+    const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
+    fs.mkdirSync(steamCMDDirectory, { recursive: true });
+
+    //Find the local steam variables
+    const config = join(__dirname, '../../../..', `leadme_apps/Station/_config/config.env`);
+
+    //Read the file and remove any previous entries for the same item
+    const data = fs.readFileSync(config, {encoding: 'utf-8'});
+
+    let dataArray = data.split('\n'); // convert file data in an array
+
+    // looking for a line that contains the Steam username and password, split the line to get the value.
+    const usernameKeyword = "SteamUserName";
+    const steamUserName: string = dataArray.filter(line => line.startsWith(usernameKeyword))[0].split("=")[1];
+
+    const passwordKeyword = "SteamPassword";
+    const steamPassword: string = dataArray.filter(line => line.startsWith(passwordKeyword))[0].split("=")[1];
+
+
+    if(steamUserName === null || steamPassword === null) {
+      mainWindow.webContents.send('status_update', {
+        name: 'SteamCMD',
+        message: 'Steam password or Login not found in Station config.env'
+      });
+      return;
+    }
+
+    const args = ` +force_install_dir \\"C:/Program Files (x86)/Steam\\" +login ${steamUserName} ${steamPassword}`;
+
+    //Open SteamCMD for first time installation/update
+    exec("start cmd @cmd /k " + resolve(steamCMDDirectory, 'steamcmd.exe') + args);
   });
 }
 
@@ -346,6 +408,7 @@ app.whenReady().then(() => {
   createWindow();
   setupTrayIcon();
   downloadApplication();
+  configureSteamCMD();
   installedApplications();
   launchApplication();
   configApplication();

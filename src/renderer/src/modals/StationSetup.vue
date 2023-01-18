@@ -20,6 +20,12 @@ const envValue = ref("");
 const pageNum = ref(0);
 const back = ref(false);
 
+function configureSteamCMD() {
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.CONFIG_APPLICATION_STEAMCMD)
+  closeModal();
+}
+
 function setENVChoice(title: string, choice: string) {
   envValue.value = choice;
   updateENV(title);
@@ -41,13 +47,16 @@ function updateENV(key: string) {
   // Load the next page
   envValue.value = ""
   pageNum.value++
+
+  console.log(pageNum.value);
 }
 
 /**
  * Calculate the amount of station inputs to track progress.
  */
 const listLength = computed(() => {
-  return stationKeyJson.length;
+  console.log(station_keys.length)
+  return station_keys.length;
 })
 
 function closeModal() {
@@ -94,18 +103,18 @@ function closeModal() {
               <div v-else class="flex flex-col w-full justify-center items-center">
                 Please enter the {{variable.description}}
 
-                <div v-for="(item, index) in variable.choice" v-bind:key="item" class="h-10 w-1/2 my-1">
+                <div v-for="(item, index) in variable.choice" v-bind:key="index" class="h-10 w-1/2 my-1">
                   <button v-on:click="setENVChoice(variable.title, item)" class="h-10 w-full rounded-lg bg-blue-400 hover:bg-blue-200">{{item}}</button>
                 </div>
               </div>
 
             </div>
           </template>
-          <div v-else class="div-slider h-48 mt-8">
-            <template class="card inline-block mx-5 flex flex-col justify-center items-center bg-white rounded-3xl shadow-md">
+          <div v-else class="h-48 w-full mx-5 flex flex-col justify-center items-center">
+            <template class="card h-32 w-full inline-block  flex flex-col justify-center items-center bg-white rounded-3xl shadow-md">
               Station setup is complete.
 
-              <button v-on:click="closeModal">Finish</button>
+              <button v-on:click="configureSteamCMD" class="h-10 w-1/2 mt-4 rounded-lg bg-blue-400 hover:bg-blue-200">Finish</button>
             </template>
           </div>
 
@@ -146,7 +155,7 @@ function closeModal() {
   transform: translate(100%, 0);
 }
 
-.div-slider{
+.div-slider {
   overflow: hidden;
   position: relative;
 }
