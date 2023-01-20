@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import * as CONSTANT from '../../assets/constants/_application'
 import { useLibraryStore } from '../../store/libraryStore'
+import Spinner from "../buttons/Spinner.vue";
 
 const libraryStore = useLibraryStore()
 
@@ -30,6 +31,8 @@ const downloadApplication = (): void => {
   if (selectedApplication.value === undefined) {
       return
   }
+
+  libraryStore.updateApplicationStatusByName(selectedApplication.value.name, CONSTANT.STATUS_DOWNLOADING);
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_DOWNLOAD, {
@@ -105,7 +108,7 @@ const resumeDownloadingApplication = (): void => {
         class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
         @click="pauseDownloadingApplication"
     >
-        Pause
+        <Spinner />
     </div>
 
     <div
