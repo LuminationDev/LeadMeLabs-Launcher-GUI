@@ -5,7 +5,8 @@
 </script>
 
 <template>
-    <div class="w-44 h-12 bg-green-400 rounded flex items-center justify-center">
-        <p class="text-black">Store Page</p>
-    </div>
+  <div class="w-full h-16 my-4 flex flex-col">
+    <p class="text-lg text-black mb-3">Store Page</p>
+    <p class="text-sm text-black">Not yet implemented</p>
+  </div>
 </template>

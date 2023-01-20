@@ -34,11 +34,14 @@ const deleteApplication = (): void => {
 </script>
 
 <template>
-    <div class="flex flex-col w-full [&>div]:my-2">
-        <div class="h-12 bg-green-400 rounded flex items-center justify-center">
+    <div class="flex flex-col w-full [&>div]:my-2 mb-4">
+      <div class="h-6 text-xl rounded flex">
+        <p class="text-black font-bold">{{ applicationName }}</p>
+      </div>
+        <div class="h-44 bg-gray-100 rounded flex items-center justify-center">
             <p class="text-black">Image</p>
         </div>
-        <div class="h-24 px-12 bg-green-400 rounded flex items-center justify-between">
+        <div class="h-24 px-12 bg-gray-100 rounded flex items-center justify-between">
             <ApplicationManager />
 
             <StationSetup v-if="applicationName === 'Station' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
@@ -51,9 +54,6 @@ const deleteApplication = (): void => {
           >
             Delete
           </div>
-        </div>
-        <div class="h-12 bg-green-400 rounded flex items-center justify-center">
-            <p class="text-black">{{ applicationName }}</p>
         </div>
     </div>
 </template>
