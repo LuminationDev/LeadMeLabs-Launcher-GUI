@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import * as CONSTANT from '../../assets/constants/_application'
 import { useLibraryStore } from '../../store/libraryStore'
-import Spinner from "../buttons/Spinner.vue";
+import Spinner from "../loading/Spinner.vue";
+import BaseProgress from "../loading/BaseProgress.vue";
 
 const libraryStore = useLibraryStore()
+
+const download_progress = ref(0);
 
 const selectedApplication = computed(() => {
   return libraryStore.getSelectedApplication
@@ -50,6 +53,8 @@ onMounted(() => {
     console.log(progress) // Progress in fraction, between 0 and 1
     // const progressInPercentages = progress * 100 // With decimal point and a bunch of numbers
     // const cleanProgressInPercentages = Math.floor(progress * 100) // Without decimal point
+
+    download_progress.value = progress * 100;
   })
 
   // @ts-ignore
@@ -87,35 +92,37 @@ const resumeDownloadingApplication = (): void => {
 </script>
 
 <template>
-    <div
-        v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
-        class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-        @click="launchApplication"
-    >
-        Launch
-    </div>
+  <div
+    v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
+    class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
+    @click="launchApplication"
+  >
+    Launch
+  </div>
 
-    <div
-        v-else-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED"
-        class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-        @click="downloadApplication"
-    >
-        Install
-    </div>
+  <div
+    v-else-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED"
+    class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
+    @click="downloadApplication"
+  >
+    Install
+  </div>
 
+  <div v-else-if="applicationStatus === CONSTANT.STATUS_DOWNLOADING" class="flex flex-col">
     <div
-        v-else-if="applicationStatus === CONSTANT.STATUS_DOWNLOADING"
-        class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-        @click="pauseDownloadingApplication"
+      class="w-32 h-8 mb-2 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
+      @click="pauseDownloadingApplication"
     >
-        <Spinner />
+      <Spinner />
     </div>
+    <BaseProgress :percentage="download_progress" :color="'gray'" class="mx-2 h-5"/>
+  </div>
 
-    <div
-        v-else-if="applicationStatus === CONSTANT.STATUS_PAUSED_DOWNLOADING"
-        class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-        @click="resumeDownloadingApplication"
-    >
-        Paused
-    </div>
+  <div
+    v-else-if="applicationStatus === CONSTANT.STATUS_PAUSED_DOWNLOADING"
+    class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
+    @click="resumeDownloadingApplication"
+  >
+    Paused
+  </div>
 </template>

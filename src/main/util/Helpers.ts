@@ -1,18 +1,13 @@
-import {BrowserWindow, ipcMain} from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import fs from "fs";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
 import { exec, execFile, execSync } from "child_process";
-import * as https from "https";
+import * as https from "https"; //use for production hosting server
 import * as http from "http";
 import semver from "semver/preload";
-
-interface AppEntry {
-    type: string
-    id: string
-    name: string
-}
+import { AppEntry } from "../../renderer/src/interfaces/appIntefaces";
 
 /**
  * A class that initiates electron IPC controls that handle application downloads, extractions, configurations
@@ -28,11 +23,13 @@ export default class Helpers {
     }
 
     /**
-     * Initiate all the helper functions.
+     * Initiate all the helper functions, the functions each use a different IpcMain listener handle to respond to
+     * different events that the frontend requires.
      */
     startup(): void {
         this.downloadApplication();
         this.configureSteamCMD();
+        this.setManifestAutoStart();
         this.installedApplications();
         this.launchApplication();
         this.deleteApplication();
@@ -91,9 +88,10 @@ export default class Helpers {
 
                     //Update the config.env file or the app manifest depending on the application
                     if (info.name === 'Station' || info.name === 'NUC') {
+                        this.updateAppManifest(info.name, "LeadMe");
                         this.extraDownloadCriteria(info.name, directoryPath);
                     } else {
-                        this.updateAppManifest(info.name);
+                        this.updateAppManifest(info.name, "Custom");
                     }
                 })
             })
@@ -230,29 +228,29 @@ export default class Helpers {
     /**
      * Update the local app manifest with the details of the newly installed application. This manifest is used by the
      * Station software to see what Custom experiences are installed.
-     * @param appName
+     * @param appName A string of the experience name being added.
+     * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      */
-    updateAppManifest(appName: string): void {
+    updateAppManifest(appName: string, type: string): void {
         const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
-
-        const apps: Array<AppEntry> = [];
 
         //Create the application entry for the json
         const appJSON: AppEntry = {
-            type: "Custom",
+            type: type,
             id: "",
-            name: appName
+            name: appName,
+            autostart: false //default on installation
         }
 
         //Check if the file exists
         const exists = fs.existsSync(filePath);
 
         if (exists) {
-            //Check if the application exists
             try {
                 const data = fs.readFileSync(filePath);
                 const jsonArray: Array<AppEntry> = JSON.parse(data.toString());
 
+                //Check if the application exists?
                 console.log(jsonArray);
 
                 //Assign the new id
@@ -279,6 +277,8 @@ export default class Helpers {
             return;
         }
 
+        const apps: Array<AppEntry> = [];
+
         //No apps exist yet can assign first ID
         appJSON.id = "1";
         apps.push(appJSON);
@@ -295,10 +295,61 @@ export default class Helpers {
     }
 
     /**
-     * Remove an entry from the manifest, this may occur when an application has been deleted or moved.
+     * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
+     * opened.
      */
-    removeFromAppManifest(): void {
+    setManifestAutoStart(): void {
+        this.ipcMain.on("autostart_application", (_event, info) => {
+            const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
 
+            //Check if the file exists
+            const exists = fs.existsSync(filePath);
+
+            if (!exists) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file does not exist.'
+                });
+            }
+
+            try {
+                const data = fs.readFileSync(filePath);
+                const jsonArray: Array<AppEntry> = JSON.parse(data.toString());
+
+                //Check if the application exists
+                console.log(jsonArray);
+
+                //Find the application
+                const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === info.name);
+
+                if(entry === undefined) {
+                    this.mainWindow.webContents.send('status_update', {
+                        name: info.name,
+                        message: `${info.name} does not exist in the manifest.`
+                    });
+                    return;
+                }
+
+                //Update the entry
+                entry.autostart = info.autostart;
+
+                //Create the file and write the new application entry in
+                fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
+                    if (err) throw err;
+
+                    this.mainWindow.webContents.send('status_update', {
+                        name: 'Manifest',
+                        message: 'Manifest file is updated successfully.'
+                    });
+                });
+
+            } catch (err) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file is updated failed.'
+                });
+            }
+        });
     }
 
     /**
@@ -306,20 +357,38 @@ export default class Helpers {
      */
     installedApplications(): void {
         this.ipcMain.on('installed_applications', (_event, info) => {
-            //console.log(_event)
             console.log(info)
 
-            //Get the application directory
-            const directoryPath = join(__dirname, '../../../..', `leadme_apps`)
+            const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
 
-            //Hard coded for now
-            const installed = {
-                'Station': fs.existsSync(`${directoryPath}/Station/station.exe`),
-                'NUC': fs.existsSync(`${directoryPath}/NUC/nuc.exe`)
+            //Check if the file exists
+            const exists = fs.existsSync(filePath);
+
+            //Search the local manifest for installed experiences
+            if(exists) {
+                try {
+                    const data = fs.readFileSync(filePath);
+                    const installed: Array<AppEntry> = JSON.parse(data.toString());
+
+                    console.log(installed);
+
+                    this.mainWindow.webContents.send('applications_installed', installed);
+                    return;
+                } catch (err) {
+                    this.mainWindow.webContents.send('status_update', {
+                        name: 'Manifest',
+                        message: 'Manifest file read failed.'
+                    });
+                }
+            } else {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file does not exist.'
+                });
             }
 
-            this.mainWindow.webContents.send('applications_installed', installed)
-        })
+            this.mainWindow.webContents.send('applications_installed', []);
+        });
     }
 
     /**
@@ -331,11 +400,57 @@ export default class Helpers {
 
             fs.rmSync(directoryPath, { recursive: true, force: true });
 
+            this.removeFromAppManifest(info.name);
+
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `${info.name} removed.`
             });
         })
+    }
+
+    /**
+     * Remove an entry from the manifest, this may occur when an application has been deleted or moved.
+     */
+    removeFromAppManifest(appName: string): void {
+        const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
+
+        //Check if the file exists
+        const exists = fs.existsSync(filePath);
+
+        if (!exists) {
+            this.mainWindow.webContents.send('status_update', {
+                name: 'Manifest',
+                message: 'Manifest file does not exist.'
+            });
+        }
+
+        try {
+            const data = fs.readFileSync(filePath);
+            let jsonArray: Array<AppEntry> = JSON.parse(data.toString());
+
+            //Check if the application exists
+            console.log(jsonArray);
+
+            //Remove the entry from the list
+            jsonArray = jsonArray.filter(entry => entry.name !== appName)
+
+            //Create the file and write the new application entry in
+            fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
+                if (err) throw err;
+
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file is updated successfully.'
+                });
+            });
+
+        } catch (err) {
+            this.mainWindow.webContents.send('status_update', {
+                name: 'Manifest',
+                message: 'Manifest file is updated failed.'
+            });
+        }
     }
 
     /**
@@ -358,7 +473,7 @@ export default class Helpers {
 
     /**
      * Check for an update for either the Station or NUC software, if there is one download and extract the update, do
-     * not override files such as steamcmd or config.env
+     * not download files such as steamcmd or override config.env
      */
     async updateLeadMeApplication(appName: string): Promise<void> {
         const directoryPath = join(__dirname, '../../../..', `leadme_apps/${appName}`);
@@ -473,6 +588,8 @@ export default class Helpers {
                     })
 
                     resolve("Download Complete");
+                }).catch(err => {
+                    reject(err);
                 })
             })
         });

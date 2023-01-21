@@ -23,8 +23,8 @@ defineProps({
   box-sizing: border-box;
   display: block;
   position: absolute;
-  top: -20%;
-  left: 0;
+  top: -30%;
+  left: -30%;
   transform: translate(-50%, -50%);
   width: 24px;
   height: 24px;
