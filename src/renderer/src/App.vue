@@ -5,6 +5,7 @@ import {AppEntry} from "./interfaces/appIntefaces";
 import * as CONSTANT from "./assets/constants/_application";
 
 import { useLibraryStore } from './store/libraryStore'
+import UpdateNotification from "./modals/UpdateNotification.vue";
 
 const libraryStore = useLibraryStore()
 
@@ -32,12 +33,15 @@ api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) 
 </script>
 
 <template>
-    <div class="flex flex-col bg-white rounded-3xl mb-2">
-        <Header />
-    </div>
-    <div class="content flex flex-row w-full">
-        <RouterView />
-    </div>
+  <div class="flex flex-col bg-white rounded-3xl mb-2">
+    <Header />
+  </div>
+  <div class="content flex flex-row w-full">
+    <RouterView />
+  </div>
+
+  <!--Modal to handle entire application updates-->
+  <UpdateNotification />
 </template>
 
 <style lang="less">

@@ -7,7 +7,7 @@ import {exec, execFile, execSync, spawn} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https";
-import { app } from "electron"; //use for production hosting server
+import { app, BrowserWindow } from "electron"; //use for production hosting server
 
 interface AppEntry {
     type: string

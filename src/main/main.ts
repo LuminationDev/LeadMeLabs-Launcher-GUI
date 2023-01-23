@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } = require('electron');
+const { autoUpdater } = require('electron-updater');
 import { join } from 'path';
 import Helpers from "./util/Helpers";
+import AutoUpdate from "./util/AppUpdate";
 
 //Maintain a reference to the window
 let mainWindow
@@ -16,10 +18,11 @@ function createWindow () {
     }
   });
 
-  // Show the main window
+  // Show the main window and check for application updates
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
     mainWindow.webContents.openDevTools()
+    void autoUpdater.checkForUpdatesAndNotify();
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -82,8 +85,7 @@ app.whenReady().then(() => {
   setupTrayIcon();
 
   //Load in all the helper functions
-  let initiate = new Helpers(ipcMain, mainWindow);
-  initiate.startup();
+  new Helpers(ipcMain, mainWindow).startup();
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -106,3 +108,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit()
 });
+
+//Handle auto updating
+new AutoUpdate(ipcMain, mainWindow, autoUpdater).listenForUpdates();
