@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } from 'electron';
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } = require('electron');
 import { join } from 'path';
 import Helpers from "./util/Helpers";
 
@@ -45,7 +45,7 @@ function setupTrayIcon(): void {
   // Setup tray icon and context menu
   mainWindow.setMenu(null)
 
-  const iconPath = join(__dirname, 'static/icon.ico')
+  const iconPath = join(app.getAppPath(), 'static', 'icon.ico')
   const appIcon = new Tray(nativeImage.createFromPath(iconPath))
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -95,7 +95,7 @@ app.whenReady().then(() => {
   })
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
+    // On macOS, it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -106,7 +106,3 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit()
 });
-
-ipcMain.on('message', (event, message) => {
-  console.log(message);
-})

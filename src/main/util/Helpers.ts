@@ -1,13 +1,20 @@
-import { BrowserWindow, ipcMain } from 'electron';
 import fs from "fs";
+import xml2js from "xml2js";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
-import { exec, execFile, execSync } from "child_process";
-import * as https from "https"; //use for production hosting server
-import * as http from "http";
+import {exec, execFile, execSync, spawn} from "child_process";
 import semver from "semver/preload";
-import { AppEntry } from "../../renderer/src/interfaces/appIntefaces";
+import * as http from "http";
+import * as https from "https";
+import { app } from "electron"; //use for production hosting server
+
+interface AppEntry {
+    type: string
+    id: string
+    name: string
+    autostart: boolean
+}
 
 /**
  * A class that initiates electron IPC controls that handle application downloads, extractions, configurations
@@ -34,6 +41,7 @@ export default class Helpers {
         this.launchApplication();
         this.deleteApplication();
         this.configApplication();
+        this.createTaskSchedulerItem();
     }
 
     /**
@@ -186,7 +194,7 @@ export default class Helpers {
      * location and the login parameters, this will pause on the Steam Guard step.
      */
     configureSteamCMD() {
-        ipcMain.on('config_steamcmd', (_event) => {
+        this.ipcMain.on('config_steamcmd', (_event) => {
             //The launcher directory path
             const directoryPath = join(__dirname, '../../../..', `leadme_apps/Station`)
 
@@ -356,8 +364,7 @@ export default class Helpers {
      * On start up detect what Applications are currently installed on the local machine.
      */
     installedApplications(): void {
-        this.ipcMain.on('installed_applications', (_event, info) => {
-            console.log(info)
+        this.ipcMain.on('installed_applications', (_event) => {
 
             const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
 
@@ -369,8 +376,6 @@ export default class Helpers {
                 try {
                     const data = fs.readFileSync(filePath);
                     const installed: Array<AppEntry> = JSON.parse(data.toString());
-
-                    console.log(installed);
 
                     this.mainWindow.webContents.send('applications_installed', installed);
                     return;
@@ -625,5 +630,102 @@ export default class Helpers {
                 });
             });
         })
+    }
+
+    /**
+     * Interacting with the windows task scheduler, create, pause or destroy a task that actively monitors that the
+     * supplied application is running. The task runs on start up once a user is logged in and when there is an
+     * internet connection and then every 5 minutes onwards.
+     */
+    createTaskSchedulerItem(): void {
+        this.ipcMain.on('schedule_application', (_event, info) => {
+            const taskFolder: string = "LeadMe\\Software_Checker";
+            let args: string = "";
+
+            //Check the type - list is the only function that does not require Admin privilege
+            switch (info.type) {
+                case "list":
+                    args = `SCHTASKS /QUERY /TN ${taskFolder} /fo LIST`;
+                    exec(`${args}`, (error, stdout, stderr) => {
+                        //Send the output back to the user
+                        this.mainWindow.webContents.send('scheduler_update', {
+                            message: stdout,
+                            type: info.type
+                        });
+                    });
+                    return;
+
+                case "create":
+                    const outputPath = join(__dirname, '../../../..', `leadme_apps/Software_Checker.xml`);
+
+                    //Edit the static XML with the necessary details
+                    this.modifyDefaultXML(taskFolder, info.name, outputPath)
+
+                    //Use the supplied XML to create the command
+                    args = `SCHTASKS /CREATE /TN ${taskFolder} /XML ${outputPath}`;
+                    break;
+
+                case "enable":
+                    args = `SCHTASKS /CHANGE /TN ${taskFolder} /Enable`;
+                    break;
+
+                case "disable":
+                    args = `SCHTASKS /CHANGE /TN ${taskFolder} /Disable`;
+                    break;
+
+                case "delete":
+                    args = `SCHTASKS /DELETE /TN ${taskFolder}`;
+                    break;
+
+                default:
+                    return;
+            }
+
+            exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (error, stdout, stderr)=> {
+                this.mainWindow.webContents.send('scheduler_update', {
+                    message: stdout,
+                    type: info.type
+                });
+            })
+        });
+    }
+
+    /**
+     * Modify the default software checker xml with the details necessary for either the NUC or Station software. As an
+     * XML we can set far more than a command line interface and add different triggers and conditions.
+     */
+    modifyDefaultXML(taskFolder: string, appName: string, outputPath: string): void {
+        const exePath = join(__dirname, '../../../..', `leadme_apps/${appName}/_batch/LeadMeLabs-SoftwareChecker.exe`)
+
+        const filePath = join(app.getAppPath(), 'static', 'template.xml');
+        const data = fs.readFileSync(filePath, "utf16le")
+
+        // we then pass the data to our method here
+        xml2js.parseString(data, function(err, result) {
+            if (err) console.log("FILE ERROR: " + err);
+
+            let json = result;
+
+            //Edit the following variables for the newly created task
+            //Date - get the current date, remove the milliseconds and the zulu marker 'Z'
+            json.Task.RegistrationInfo[0].Date = new Date().toISOString().slice(0,-5);
+
+            //URI
+            json.Task.RegistrationInfo[0].URI = taskFolder;
+
+            //Main Action
+            json.Task.Actions[0].Exec[0].Command = exePath;
+
+            //Write the changes to the new temporary file
+            //Create a new builder object and then convert the json back to xml.
+            const builder = new xml2js.Builder({'xmldec': {'encoding': 'UTF-16'}});
+            const xml = builder.buildObject(json);
+
+            fs.writeFile(outputPath, xml, (err) => {
+                if (err) console.log(err);
+
+                console.log("Successfully written update xml to file");
+            });
+        });
     }
 }
