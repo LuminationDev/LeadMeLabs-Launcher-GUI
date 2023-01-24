@@ -3,7 +3,7 @@ import xml2js from "xml2js";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
-import {exec, execFile, execSync, spawn} from "child_process";
+import { exec, execFile, execSync } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https";
@@ -23,10 +23,12 @@ interface AppEntry {
 export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
+    appDirectory: string;
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
+        this.appDirectory = join(__dirname, '../../../../..', 'leadme_apps');
     }
 
     /**
@@ -55,7 +57,7 @@ export default class Helpers {
             console.log(info)
 
             //Need to back up from the main file that is being run
-            const directoryPath = join(__dirname, '../../../..', `leadme_apps/${info.name}`)
+            const directoryPath = join(this.appDirectory, info.name)
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `Initiating download: ${directoryPath}`
@@ -196,14 +198,14 @@ export default class Helpers {
     configureSteamCMD() {
         this.ipcMain.on('config_steamcmd', (_event) => {
             //The launcher directory path
-            const directoryPath = join(__dirname, '../../../..', `leadme_apps/Station`)
+            const directoryPath = join(this.appDirectory, 'Station')
 
             //Create a directory to hold the external applications of SteamCMD
             const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
             fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
             //Find the local steam variables
-            const config = join(__dirname, '../../../..', `leadme_apps/Station/_config/config.env`);
+            const config = join(this.appDirectory, 'Station/_config/config.env');
 
             //Read the file and remove any previous entries for the same item
             const data = fs.readFileSync(config, {encoding: 'utf-8'});
@@ -240,7 +242,7 @@ export default class Helpers {
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      */
     updateAppManifest(appName: string, type: string): void {
-        const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
+        const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
         const appJSON: AppEntry = {
@@ -308,7 +310,7 @@ export default class Helpers {
      */
     setManifestAutoStart(): void {
         this.ipcMain.on("autostart_application", (_event, info) => {
-            const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
+            const filePath = join(this.appDirectory, 'manifest.json');
 
             //Check if the file exists
             const exists = fs.existsSync(filePath);
@@ -366,7 +368,7 @@ export default class Helpers {
     installedApplications(): void {
         this.ipcMain.on('installed_applications', (_event) => {
 
-            const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
+            const filePath = join(this.appDirectory, 'manifest.json');
 
             //Check if the file exists
             const exists = fs.existsSync(filePath);
@@ -401,7 +403,7 @@ export default class Helpers {
      */
     deleteApplication(): void {
         this.ipcMain.on('delete_application', (_event, info) => {
-            const directoryPath = join(__dirname, '../../../..', `leadme_apps/${info.name}`)
+            const directoryPath = join(this.appDirectory, info.name)
 
             fs.rmSync(directoryPath, { recursive: true, force: true });
 
@@ -418,7 +420,7 @@ export default class Helpers {
      * Remove an entry from the manifest, this may occur when an application has been deleted or moved.
      */
     removeFromAppManifest(appName: string): void {
-        const filePath = join(__dirname, '../../../..', `leadme_apps/manifest.json`);
+        const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists
         const exists = fs.existsSync(filePath);
@@ -467,7 +469,7 @@ export default class Helpers {
                 await this.updateLeadMeApplication(info.name);
             }
 
-            const exePath = join(__dirname, '../../../..', `leadme_apps/${info.name}/${info.name}.exe`)
+            const exePath = join(this.appDirectory, `${info.name}/${info.name}.exe`)
 
             execFile(exePath, function (err, data) {
                 console.log(err)
@@ -481,7 +483,7 @@ export default class Helpers {
      * not download files such as steamcmd or override config.env
      */
     async updateLeadMeApplication(appName: string): Promise<void> {
-        const directoryPath = join(__dirname, '../../../..', `leadme_apps/${appName}`);
+        const directoryPath = join(this.appDirectory, appName);
 
         let path;
 
@@ -527,7 +529,7 @@ export default class Helpers {
             console.log(error.toString());
         }
 
-        const versionPath = join(__dirname, '../../../..', `leadme_apps/${appName}/_logs/version.txt`);
+        const versionPath = join(this.appDirectory, `${appName}/_logs/version.txt`);
 
         if(!fs.existsSync(versionPath)) {
             console.log("Cannot find file path.");
@@ -609,7 +611,7 @@ export default class Helpers {
      */
     configApplication(): void {
         this.ipcMain.on('config_application', (_event, info) => {
-            const config = join(__dirname, '../../../..', `leadme_apps/${info.name}/_config/config.env`)
+            const config = join(this.appDirectory, `${info.name}/_config/config.env`)
 
             //Read the file and remove any previous entries for the same item
             fs.readFile(config, {encoding: 'utf-8'}, function(err, data) {
@@ -656,7 +658,7 @@ export default class Helpers {
                     return;
 
                 case "create":
-                    const outputPath = join(__dirname, '../../../..', `leadme_apps/Software_Checker.xml`);
+                    const outputPath = join(this.appDirectory, 'Software_Checker.xml');
 
                     //Edit the static XML with the necessary details
                     this.modifyDefaultXML(taskFolder, info.name, outputPath)
@@ -695,7 +697,7 @@ export default class Helpers {
      * XML we can set far more than a command line interface and add different triggers and conditions.
      */
     modifyDefaultXML(taskFolder: string, appName: string, outputPath: string): void {
-        const exePath = join(__dirname, '../../../..', `leadme_apps/${appName}/_batch/LeadMeLabs-SoftwareChecker.exe`)
+        const exePath = join(this.appDirectory, `${appName}/_batch/LeadMeLabs-SoftwareChecker.exe`)
 
         const filePath = join(app.getAppPath(), 'static', 'template.xml');
         const data = fs.readFileSync(filePath, "utf16le")
