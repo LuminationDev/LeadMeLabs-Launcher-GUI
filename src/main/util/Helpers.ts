@@ -228,6 +228,7 @@ export default class Helpers {
                 return;
             }
 
+            //TODO this is create a 'program' folder - fix this...  I think?
             const args = ` +force_install_dir \\"C:/Program Files (x86)/Steam\\" +login ${steamUserName} ${steamPassword}`;
 
             //Open SteamCMD for first time installation/update
