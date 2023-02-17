@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import * as CONSTANT from '../../assets/constants/_application'
 import { useLibraryStore } from '../../store/libraryStore'
 import Spinner from "../loading/Spinner.vue";
@@ -26,7 +26,8 @@ const launchApplication = (): void => {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_LAUNCH, {
     id: selectedApplication.value.id,
-    name: selectedApplication.value.name
+    name: selectedApplication.value.name,
+    path: selectedApplication.value.altPath
   })
 }
 
@@ -51,8 +52,6 @@ onMounted(() => {
   api.ipcRenderer.on('download_progress', (event, progress) => {
     console.log(event)
     console.log(progress) // Progress in fraction, between 0 and 1
-    // const progressInPercentages = progress * 100 // With decimal point and a bunch of numbers
-    // const cleanProgressInPercentages = Math.floor(progress * 100) // Without decimal point
 
     download_progress.value = progress * 100;
   })

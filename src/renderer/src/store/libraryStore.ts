@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { Application } from '../models'
 import * as CONSTANTS from '../assets/constants/_application';
+import { ref } from "vue";
 
 //Preset applications
 const values = {
@@ -8,18 +9,28 @@ const values = {
         '1',
         'Station',
         'http://localhost:8082/program-station',
+        '',
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '2': new Application(
         '2',
         'NUC',
         'http://localhost:8082/program-nuc',
+        '',
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '3': new Application(
         '3',
         'InputTest',
         'http://localhost:8082/program-inputtest',
+        '',
+        CONSTANTS.STATUS_NOT_INSTALLED
+    ),
+    '4': new Application(
+        '4',
+        'VRInput',
+        'http://localhost:8082/program-vrinput',
+        '',
         CONSTANTS.STATUS_NOT_INSTALLED
     )
 }
@@ -28,9 +39,28 @@ export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
         selectedApplication: '',
-        applications: new Map<string, Application>(Object.entries(values))
+        applications: ref(new Map<string, Application>(Object.entries(values)))
     }),
     actions: {
+        /**
+         * Add a new application to the applications Map. This will have come from an imported source.
+         * @param application An application instance that contains the necessary information for a new entry.
+         */
+        addImportApplication(application: Application) {
+            this.applications.set(application.id, application);
+        },
+
+        /**
+         * Remove an application from the applications Map.
+         * @param appName A string representing the name of an application.
+         */
+        removeImportedApplication(appName: string) {
+            const key = this.getKeyFromValue(appName)
+            if(key == undefined) { return; }
+
+            this.applications.delete(key);
+        },
+
         /**
          * Change the current application panel to the supplied one.
          */

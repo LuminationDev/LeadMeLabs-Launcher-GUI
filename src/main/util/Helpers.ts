@@ -3,17 +3,18 @@ import xml2js from "xml2js";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
-import { exec, execFile, execSync } from "child_process";
+import { exec, execSync, spawn } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
-import * as https from "https";
-import { app, BrowserWindow } from "electron"; //use for production hosting server
+import { app, BrowserWindow } from "electron";
 
 interface AppEntry {
     type: string
     id: string
     name: string
     autostart: boolean
+    altPath: string|null
+    parameters: {}
 }
 
 /**
@@ -36,14 +37,37 @@ export default class Helpers {
      * different events that the frontend requires.
      */
     startup(): void {
+        this.importApplication();
         this.downloadApplication();
         this.configureSteamCMD();
+        this.setManifestAppParameters();
         this.setManifestAutoStart();
         this.installedApplications();
         this.launchApplication();
         this.deleteApplication();
         this.configApplication();
         this.createTaskSchedulerItem();
+    }
+
+    /**
+     * This function allows a user to import an executable into the launcher library, the executable path is recorded
+     * along with the name within the local manifest but the original files are not moved at all. The idea is to simple
+     * point to the file wherever that may be on the hard drive.
+     */
+    importApplication(): void {
+        this.ipcMain.on('import_application', (_event, info) => {
+            console.log(info)
+            let AppId = this.updateAppManifest(info.name, "Custom", info.altPath);
+
+            //Send back the new application and its assigned ID
+            this.mainWindow.webContents.send('application_imported', {
+                id: AppId,
+                name: info.name,
+                altPath: info.altPath,
+                action: "import",
+                message: `Imported application added: ${info.name}`
+            });
+        });
     }
 
     /**
@@ -98,10 +122,10 @@ export default class Helpers {
 
                     //Update the config.env file or the app manifest depending on the application
                     if (info.name === 'Station' || info.name === 'NUC') {
-                        this.updateAppManifest(info.name, "LeadMe");
+                        this.updateAppManifest(info.name, "LeadMe", null);
                         this.extraDownloadCriteria(info.name, directoryPath);
                     } else {
-                        this.updateAppManifest(info.name, "Custom");
+                        this.updateAppManifest(info.name, "Custom", null);
                     }
                 })
             })
@@ -241,8 +265,9 @@ export default class Helpers {
      * Station software to see what Custom experiences are installed.
      * @param appName A string of the experience name being added.
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
+     * @param altPath A string of the absolute path of an executable, used for imported experiences.
      */
-    updateAppManifest(appName: string, type: string): void {
+    updateAppManifest(appName: string, type: string, altPath: string|null): string {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
@@ -250,7 +275,9 @@ export default class Helpers {
             type: type,
             id: "",
             name: appName,
-            autostart: false //default on installation
+            autostart: false, //default on installation
+            altPath: altPath,
+            parameters: {},
         }
 
         //Check if the file exists
@@ -258,15 +285,106 @@ export default class Helpers {
 
         if (exists) {
             try {
+                const objects: Array<AppEntry> = this.readObjects(filePath);
+                appJSON.id = this.generateUniqueId(objects);
+
+                objects.push(appJSON);
+                this.writeObjects(filePath, objects);
+            } catch (err) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file is updated failed.'
+                });
+            }
+
+            return appJSON.id;
+        }
+
+        const objects: Array<AppEntry> = [];
+        appJSON.id = this.generateUniqueId(objects);
+
+        objects.push(appJSON);
+        this.writeObjects(filePath, objects);
+
+        return appJSON.id;
+    }
+
+    /**
+     * Function to generate a unique ID for each object.
+     * @param objects An array of JSON objects that conform to the AppEntry interface.
+     */
+    generateUniqueId = (objects: Array<AppEntry>) => {
+        let id;
+        do {
+            id = Math.floor(Math.random() * 1000000); // Generate a random 6-digit number as ID
+        } while (objects.find(obj => obj.id === id)); // Check if the ID already exists
+        return id;
+    }
+
+    /**
+     * Function to read the objects from a JSON file.
+     */
+    readObjects = (filename: string) => {
+        if (fs.existsSync(filename)) {
+            const data = fs.readFileSync(filename, 'utf-8');
+            return JSON.parse(data);
+        }
+        return [];
+    }
+
+    /**
+     * Function to write the objects to a JSON file
+     */
+    writeObjects = (filename: string, objects: Array<AppEntry>) => {
+        //Create the file and write the new application entry in
+        fs.writeFile(filename, JSON.stringify(objects), (err) => {
+            if (err) throw err;
+
+            this.mainWindow.webContents.send('status_update', {
+                name: 'Manifest',
+                message: 'Manifest file is updated successfully.'
+            });
+        });
+    }
+
+    /**
+     * Update an applications entry in the manifest file with the supplied launch parameters, these can be login
+     * credentials or start up parameters etc.
+     */
+    setManifestAppParameters(): void {
+        this.ipcMain.on("launch_parameters", (_event, info) => {
+            const filePath = join(this.appDirectory, 'manifest.json');
+
+            //Check if the file exists
+            const exists = fs.existsSync(filePath);
+
+            if (!exists) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file does not exist.'
+                });
+            }
+
+            try {
                 const data = fs.readFileSync(filePath);
                 const jsonArray: Array<AppEntry> = JSON.parse(data.toString());
 
-                //Check if the application exists?
+                //Check if the application exists
                 console.log(jsonArray);
 
-                //Assign the new id
-                appJSON.id = String(jsonArray.length + 1);
-                jsonArray.push(appJSON);
+                //Find the application
+                const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === info.name);
+
+                if(entry === undefined) {
+                    this.mainWindow.webContents.send('status_update', {
+                        name: info.name,
+                        message: `${info.name} does not exist in the manifest.`
+                    });
+                    return;
+                }
+
+                //Update the entry
+                entry.parameters[info.key] = info.value;
 
                 //Create the file and write the new application entry in
                 fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
@@ -284,24 +402,6 @@ export default class Helpers {
                     message: 'Manifest file is updated failed.'
                 });
             }
-
-            return;
-        }
-
-        const apps: Array<AppEntry> = [];
-
-        //No apps exist yet can assign first ID
-        appJSON.id = "1";
-        apps.push(appJSON);
-
-        //Create the file and write the new application entry in
-        fs.writeFile(filePath, JSON.stringify(apps), (err) => {
-            if (err) throw err;
-
-            this.mainWindow.webContents.send('status_update', {
-                name: 'Manifest',
-                message: 'Manifest file is created successfully.'
-            });
         });
     }
 
@@ -364,6 +464,35 @@ export default class Helpers {
     }
 
     /**
+     * Get any launch parameters that may be assigned to an application from the manifest file.
+     * @param appName A string of the experience name being searched for.
+     */
+    getLaunchParameters(appName: string): string[] {
+        let params: string[] = [];
+
+        const app = this.getManifestDetails(appName);
+        if(app === undefined) return params;
+        if(app.parameters === undefined || app.parameters === null) return params;
+
+        for (const [key, value] of Object.entries<string>(app.parameters)) {
+            params.push(value);
+        }
+
+        return params;
+    }
+
+    /**
+     * Get the manifest details for a specific application.
+     * @param appName A string of the experience name being searched for.
+     */
+    getManifestDetails(appName: string): AppEntry|undefined {
+        const filePath = join(this.appDirectory, 'manifest.json');
+        const objects: Array<AppEntry> = this.readObjects(filePath);
+
+        return objects.find(obj => obj.name == appName);
+    }
+
+    /**
      * On start up detect what Applications are currently installed on the local machine.
      */
     installedApplications(): void {
@@ -404,21 +533,38 @@ export default class Helpers {
      */
     deleteApplication(): void {
         this.ipcMain.on('delete_application', (_event, info) => {
-            const directoryPath = join(this.appDirectory, info.name)
+            //If true the application is an imported one
+            if(info.altPath != '') {
+                this.removeFromAppManifest(info.name);
 
-            fs.rmSync(directoryPath, { recursive: true, force: true });
+                //Send back the new application and its assigned ID
+                this.mainWindow.webContents.send('application_imported', {
+                    name: info.name,
+                    altPath: info.altPath,
+                    action: "removed",
+                    message: `Imported application removed: ${info.name}`
+                });
+            }
+            else {
+                const directoryPath = join(this.appDirectory, info.name)
 
-            this.removeFromAppManifest(info.name);
+                this.killAProcess(info.name);
 
-            this.mainWindow.webContents.send('status_update', {
-                name: info.name,
-                message: `${info.name} removed.`
-            });
+                fs.rmSync(directoryPath, { recursive: true, force: true });
+
+                this.removeFromAppManifest(info.name);
+
+                this.mainWindow.webContents.send('status_update', {
+                    name: info.name,
+                    message: `${info.name} removed.`
+                });
+            }
         })
     }
 
     /**
      * Remove an entry from the manifest, this may occur when an application has been deleted or moved.
+     * @param appName A string of the experience name being removed from the manifest.
      */
     removeFromAppManifest(appName: string): void {
         const filePath = join(this.appDirectory, 'manifest.json');
@@ -470,15 +616,23 @@ export default class Helpers {
                 await this.updateLeadMeApplication(info.name);
             }
 
-            const exePath = join(this.appDirectory, `${info.name}/${info.name}.exe`)
+            //Load from the local leadme_apps folder or the supplied absolute path
+            let exePath = info.path == '' ? join(this.appDirectory, `${info.name}/${info.name}.exe`) : info.path;
 
-            execFile(exePath, function (err, data) {
-                console.log(err)
-                console.log(data.toString());
+            //Read any launch parameters that the manifest may have
+            const params = this.getLaunchParameters(info.name);
+
+            //Add the launch params and the required basic commands together
+            const basic = ['/c', 'start', exePath];
+            const args = basic.concat(params);
+
+            spawn('cmd.exe', args, {
+                detached: true
             });
         })
     }
 
+    //TODO need to check if the server is online
     /**
      * Check for an update for either the Station or NUC software, if there is one download and extract the update, do
      * not download files such as steamcmd or override config.env
@@ -580,6 +734,8 @@ export default class Helpers {
                     name: appName,
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
                 })
+
+                this.killAProcess(appName);
 
                 //Unzip the project and add it to the local installation folder
                 extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
@@ -729,6 +885,23 @@ export default class Helpers {
 
                 console.log("Successfully written update xml to file");
             });
+        });
+    }
+
+    /**
+     * Stop a running process on the local machine.
+     * @param appName A string of the process to stop.
+     */
+    killAProcess(appName: string): void {
+        //Execute the command to find and kill the process by its name - it will not remove the directory
+        //if the process is still running.
+        exec(`pkill ${appName}`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing command: ${error}`);
+                return;
+            }
+
+            console.log(`Process "${appName}" has been closed successfully.`);
         });
     }
 }
