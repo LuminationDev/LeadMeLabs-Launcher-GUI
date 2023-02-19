@@ -2,7 +2,7 @@
 //https://medium.com/@johndyer24/creating-and-deploying-an-auto-updating-electron-app-for-mac-and-windows-using-electron-builder-6a3982c0cee6
 
 import Modal from "./Modal.vue";
-import {ref} from "vue";
+import { ref } from "vue";
 
 const showNotificationModal = ref(false);
 const message = ref("A new update is available. Downloading now...");

@@ -3,4 +3,6 @@ export interface AppEntry {
     id: string
     name: string
     autostart: boolean
+    altPath: string|null
+    parameters: {}
 }

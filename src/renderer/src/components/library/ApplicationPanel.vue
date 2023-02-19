@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import { computed, ref } from 'vue'
 import * as CONSTANT from "../../assets/constants/_application"
 import ApplicationManager from './ApplicationManager.vue'
 import StationSetup from "../../modals/StationSetup.vue";
 import NucSetup from "../../modals/NucSetup.vue";
 import { useLibraryStore } from '../../store/libraryStore'
 import ApplicationScheduler from "./ApplicationScheduler.vue";
+import CustomSetup from "../../modals/CustomSetup.vue";
 const libraryStore = useLibraryStore()
 
 const applicationName = computed(() => {
     const app = libraryStore.getSelectedApplication
     return app !== undefined ? app.name : 'Unselected'
-})
+});
 
 const applicationStatus = computed(() => {
   const app = libraryStore.getSelectedApplication
   return app !== undefined ? app.status : 'Unselected'
-})
+});
 
 const checked = ref();
 const setAutostart = (): void => {
@@ -28,15 +29,17 @@ const setAutostart = (): void => {
 }
 
 const deleteApplication = (): void => {
-  if (libraryStore.getSelectedApplication === undefined) {
+  let app = libraryStore.getSelectedApplication;
+  if (app === undefined) {
     return
   }
 
-  libraryStore.updateApplicationStatusByName(applicationName.value, CONSTANT.STATUS_NOT_INSTALLED);
+  libraryStore.updateApplicationStatusByName(app.name, CONSTANT.STATUS_NOT_INSTALLED);
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_DELETE, {
-    name: applicationName.value
+    name: app.name,
+    altPath: app.altPath
   });
 }
 </script>
@@ -66,7 +69,12 @@ const deleteApplication = (): void => {
         <ApplicationManager />
 
         <StationSetup v-if="applicationName === 'Station' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
-        <NucSetup v-if="applicationName === 'NUC' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
+        <NucSetup v-else-if="applicationName === 'NUC' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
+        <CustomSetup v-else-if="
+          applicationName !== 'Station'
+          && applicationName !== 'NUC'
+          && applicationStatus === CONSTANT.STATUS_INSTALLED"
+        />
 
       <div
           v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
