@@ -17,6 +17,7 @@ function updateENV() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.APPLICATION_PARAMETERS, {
     name: libraryStore.getSelectedApplication.name,
+    action: "add",
     key: envKey.value,
     value: envValue.value
   });
@@ -27,6 +28,17 @@ function updateENV() {
   pageNum.value++
 
   console.log(pageNum.value);
+}
+
+/**
+ * Clear all currently saved parameters
+ */
+function clearENV() {
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.APPLICATION_PARAMETERS, {
+    name: libraryStore.getSelectedApplication.name,
+    action: "clear",
+  });
 }
 
 function closeModal() {
@@ -75,8 +87,12 @@ function closeModal() {
       </template>
 
       <template v-slot:footer>
-        <footer class="mt-4 mb-6 text-right flex flex-row justify-end">
-          <button class="w-36 h-5 mr-4 text-blue-500 text-base rounded-lg hover:bg-gray-100 font-medium"
+        <footer class="mt-4 mb-6 mx-4 text-right flex flex-row justify-between">
+          <button class="w-24 h-6 text-red-500 text-base rounded-lg hover:bg-gray-200 font-medium"
+                  v-on:click="clearENV"
+          >Clear All</button>
+
+          <button class="w-24 h-6 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
                   v-on:click="showCustomModal = false"
           >Finish</button>
         </footer>
