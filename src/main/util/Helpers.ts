@@ -6,6 +6,7 @@ import extract from "extract-zip";
 import { exec, execSync, spawn } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
+import * as https from "https"; //use for production hosting server
 import { app, BrowserWindow } from "electron";
 
 interface AppEntry {
@@ -383,8 +384,12 @@ export default class Helpers {
                     return;
                 }
 
-                //Update the entry
-                entry.parameters[info.key] = info.value;
+                //Update the entry or remove them
+                if(info.action === "clear") {
+                    entry.parameters = {};
+                } else {
+                    entry.parameters[info.key] = info.value;
+                }
 
                 //Create the file and write the new application entry in
                 fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
