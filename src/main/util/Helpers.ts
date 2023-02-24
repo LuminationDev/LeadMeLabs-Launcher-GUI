@@ -39,14 +39,14 @@ export default class Helpers {
      * different events that the frontend requires.
      */
     startup(): void {
-        this.helperListen();
+        this.helperListenerDelegate();
     }
 
     /**
      * Create a listeners that will delegate actions between the helper functions depending on what channel type has
      * been sent. This allows just one listener to be active rather than individual function ones.
      */
-    helperListen(): void {
+    helperListenerDelegate(): void {
         this.ipcMain.on('helper_function', (_event, info) => {
             switch(info.channelType) {
                 case "import_application":
@@ -64,20 +64,21 @@ export default class Helpers {
                 case "autostart_application":
                     this.setManifestAutoStart(_event, info);
                     break;
-                case "installed_applications":
+                case "query_installed_applications":
                     this.installedApplications(_event, info);
+                    break;
+                case "query_manifest_app":
+                    this.getLaunchParameters(_event, info);
                     break;
                 case "delete_application":
                     this.deleteApplication(_event, info);
                     break;
                 case "launch_application":
-                    this.launchApplication(_event, info);
+                    void this.launchApplication(_event, info);
                     break;
-
                 case "config_application":
                     this.configApplication(_event, info);
                     break;
-
                 case "schedule_application":
                     this.createTaskSchedulerItem(_event, info);
                     break;
@@ -253,7 +254,7 @@ export default class Helpers {
      * Open up SteamCMD for the first time, installing and updating the components and passing the default Steam experience
      * location and the login parameters, this will pause on the Steam Guard step.
      */
-    configureSteamCMD(_event: IpcMainEvent, info: any) {
+    configureSteamCMD(_event: IpcMainEvent, _: any) {
         //The launcher directory path
         const directoryPath = join(this.appDirectory, 'Station')
 
@@ -417,6 +418,11 @@ export default class Helpers {
             //Update the entry or remove them
             if(info.action === "clear") {
                 entry.parameters = {};
+
+                this.mainWindow.webContents.send('app_manifest_query', {
+                    name: info.applicationName,
+                    params: entry.parameters
+                });
             } else {
                 entry.parameters[info.key] = info.value;
             }
@@ -496,21 +502,42 @@ export default class Helpers {
     }
 
     /**
-     * Get any launch parameters that may be assigned to an application from the manifest file.
+     * Get the launch parameters values that may be assigned to an application from the manifest file.
      * @param appName A string of the experience name being searched for.
      */
-    getLaunchParameters(appName: string): string[] {
+    getLaunchParameterValues(appName: string): string[] {
         let params: string[] = [];
 
         const app = this.getManifestDetails(appName);
         if(app === undefined) return params;
         if(app.parameters === undefined || app.parameters === null) return params;
 
-        for (const [key, value] of Object.entries<string>(app.parameters)) {
+        for (const [_, value] of Object.entries<string>(app.parameters)) {
             params.push(value);
         }
 
         return params;
+    }
+
+    /**
+     * Get the launch parameters that may be assigned to an application from the manifest file. Sending the information
+     * back to the front end for a live update.
+     */
+    getLaunchParameters(_event: IpcMainEvent, info: any): void {
+        let params = {};
+
+        const app = this.getManifestDetails(info.applicationName);
+        if(app === undefined) return;
+        if(app.parameters === undefined || app.parameters === null) return;
+
+        for (const [key, value] of Object.entries<string>(app.parameters)) {
+            params[key] = value;
+        }
+
+        this.mainWindow.webContents.send('app_manifest_query', {
+            name: info.applicationName,
+            params
+        });
     }
 
     /**
@@ -527,7 +554,7 @@ export default class Helpers {
     /**
      * On start up detect what Applications are currently installed on the local machine.
      */
-    installedApplications(_event: IpcMainEvent, info: any): void {
+    installedApplications(_event: IpcMainEvent, _: any): void {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists
@@ -646,7 +673,7 @@ export default class Helpers {
         let exePath = info.path == '' ? join(this.appDirectory, `${info.name}/${info.name}.exe`) : info.path;
 
         //Read any launch parameters that the manifest may have
-        const params = this.getLaunchParameters(info.name);
+        const params = this.getLaunchParameterValues(info.name);
 
         //Add the launch params and the required basic commands together
         const basic = ['/c', 'start', exePath];

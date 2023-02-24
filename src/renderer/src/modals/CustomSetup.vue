@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import {computed, ref} from "vue";
 import Modal from "./Modal.vue";
 import * as CONSTANT from "../assets/constants/_application"
 import { useLibraryStore } from '../store/libraryStore'
@@ -10,6 +10,16 @@ const envKey = ref("");
 const envValue = ref("");
 const pageNum = ref(0);
 const back = ref(false);
+
+const params = computed(() => {
+  let customParams = "";
+
+  for (const key in libraryStore.applicationParameters) {
+    customParams += ` "${libraryStore.applicationParameters[key]}"`;
+  }
+
+  return customParams;
+});
 
 function updateENV() {
   console.log(`${envKey.value}: ${envValue.value}`);
@@ -22,6 +32,9 @@ function updateENV() {
     key: envKey.value,
     value: envValue.value
   });
+
+  // Update current library params
+  libraryStore.applicationParameters[envKey.value] = envValue.value;
 
   // Load the next page
   envKey.value = ""
@@ -43,6 +56,17 @@ function clearENV() {
   });
 }
 
+function openModal() {
+  showCustomModal.value = true;
+
+  // See if there is any saved parameters
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.QUERY_MANIFEST_APP,
+    applicationName: libraryStore.getSelectedApplication.name
+  });
+}
+
 function closeModal() {
   pageNum.value = 0;
   showCustomModal.value = false;
@@ -54,7 +78,7 @@ function closeModal() {
   <button
       class="w-32 h-12 cursor-pointer rounded-lg bg-yellow-400
       items-center justify-center hover:bg-yellow-200"
-    v-on:click="showCustomModal = true"
+    v-on:click="openModal"
     id="share_button"
   >
     Configure
@@ -98,9 +122,7 @@ function closeModal() {
         </transition-group>
 
         <div v-if="pageNum > 0" class="mx-5 text-sm">
-          {{libraryStore.getSelectedApplication.name}}.exe
-
-
+          {{libraryStore.getSelectedApplication.name}}.exe{{ params }}
         </div>
       </template>
 

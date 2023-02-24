@@ -39,6 +39,7 @@ export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
         selectedApplication: '',
+        applicationParameters: {},
         applications: ref(new Map<string, Application>(Object.entries(values)))
     }),
     actions: {
@@ -108,4 +109,4 @@ export const useLibraryStore = defineStore({
             return this.applications.get(this.selectedApplication)
         }
     }
-})
+});

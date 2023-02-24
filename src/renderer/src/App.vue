@@ -50,6 +50,13 @@ api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) 
     }
   });
 });
+
+//Populate the libraryStore with manifest parameters for the CustomModal
+// @ts-ignore
+api.ipcRenderer.on('app_manifest_query', (event, application: any) => {
+  console.log(application);
+  libraryStore.applicationParameters = application.params;
+});
 </script>
 
 <template>

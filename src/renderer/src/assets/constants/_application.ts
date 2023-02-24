@@ -5,7 +5,8 @@ export const STATUS_NOT_INSTALLED = 'not_installed'
 export const STATUS_DOWNLOADING = 'downloading'
 export const STATUS_PAUSED_DOWNLOADING = 'paused_downloading'
 
-export const QUERY_INSTALLED = 'installed_applications'
+export const QUERY_INSTALLED = 'query_installed_applications'
+export const QUERY_MANIFEST_APP = 'query_manifest_app'
 
 export const APPLICATION_IMPORT = 'import_application'
 export const APPLICATION_LAUNCH = 'launch_application'
