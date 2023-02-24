@@ -2,17 +2,18 @@
 import { RouterView } from 'vue-router'
 import Header from './layout/Header.vue'
 import { AppEntry } from "./interfaces/appIntefaces";
-import * as CONSTANT from "./assets/constants/_application";
 import { useLibraryStore } from './store/libraryStore'
 import UpdateNotification from "./modals/UpdateNotification.vue";
 import { Application } from "./models";
-import * as CONSTANTS from "./assets/constants/_application";
+import * as CONSTANT from "./assets/constants/_application";
 
 const libraryStore = useLibraryStore()
 
 //First this to do is check if any applications are installed - only register and trigger it on start up.
 // @ts-ignore
-api.ipcRenderer.send('installed_applications');
+api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+  channelType: CONSTANT.QUERY_INSTALLED
+});
 
 // @ts-ignore
 api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) => {
@@ -27,7 +28,7 @@ api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) 
           application.name,
           '',
           application.altPath,
-          CONSTANTS.STATUS_INSTALLED
+          CONSTANT.STATUS_INSTALLED
       );
 
       //Add the application to the library list
@@ -40,7 +41,8 @@ api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) 
       //Open the application if required by autostart flag
       if (application.autostart) {
         // @ts-ignore
-        api.ipcRenderer.send(CONSTANT.APPLICATION_LAUNCH, {
+        api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+          channelType: CONSTANT.APPLICATION_LAUNCH,
           id: application.id,
           name: application.name
         })

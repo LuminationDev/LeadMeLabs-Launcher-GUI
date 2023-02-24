@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from "vue";
+import * as CONSTANT from "../../assets/constants/_application"
 import { useLibraryStore } from '../../store/libraryStore'
 const libraryStore = useLibraryStore()
 
@@ -17,7 +18,8 @@ const status = ref("Unknown");
  */
 const createSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send('schedule_application', {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_SCHEDULER,
     type: "create",
     name: applicationName.value
   });
@@ -28,7 +30,8 @@ const createSchedulerTask = (): void => {
  */
 const changeSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send('schedule_application', {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_SCHEDULER,
     type: enabled.value ? "disable" : "enable",
     name: applicationName.value
   });
@@ -40,7 +43,8 @@ const changeSchedulerTask = (): void => {
  */
 const deleteSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send('schedule_application', {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_SCHEDULER,
     type: "delete",
     name: applicationName.value
   });
@@ -51,7 +55,8 @@ const deleteSchedulerTask = (): void => {
  */
 const listSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send('schedule_application', {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_SCHEDULER,
     type: "list",
     name: applicationName.value
   });

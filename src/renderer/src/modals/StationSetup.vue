@@ -22,7 +22,9 @@ const back = ref(false);
 
 function configureSteamCMD() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.CONFIG_APPLICATION_STEAMCMD)
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD
+  });
   closeModal();
 }
 
@@ -38,7 +40,8 @@ function updateENV(key: string) {
   envKey.value = key
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.CONFIG_APPLICATION, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.CONFIG_APPLICATION,
     name: libraryStore.getSelectedApplication.name,
     key: envKey.value,
     value: `=${envValue.value}`

@@ -22,7 +22,8 @@ const applicationStatus = computed(() => {
 const checked = ref();
 const setAutostart = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_AUTOSTART, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_AUTOSTART,
     name: applicationName.value,
     autostart: checked.value
   });
@@ -37,7 +38,8 @@ const deleteApplication = (): void => {
   libraryStore.updateApplicationStatusByName(app.name, CONSTANT.STATUS_NOT_INSTALLED);
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_DELETE, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_DELETE,
     name: app.name,
     altPath: app.altPath
   });

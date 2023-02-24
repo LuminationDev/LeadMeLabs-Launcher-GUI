@@ -14,7 +14,8 @@ const importApplication = (): void => {
   //Make sure a file is selected and that it is an executable
   if(altPath != null && altPath.endsWith(".exe")) {
     //@ts-ignore
-    api.ipcRenderer.send(CONSTANT.APPLICATION_IMPORT, {
+    api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+      channelType: CONSTANT.APPLICATION_IMPORT,
       name,
       altPath
     });

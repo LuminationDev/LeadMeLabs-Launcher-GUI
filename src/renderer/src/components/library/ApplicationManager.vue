@@ -24,7 +24,8 @@ const launchApplication = (): void => {
   }
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_LAUNCH, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_LAUNCH,
     id: selectedApplication.value.id,
     name: selectedApplication.value.name,
     path: selectedApplication.value.altPath
@@ -39,7 +40,8 @@ const downloadApplication = (): void => {
   libraryStore.updateApplicationStatusByName(selectedApplication.value.name, CONSTANT.STATUS_DOWNLOADING);
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_DOWNLOAD, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_DOWNLOAD,
     name: selectedApplication.value.name,
     url: selectedApplication.value.url,
     properties: { directory: `leadme_apps/${selectedApplication.value.name}` }
