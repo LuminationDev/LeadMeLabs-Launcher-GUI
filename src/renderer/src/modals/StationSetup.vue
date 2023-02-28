@@ -1,22 +1,13 @@
 <script setup lang="ts">
-import {computed, ref} from "vue";
+import { computed, reactive, ref } from "vue";
 import Modal from "./Modal.vue";
+import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
-import station_keys from "../config/station_keys.json";
+import ManualProgress from "../components/loading/ManualProgress.vue";
 import { useLibraryStore } from '../store/libraryStore'
+
 const libraryStore = useLibraryStore()
-
-interface keyObject {
-  title: string,
-  choice: Array<string> | null,
-  description: string,
-  order: number
-}
-const stationKeyJson: keyObject = station_keys;
-
 const showStationModal = ref(false);
-const envKey = ref("VALUE");
-const envValue = ref("");
 const pageNum = ref(0);
 const back = ref(false);
 
@@ -28,39 +19,55 @@ function configureSteamCMD() {
   closeModal();
 }
 
-function setENVChoice(title: string, choice: string) {
-  envValue.value = choice;
-  updateENV(title);
-}
+const form = reactive({
+  AppKey: '',
+  LabLocation: '',
+  StationId: '',
+  room: '',
+  NucAddress: '',
+  SteamUserName: '',
+  SteamPassword: '',
+  StationMode: '',
+  HeadsetType: '',
+});
 
-function updateENV(key: string) {
-  console.log(`${key}=${envValue.value}`);
+const stationModes = ['VR', 'Appliance', 'Content'];
+const headsetTypes = ['Vive Pro 1', 'Vive Pro 2'];
 
-  // Set the key for the new value
-  envKey.value = key
-
+const handleSubmit = () => {
+  // handle form submission here
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
     channelType: CONSTANT.CONFIG_APPLICATION,
     name: libraryStore.getSelectedApplication.name,
-    key: envKey.value,
-    value: `=${envValue.value}`
-  })
-
-  // Load the next page
-  envValue.value = ""
-  pageNum.value++
-
-  console.log(pageNum.value);
-}
+    value: JSON.stringify(form)
+  });
+};
 
 /**
- * Calculate the amount of station inputs to track progress.
+ * Calculate the amount of nuc inputs to track progress.
  */
-const listLength = computed(() => {
-  console.log(station_keys.length)
-  return station_keys.length;
-})
+const keys = reactive(Object.keys(form));
+const progress = computed(() => {
+  let formLength = keys.length;
+  let completed = 0;
+
+  for (const key of keys) {
+    if (form[key] !== '' && form[key] !== undefined) {
+      completed++;
+    }
+  }
+
+  return Math.round((completed / formLength) * 100);
+});
+
+function changePage(forward: boolean) {
+  forward ? pageNum.value++ : pageNum.value--;
+}
+
+function openModal() {
+  showStationModal.value = true;
+}
 
 function closeModal() {
   pageNum.value = 0;
@@ -70,20 +77,18 @@ function closeModal() {
 
 <template>
   <!--Anchor button used to control the modal-->
-  <button
-      class="w-32 h-12 cursor-pointer rounded-lg bg-yellow-400
-      items-center justify-center hover:bg-yellow-200"
-    v-on:click="showStationModal = true"
-    id="share_button"
-  >
-    Setup
-  </button>
+  <GenericButton
+      id="share_button"
+      :type="'primary'"
+      :callback="openModal"
+      :spinnerColor="'#000000'"
+  >Setup</GenericButton>
 
   <!--Modal body using the Modal template, teleports the html to the bottom of the body tag-->
   <Teleport to="body">
     <Modal :show="showStationModal" @close="closeModal">
       <template v-slot:header>
-        <header class="h-20 px-8 w-96 bg-white flex justify-between items-center rounded-t-lg">
+        <header class="h-20 px-8 w-128 bg-white flex justify-between items-center rounded-t-lg">
           <div class="bg-white flex flex-col">
             <span class="text-lg font-medium text-black">Station setup wizard</span>
           </div>
@@ -91,43 +96,158 @@ function closeModal() {
       </template>
 
       <template v-slot:content>
-        <transition-group tag="div" class="div-slider h-48 mt-8" :name="back? 'slideBack' : 'slide'">
-          <template v-if="pageNum < listLength" v-for="(variable, index) in stationKeyJson" v-bind:key="variable">
-            <div v-if="pageNum === variable.order" v-bind:key="index" class="card inline-block mx-5 flex flex-col justify-center items-center bg-white rounded-3xl shadow-md">
+        <!--A basic form separated into different pages-->
+        <form @submit.prevent class="mt-4 mx-5">
+          <div v-if="pageNum === 0" class="mt-4 mx-5 flex flex-col">
+            <label>
+              Encryption Key
+            </label>
+            <input
+                v-model="form.AppKey"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="XXXX_0000"
+                required />
 
-              <!--Detect if there is a choice or just manual input-->
-              <div v-if="variable.choice.length === 0" class="flex flex-col justify-center items-center">
-                Please enter the {{variable.description}}
+            <label>
+              Lab Location
+            </label>
+            <input
+                v-model="form.LabLocation"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="Thebarton"
+                required />
 
-                <input v-model="envValue" class="border-2 my-2"/>
-                <button v-on:click="updateENV(variable.title)" class="h-8 px-3 mb-2 rounded-lg bg-green-400 hover:bg-green-200">Update</button>
-              </div>
+            <label>
+              Station ID
+            </label>
+            <input
+                v-model="form.StationId"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="1"
+                required />
 
-              <div v-else class="flex flex-col w-full justify-center items-center">
-                Please enter the {{variable.description}}
+            <label>
+              Room
+            </label>
+            <input
+                v-model="form.room"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="Classroom"
+                required />
 
-                <div v-for="(item, index) in variable.choice" v-bind:key="index" class="h-10 w-1/2 my-1">
-                  <button v-on:click="setENVChoice(variable.title, item)" class="h-10 w-full rounded-lg bg-blue-400 hover:bg-blue-200">{{item}}</button>
-                </div>
-              </div>
-
-            </div>
-          </template>
-          <div v-else class="h-48 w-full mx-5 flex flex-col justify-center items-center">
-            <template class="card h-32 w-full inline-block  flex flex-col justify-center items-center bg-white rounded-3xl shadow-md">
-              Station setup is complete.
-
-              <button v-on:click="configureSteamCMD" class="h-10 w-1/2 mt-4 rounded-lg bg-blue-400 hover:bg-blue-200">Configure Steam</button>
-              <button v-on:click="closeModal" class="h-10 w-1/2 my-2 rounded-lg bg-blue-400 hover:bg-blue-200">Finish</button>
-            </template>
+            <label>
+              NUC IP Address
+            </label>
+            <input
+                v-model="form.NucAddress"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="192.168.0.100"
+                required />
           </div>
 
-        </transition-group>
+          <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
+            <label class="my-2">
+              Steam Account details
+            </label>
+            <input
+                v-model="form.SteamUserName"
+                class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="username"
+                required />
+
+            <input
+                v-model="form.SteamPassword"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="password"
+                required />
+
+            <div class="flex justify-end">
+              <button
+                  :disabled="form['SteamPassword'] === '' || form['SteamUserName'] === ''"
+                  class="h-8 w-56 px-3 mt-2 mr-2 rounded-lg bg-primary text-white"
+                  :class="{
+                    'bg-gray-300': form['SteamPassword'] === '' || form['SteamUserName'] === '',
+                    'hover:bg-blue-400': form['SteamPassword'] !== '' || form['SteamUserName'] !== ''
+                  }"
+                  v-on:click="configureSteamCMD"
+              >Configure SteamCMD</button>
+            </div>
+
+            <label class="my-2">
+              Station Mode
+            </label>
+
+            <div class="flex mx-5">
+              <div v-for="type in stationModes" v-bind:key="type">
+                <div
+                  v-on:click="form['StationMode'] = type.toLocaleLowerCase()"
+                  class="w-24 mr-4 rounded-lg justify-center cursor-pointer hover:bg-gray-200"
+                  :class="{
+                    'bg-gray-300': type.toLocaleLowerCase() !== form['StationMode'],
+                    'bg-green-300': type.toLocaleLowerCase() === form['StationMode']
+                  }">
+                  {{type}}
+                </div>
+              </div>
+            </div>
+
+            <label class="my-2">
+              Headset Type
+            </label>
+
+            <div class="flex mx-5 mb-4">
+              <div v-for="type in headsetTypes" v-bind:key="type">
+                <div
+                    v-on:click="form['HeadsetType'] = type.split(' ').join('')"
+                    class="w-24 mr-4 rounded-lg justify-center cursor-pointer hover:bg-gray-200"
+                    :class="{
+                    'bg-gray-300': type.split(' ').join('') !== form['HeadsetType'],
+                    'bg-green-300': type.split(' ').join('') === form['HeadsetType']
+                  }">
+                  {{type}}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="pageNum === 2" class="my-4 mx-5 flex flex-col">
+            <label class="text-lg mb-2">
+              Preview
+            </label>
+
+            <div v-for="(key, index) in Object.keys(form)" :key="index">
+              {{key}} = {{form[key]}}
+            </div>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+                v-if="pageNum > 0"
+                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
+                v-on:click="changePage(false)"
+            >Back</button>
+
+            <button
+                v-if="pageNum < 2"
+                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
+                v-on:click="changePage(true)"
+            >Next</button>
+
+            <button
+                v-if="pageNum === 2"
+                type="submit"
+                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
+                v-on:click="handleSubmit"
+            >Save</button>
+          </div>
+        </form>
+
+        <ManualProgress :progress="progress"/>
       </template>
 
       <template v-slot:footer>
         <footer class="mt-4 mb-6 text-right flex flex-row justify-end">
-          <button class="w-36 h-5 mr-4 text-blue-500 text-base rounded-lg hover:bg-gray-100 font-medium"
+          <button class="w-24 h-8 mr-7 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
                   v-on:click="showStationModal = false"
           >Cancel</button>
         </footer>
@@ -135,37 +255,3 @@ function closeModal() {
     </Modal>
   </Teleport>
 </template>
-
-<style scoped>
-.slide-leave-active,
-.slide-enter-active {
-  transition: 1s;
-}
-.slide-enter-from {
-  transform: translate(100%, 0);
-}
-.slide-leave-to {
-  transform: translate(-100%, 0);
-}
-
-.slideBack-leave-active,
-.slideBack-enter-active {
-  transition: 1s;
-}
-.slideBack-enter {
-  transform: translate(-100%, 0);
-}
-.slideBack-leave-to {
-  transform: translate(100%, 0);
-}
-
-.div-slider {
-  overflow: hidden;
-  position: relative;
-}
-
-.div-slider .card {
-  position: absolute;
-  width: 90%;
-}
-</style>

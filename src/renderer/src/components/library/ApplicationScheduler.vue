@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from "vue";
+import { computed, onMounted, ref } from "vue";
+import GenericButton from "../buttons/GenericButton.vue"
 import * as CONSTANT from "../../assets/constants/_application"
 import { useLibraryStore } from '../../store/libraryStore'
 const libraryStore = useLibraryStore()
@@ -79,15 +80,16 @@ onMounted(() => {
 });
 </script>
 
+<!--Set up and manage the Task Scheduler items associated with the selected station.-->
 <template>
   <div class="w-full flex flex-row px-4">
     <div v-if="status === ''" class="w-full flex-col items-center justify-around">
-      <div
-          class="w-24 h-8 cursor-pointer rounded-lg bg-green-400 items-center justify-center hover:bg-green-200"
-          @click="createSchedulerTask"
-      >
-        Create
-      </div>
+      <GenericButton
+          class=" h-8 w-24 text-base font-poppins
+          rounded-md bg-green-400 hover:bg-green-300"
+          :callback="createSchedulerTask"
+          :spinnerColor="'#000000'"
+      >Create</GenericButton>
     </div>
 
     <div v-else class="w-full">
@@ -96,21 +98,25 @@ onMounted(() => {
       </pre>
 
       <div class="w-full flex-col items-end justify-around">
-        <div
+        <GenericButton
             v-if="status !== ''"
-            class="w-24 h-8 cursor-pointer rounded-lg bg-green-400 items-center justify-center hover:bg-green-200"
-            @click="changeSchedulerTask"
-        >
-          {{enabled ? "Disable" : "Enable"}}
-        </div>
+            :class="{
+              'h-8 w-24 text-base font-poppins rounded-md': true,
+              'bg-green-400 hover:bg-green-300': !enabled,
+              'bg-orange-400 hover:bg-orange-300': enabled,
+            }"
+            :callback="changeSchedulerTask"
+            :spinnerColor="'#000000'"
+        >{{enabled ? "Disable" : "Enable"}}</GenericButton>
 
-        <div
+        <GenericButton
             v-if="status !== ''"
-            class="w-24 h-8 cursor-pointer rounded-lg bg-orange-400 items-center justify-center hover:bg-orange-200"
-            @click="deleteSchedulerTask"
-        >
-          Delete
-        </div>
+            class="h-8 w-24 bg-white text-base
+            text-red-400 font-poppins font-semibold
+            rounded-md border-2 border-red-400 hover:bg-red-50"
+            :callback="deleteSchedulerTask"
+            :spinnerColor="'#000000'"
+        >Delete</GenericButton>
       </div>
     </div>
   </div>

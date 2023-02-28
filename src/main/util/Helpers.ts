@@ -424,7 +424,14 @@ export default class Helpers {
                     params: entry.parameters
                 });
             } else {
-                entry.parameters[info.key] = info.value;
+                const data = JSON.parse(info.value);
+
+                //Overwrite the saved information
+                entry.parameters = {};
+
+                for(const key in data) {
+                    entry.parameters[key] = data[key];
+                }
             }
 
             //Create the file and write the new application entry in
@@ -820,24 +827,31 @@ export default class Helpers {
      */
     configApplication(_event: IpcMainEvent, info: any): void {
         const config = join(this.appDirectory, `${info.name}/_config/config.env`)
+        const data = JSON.parse(info.value);
+
+        const newDataArray: string[] = [];
+
+        for(const key in data) {
+            newDataArray.push(`${key}=${data[key]}`)
+        }
+
+        fs.writeFile(config, newDataArray.join('\n'), (err) => {
+            if (err) throw err;
+            console.log ('Successfully updated the file data');
+        });
+    }
+
+    /**
+     * Gets the application configuration details.
+     */
+    getApplicationConfig(_event: IpcMainEvent, info: any): void {
+        const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
         //Read the file and remove any previous entries for the same item
         fs.readFile(config, {encoding: 'utf-8'}, function(err, data) {
             let dataArray = data.split('\n'); // convert file data in an array
-            const searchKeyword = info.key; // looking for a line that contains a key word in the file
 
-            // Delete all instances of the old key
-            let newDataArray = dataArray.filter(line => !line.startsWith(searchKeyword))
-
-            // Add the new key
-            newDataArray.push(info.key + info.value)
-
-            // UPDATE FILE WITH NEW DATA
-            const updatedData = newDataArray.join('\n');
-            fs.writeFile(config, updatedData, (err) => {
-                if (err) throw err;
-                console.log ('Successfully updated the file data');
-            });
+            //Send the data array back to the front end.
         });
     }
 

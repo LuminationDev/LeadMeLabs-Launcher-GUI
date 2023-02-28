@@ -3,7 +3,7 @@ import { Application } from '../models'
 import * as CONSTANTS from '../assets/constants/_application';
 import { ref } from "vue";
 
-//Preset applications
+//Preset applications - Use this as an example of the LeadMe ID Library?
 const values = {
     '1': new Application(
         '1',
@@ -107,6 +107,6 @@ export const useLibraryStore = defineStore({
     getters: {
         getSelectedApplication(): Application | undefined {
             return this.applications.get(this.selectedApplication)
-        }
+        },
     }
 });

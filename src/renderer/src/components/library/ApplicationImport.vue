@@ -47,7 +47,7 @@ api.ipcRenderer.on('application_imported', (event, info) => {
 <template>
   <label
       for="files"
-      class="w-32 h-8 mb-4 cursor-pointer rounded-lg bg-blue-400 flex items-center justify-center hover:bg-blue-200"
+      class="w-full h-6 mt-2 cursor-pointer rounded-lg text-white bg-primary flex items-center justify-center hover:bg-blue-400"
   >
     <input class="hidden" id="files" ref="fileInput" type="file" @change="importApplication">
     Import

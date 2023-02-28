@@ -1,70 +1,77 @@
 <script setup lang="ts">
-import {computed, ref} from "vue";
+import { computed, ref, reactive } from "vue";
 import Modal from "./Modal.vue";
+import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
-import nuc_keys from "../config/nuc_keys.json";
+import ManualProgress from "../components/loading/ManualProgress.vue";
 import { useLibraryStore } from '../store/libraryStore'
+
 const libraryStore = useLibraryStore()
-
-interface keyObject {
-  title: string,
-  input: Array<string> | null,
-  description: string,
-  order: number
-}
-const nucKeyJson: keyObject = nuc_keys;
-
 const showNucModal = ref(false);
-const envKey = ref("VALUE");
-const envValue = ref("");
-const envUsername = ref("");
-const envPassword = ref("");
 const pageNum = ref(0);
 const back = ref(false);
+const novaStar = ref(false);
 
-/**
- * Update the config file with a username and password field. The final variable will look like
- * key=username:password
- * @param title The key of the variable.
- */
-function setENVChoice(title: string) {
-  envValue.value = `${envUsername.value}:${envPassword.value}`;
+const form = reactive({
+  AppKey: '',
+  LabLocation: '',
+  CbusIP: '',
+  CbusNucScriptId: '',
+  CbusLogin: '',
+  CbusPassword: '',
+  NovaStarLogin: '',
+  NovaStarPassword: '',
+});
 
-  //Reset for next login details
-  envUsername.value = "";
-  envPassword.value = "";
+const handleSubmit = () => {
+  // handle form submission here
+  //Transform the form into the useful information
+  const data = form;
 
-  updateENV(title);
-}
+  data['CbusLogin'] = `${form.CbusLogin}:${form.CbusPassword}`;
+  delete data['CbusPassword'];
 
-function updateENV(key: string) {
-  console.log(`${key}=${envValue.value}`);
-
-  // Set the key for the new value
-  envKey.value = key
+  //Add or remove the NovaStar details depending on if they exist
+  if(novaStar.value && form.NovaStarLogin && form.NovaStarPassword) {
+    data['NovaStarLogin'] = `${form.NovaStarLogin}:${form.NovaStarPassword}`;
+    delete data['NovaStarPassword'];
+  } else {
+    delete data['NovaStarLogin'];
+    delete data['NovaStarPassword'];
+  }
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
     channelType: CONSTANT.CONFIG_APPLICATION,
     name: libraryStore.getSelectedApplication.name,
-    key: envKey.value,
-    value: `=${envValue.value}`
-  })
-
-  // Load the next page
-  envValue.value = ""
-  pageNum.value++
-
-  console.log(pageNum.value);
-}
+    value: JSON.stringify(data)
+  });
+};
 
 /**
  * Calculate the amount of nuc inputs to track progress.
  */
-const listLength = computed(() => {
-  console.log(nuc_keys.length)
-  return nuc_keys.length;
-})
+const keys = reactive(Object.keys(form));
+const progress = computed(() => {
+  let formLength = novaStar.value ? keys.length : keys.length - 2;
+  let completed = 0;
+
+  for (const key of keys) {
+    if (form[key] !== '' && form[key] !== undefined) {
+      completed++;
+    }
+  }
+
+  return Math.round((completed / formLength) * 100);
+});
+
+function changePage(forward: boolean) {
+  forward ? pageNum.value++ : pageNum.value--;
+}
+
+function openModal() {
+  showNucModal.value = true;
+}
 
 function closeModal() {
   pageNum.value = 0;
@@ -74,64 +81,142 @@ function closeModal() {
 
 <template>
   <!--Anchor button used to control the modal-->
-  <button
-      class="w-32 h-12 cursor-pointer rounded-lg bg-yellow-400
-      items-center justify-center hover:bg-yellow-200"
-    v-on:click="showNucModal = true"
-    id="share_button"
-  >
-    Setup
-  </button>
+  <GenericButton
+      id="share_button"
+      :type="'primary'"
+      :callback="openModal"
+      :spinnerColor="'#000000'"
+  >Setup</GenericButton>
 
   <!--Modal body using the Modal template, teleports the html to the bottom of the body tag-->
   <Teleport to="body">
     <Modal :show="showNucModal" @close="closeModal">
       <template v-slot:header>
-        <header class="h-20 px-8 w-96 bg-white flex justify-between items-center rounded-t-lg">
+        <header class="h-20 px-8 w-128 bg-white flex justify-between items-center rounded-t-lg">
           <div class="bg-white flex flex-col">
-            <span class="text-lg font-medium text-black">Station setup wizard</span>
+            <span class="text-lg font-medium text-black">NUC setup wizard</span>
           </div>
         </header>
       </template>
 
       <template v-slot:content>
-        <transition-group tag="div" class="div-slider h-48 mt-8" :name="back? 'slideBack' : 'slide'">
-          <template v-if="pageNum < listLength" v-for="(variable, index) in nucKeyJson" v-bind:key="variable">
-            <div v-if="pageNum === variable.order" v-bind:key="index" class="card inline-block mx-5 flex flex-col justify-center items-center bg-white rounded-3xl shadow-md">
+        <!--A basic form separated into different pages-->
+        <form @submit.prevent class="mt-4 mx-5">
+          <div v-if="pageNum === 0" class="mt-4 mx-5 flex flex-col">
+            <label>
+              Encryption Key
+            </label>
+            <input
+                v-model="form.AppKey"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="XXXX_0000"
+                required />
 
-              <!--Detect if there is a choice or just manual input-->
-              <div v-if="variable.input.length === 0" class="flex flex-col justify-center items-center">
-                Please enter the {{variable.description}}
+            <label>
+              Lab Location
+            </label>
+            <input
+                v-model="form.LabLocation"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="Thebarton"
+                required />
 
-                <input v-model="envValue" class="border-2 my-2"/>
-                <button v-on:click="updateENV(variable.title)" class="h-8 px-3 mb-2 rounded-lg bg-green-400 hover:bg-green-200">Update</button>
-              </div>
+            <label>
+              CBus IP Address
+            </label>
+            <input
+                v-model="form.CbusIP"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="192.168.0.100"
+                required />
 
-              <div v-else class="flex flex-col w-full justify-center items-center">
-                Please enter the {{variable.description}}
-
-                <input v-model="envUsername" class="border-2 my-2"/>
-                <input v-model="envPassword" class="border-2 my-2"/>
-
-                <button v-on:click="setENVChoice(variable.title)" class="h-8 px-3 mb-2 rounded-lg bg-green-400 hover:bg-green-200">Update</button>
-              </div>
-
-            </div>
-          </template>
-          <div v-else class="h-48 w-full mx-5 flex flex-col justify-center items-center">
-            <template class="card h-32 w-full inline-block  flex flex-col justify-center items-center bg-white rounded-3xl shadow-md">
-              Station setup is complete.
-
-              <button v-on:click="closeModal" class="h-10 w-1/2 my-2 rounded-lg bg-blue-400 hover:bg-blue-200">Finish</button>
-            </template>
+            <label>
+              CBus Nuc Script Id
+            </label>
+            <input
+                v-model="form.CbusNucScriptId"
+                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                placeholder="4194304001"
+                required />
           </div>
 
-        </transition-group>
+          <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
+              <label class="my-2">
+                CBus Login details
+              </label>
+              <input
+                  v-model="form.CbusLogin"
+                  class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                  placeholder="username"
+                  required />
+
+              <input
+                  v-model="form.CbusPassword"
+                  class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                  placeholder="password"
+                  required />
+
+              <div class="flex flex-row justify-between">
+                <label class="my-2">
+                  NovaStar Login details <span class="text-xs">(Optional)</span>
+                </label>
+
+                <div class="items-center">
+                  <label for="includeNova" class="text-xs mr-2">Include</label>
+                  <input id="includeNova" v-model="novaStar" type="checkbox">
+                </div>
+              </div>
+              <input
+                  v-if="novaStar"
+                  v-model="form.NovaStarLogin"
+                  class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                  placeholder="username" />
+
+              <input
+                  v-if="novaStar"
+                  v-model="form.NovaStarPassword"
+                  class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+                  placeholder="password" />
+          </div>
+
+          <div v-if="pageNum === 2" class="my-4 mx-5 flex flex-col">
+            <label class="text-lg mb-2">
+              Preview
+            </label>
+
+            <div v-for="(key, index) in Object.keys(form)" :key="index">
+              {{key}} = {{form[key]}}
+            </div>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+                v-if="pageNum > 0"
+                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
+                v-on:click="changePage(false)"
+            >Back</button>
+
+            <button
+                v-if="pageNum < 2"
+                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
+                v-on:click="changePage(true)"
+            >Next</button>
+
+            <button
+                v-if="pageNum === 2"
+                type="submit"
+                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
+                v-on:click="handleSubmit"
+            >Save</button>
+          </div>
+        </form>
+
+        <ManualProgress :progress="progress"/>
       </template>
 
       <template v-slot:footer>
         <footer class="mt-4 mb-6 text-right flex flex-row justify-end">
-          <button class="w-36 h-5 mr-4 text-blue-500 text-base rounded-lg hover:bg-gray-100 font-medium"
+          <button class="w-24 h-8 mr-7 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
                   v-on:click="showNucModal = false"
           >Cancel</button>
         </footer>
@@ -139,37 +224,3 @@ function closeModal() {
     </Modal>
   </Teleport>
 </template>
-
-<style scoped>
-.slide-leave-active,
-.slide-enter-active {
-  transition: 1s;
-}
-.slide-enter-from {
-  transform: translate(100%, 0);
-}
-.slide-leave-to {
-  transform: translate(-100%, 0);
-}
-
-.slideBack-leave-active,
-.slideBack-enter-active {
-  transition: 1s;
-}
-.slideBack-enter {
-  transform: translate(-100%, 0);
-}
-.slideBack-leave-to {
-  transform: translate(100%, 0);
-}
-
-.div-slider {
-  overflow: hidden;
-  position: relative;
-}
-
-.div-slider .card {
-  position: absolute;
-  width: 90%;
-}
-</style>

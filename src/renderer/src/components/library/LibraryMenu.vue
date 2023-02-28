@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLibraryStore } from '../../store/libraryStore'
 import { computed } from "vue";
+import * as CONSTANT from '../../assets/constants/_application';
 import ApplicationImport from "./ApplicationImport.vue";
 
 const libraryStore = useLibraryStore()
@@ -17,7 +18,10 @@ const applicationList = computed(() => {
 
 <template>
   <div class="flex flex-col [&>div]:my-2">
+
     <ApplicationImport />
+
+    <hr class="border border-gray-400 my-5">
 
     <div v-for="[string, application] in applicationList" :key="string">
       <div
@@ -25,7 +29,9 @@ const applicationList = computed(() => {
           :class="{'bg-gray-100': application.name === applicationName}"
           @click="libraryStore.changeApplication(application.id)">
 
-          <p>{{ application.name }}</p>
+          <p :class="{'text-gray-400': application.status !== CONSTANT.STATUS_INSTALLED}">
+            {{ application.name }}
+          </p>
       </div>
     </div>
   </div>
