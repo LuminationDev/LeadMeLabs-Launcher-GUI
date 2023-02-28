@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import * as CONSTANT from "../../assets/constants/_application"
-import ApplicationManager from './ApplicationManager.vue'
-import StationSetup from "../../modals/StationSetup.vue";
-import NucSetup from "../../modals/NucSetup.vue";
 import { useLibraryStore } from '../../store/libraryStore'
 import ApplicationScheduler from "./ApplicationScheduler.vue";
-import CustomSetup from "../../modals/CustomSetup.vue";
+import ApplicationBar from "./ApplicationBar.vue";
 const libraryStore = useLibraryStore()
 
 const applicationName = computed(() => {
@@ -22,24 +19,10 @@ const applicationStatus = computed(() => {
 const checked = ref();
 const setAutostart = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_AUTOSTART, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_AUTOSTART,
     name: applicationName.value,
     autostart: checked.value
-  });
-}
-
-const deleteApplication = (): void => {
-  let app = libraryStore.getSelectedApplication;
-  if (app === undefined) {
-    return
-  }
-
-  libraryStore.updateApplicationStatusByName(app.name, CONSTANT.STATUS_NOT_INSTALLED);
-
-  // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_DELETE, {
-    name: app.name,
-    altPath: app.altPath
   });
 }
 </script>
@@ -65,24 +48,6 @@ const deleteApplication = (): void => {
       </div>
     </div>
 
-    <div class="h-24 px-8 bg-gray-100 rounded flex items-center justify-between">
-        <ApplicationManager />
-
-        <StationSetup v-if="applicationName === 'Station' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
-        <NucSetup v-else-if="applicationName === 'NUC' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
-        <CustomSetup v-else-if="
-          applicationName !== 'Station'
-          && applicationName !== 'NUC'
-          && applicationStatus === CONSTANT.STATUS_INSTALLED"
-        />
-
-      <div
-          v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
-          class="w-32 h-12 cursor-pointer rounded-lg bg-red-400 items-center justify-center hover:bg-red-200"
-          @click="deleteApplication"
-      >
-        Delete
-      </div>
-    </div>
+    <ApplicationBar />
   </div>
 </template>

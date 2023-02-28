@@ -14,7 +14,8 @@ const importApplication = (): void => {
   //Make sure a file is selected and that it is an executable
   if(altPath != null && altPath.endsWith(".exe")) {
     //@ts-ignore
-    api.ipcRenderer.send(CONSTANT.APPLICATION_IMPORT, {
+    api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+      channelType: CONSTANT.APPLICATION_IMPORT,
       name,
       altPath
     });
@@ -46,7 +47,7 @@ api.ipcRenderer.on('application_imported', (event, info) => {
 <template>
   <label
       for="files"
-      class="w-32 h-8 mb-4 cursor-pointer rounded-lg bg-blue-400 flex items-center justify-center hover:bg-blue-200"
+      class="w-full h-6 mt-2 cursor-pointer rounded-lg text-white bg-primary flex items-center justify-center hover:bg-blue-400"
   >
     <input class="hidden" id="files" ref="fileInput" type="file" @change="importApplication">
     Import

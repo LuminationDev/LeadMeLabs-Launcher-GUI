@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import * as CONSTANT from '../../assets/constants/_application'
-import { useLibraryStore } from '../../store/libraryStore'
 import Spinner from "../loading/Spinner.vue";
 import BaseProgress from "../loading/BaseProgress.vue";
+import GenericButton from "../buttons/GenericButton.vue";
+import { useLibraryStore } from '../../store/libraryStore'
 
 const libraryStore = useLibraryStore()
 
@@ -24,7 +25,8 @@ const launchApplication = (): void => {
   }
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_LAUNCH, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_LAUNCH,
     id: selectedApplication.value.id,
     name: selectedApplication.value.name,
     path: selectedApplication.value.altPath
@@ -39,7 +41,8 @@ const downloadApplication = (): void => {
   libraryStore.updateApplicationStatusByName(selectedApplication.value.name, CONSTANT.STATUS_DOWNLOADING);
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.APPLICATION_DOWNLOAD, {
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_DOWNLOAD,
     name: selectedApplication.value.name,
     url: selectedApplication.value.url,
     properties: { directory: `leadme_apps/${selectedApplication.value.name}` }
@@ -90,22 +93,23 @@ const resumeDownloadingApplication = (): void => {
 }
 </script>
 
+<!--Manage the installing and launching of an application.-->
 <template>
-  <div
-    v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
-    class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-    @click="launchApplication"
-  >
-    Launch
-  </div>
+  <GenericButton
+      v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
+      class="h-10 w-32 bg-white text-base"
+      :type="'primary'"
+      :callback="launchApplication"
+      :spinnerColor="'#000000'"
+  >Launch</GenericButton>
 
-  <div
-    v-else-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED"
-    class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-    @click="downloadApplication"
-  >
-    Install
-  </div>
+  <GenericButton
+      v-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED"
+      class="h-10 w-32 bg-white text-base"
+      :type="'primary'"
+      :callback="downloadApplication"
+      :spinnerColor="'#000000'"
+  >Install</GenericButton>
 
   <div v-else-if="applicationStatus === CONSTANT.STATUS_DOWNLOADING" class="flex flex-col">
     <div

@@ -11,6 +11,12 @@ module.exports = {
                 inactive: '#ACACAC', // dark dark blue,\
                 contrast: '#005780',
                 'modal-site-background': 'rgb(0, 0, 0, .4)', // For transparent modal background
+            },
+            width: {
+                '128': '32rem',
+            },
+            height: {
+                '128': '32rem',
             }
         }
     },
