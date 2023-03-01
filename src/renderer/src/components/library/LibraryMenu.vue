@@ -2,7 +2,7 @@
 import { useLibraryStore } from '../../store/libraryStore'
 import { computed } from "vue";
 import * as CONSTANT from '../../assets/constants/_application';
-import ApplicationImport from "./ApplicationImport.vue";
+import ApplicationImport from "../../modals/ImportModal.vue";
 
 const libraryStore = useLibraryStore()
 
