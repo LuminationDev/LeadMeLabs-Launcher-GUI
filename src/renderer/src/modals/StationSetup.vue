@@ -1,23 +1,19 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import Modal from "./Modal.vue";
-import GenericButton from "../components/buttons/GenericButton.vue"
-import * as CONSTANT from "../assets/constants/_application"
+import GenericButton from "../components/buttons/GenericButton.vue";
+import * as CONSTANT from "../assets/constants/_application";
 import ManualProgress from "../components/loading/ManualProgress.vue";
-import { useLibraryStore } from '../store/libraryStore'
+import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
+import SetupDoubleInput from "../components/forms/SetupDoubleInput.vue";
+import SetupNavigation from "../components/forms/SetupNavigation.vue";
+import { useLibraryStore } from '../store/libraryStore';
 
 const libraryStore = useLibraryStore()
 const showStationModal = ref(false);
 const pageNum = ref(0);
 const back = ref(false);
-
-function configureSteamCMD() {
-  // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD
-  });
-  closeModal();
-}
+const saved = ref(false);
 
 const form = reactive({
   AppKey: '',
@@ -31,6 +27,14 @@ const form = reactive({
   HeadsetType: '',
 });
 
+function configureSteamCMD() {
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD
+  });
+  closeModal();
+}
+
 const stationModes = ['VR', 'Appliance', 'Content'];
 const headsetTypes = ['Vive Pro 1', 'Vive Pro 2'];
 
@@ -42,11 +46,14 @@ const handleSubmit = () => {
     name: libraryStore.getSelectedApplication.name,
     value: JSON.stringify(form)
   });
+
+  saved.value = true;
 };
 
 /**
  * Calculate the amount of nuc inputs to track progress.
  */
+// @ts-ignore
 const keys = reactive(Object.keys(form));
 const progress = computed(() => {
   let formLength = keys.length;
@@ -61,6 +68,9 @@ const progress = computed(() => {
   return Math.round((completed / formLength) * 100);
 });
 
+/**
+ * Change the page if the current items pass validation.
+ */
 function changePage(forward: boolean) {
   forward ? pageNum.value++ : pageNum.value--;
 }
@@ -72,6 +82,7 @@ function openModal() {
 function closeModal() {
   pageNum.value = 0;
   showStationModal.value = false;
+  saved.value = false;
 }
 </script>
 
@@ -99,67 +110,21 @@ function closeModal() {
         <!--A basic form separated into different pages-->
         <form @submit.prevent class="mt-4 mx-5">
           <div v-if="pageNum === 0" class="mt-4 mx-5 flex flex-col">
-            <label>
-              Encryption Key
-            </label>
-            <input
-                v-model="form.AppKey"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="XXXX_0000"
-                required />
-
-            <label>
-              Lab Location
-            </label>
-            <input
-                v-model="form.LabLocation"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="Thebarton"
-                required />
-
-            <label>
-              Station ID
-            </label>
-            <input
-                v-model="form.StationId"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="1"
-                required />
-
-            <label>
-              Room
-            </label>
-            <input
-                v-model="form.room"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="Classroom"
-                required />
-
-            <label>
-              NUC IP Address
-            </label>
-            <input
-                v-model="form.NucAddress"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="192.168.0.100"
-                required />
+            <SetupSingleInput :title="'Encryption Key'" :placeholder="'XXXX_0000'" v-model="form.AppKey"/>
+            <SetupSingleInput :title="'Lab Location'" :placeholder="'Thebarton'" v-model="form.LabLocation"/>
+            <SetupSingleInput :title="'Station ID'" :placeholder="'1'" v-model="form.StationId"/>
+            <SetupSingleInput :title="'Room'" :placeholder="'Classroom'" v-model="form.room"/>
+            <SetupSingleInput :title="'NUC IP Address'" :placeholder="'192.168.0.100'" v-model="form.NucAddress"/>
           </div>
 
           <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
-            <label class="my-2">
-              Steam Account details
-            </label>
-            <input
-                v-model="form.SteamUserName"
-                class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="username"
-                required />
-
-            <input
-                v-model="form.SteamPassword"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="password"
-                required />
+            <SetupDoubleInput
+                :title="'Steam Account details'"
+                :placeholderOne="'username'"
+                :placeholderTwo="'password'"
+                v-model:input-one="form.SteamUserName"
+                v-model:input-two="form.SteamPassword"
+            />
 
             <div class="flex justify-end">
               <button
@@ -220,35 +185,21 @@ function closeModal() {
             </div>
           </div>
 
-          <div class="flex justify-end">
-            <button
-                v-if="pageNum > 0"
-                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="changePage(false)"
-            >Back</button>
-
-            <button
-                v-if="pageNum < 2"
-                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="changePage(true)"
-            >Next</button>
-
-            <button
-                v-if="pageNum === 2"
-                type="submit"
-                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="handleSubmit"
-            >Save</button>
-          </div>
+          <SetupNavigation
+              v-model:pageNum="pageNum"
+              v-model:saved="saved"
+              @change-page="changePage"
+              @close-modal="closeModal"
+              @handle-submit="handleSubmit"/>
         </form>
 
-        <ManualProgress :progress="progress"/>
+        <ManualProgress v-if="!saved" :progress="progress"/>
       </template>
 
       <template v-slot:footer>
         <footer class="mt-4 mb-6 text-right flex flex-row justify-end">
           <button class="w-24 h-8 mr-7 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
-                  v-on:click="showStationModal = false"
+                  v-on:click="closeModal"
           >Cancel</button>
         </footer>
       </template>

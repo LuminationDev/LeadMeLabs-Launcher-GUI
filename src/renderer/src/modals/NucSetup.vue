@@ -4,12 +4,16 @@ import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
 import ManualProgress from "../components/loading/ManualProgress.vue";
-import { useLibraryStore } from '../store/libraryStore'
+import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
+import SetupDoubleInput from "../components/forms/SetupDoubleInput.vue";
+import SetupNavigation from "../components/forms/SetupNavigation.vue";
+import { useLibraryStore } from '../store/libraryStore';
 
 const libraryStore = useLibraryStore()
 const showNucModal = ref(false);
 const pageNum = ref(0);
 const back = ref(false);
+const saved = ref(false);
 const novaStar = ref(false);
 
 const form = reactive({
@@ -46,6 +50,8 @@ const handleSubmit = () => {
     name: libraryStore.getSelectedApplication.name,
     value: JSON.stringify(data)
   });
+
+  saved.value = true;
 };
 
 /**
@@ -54,6 +60,11 @@ const handleSubmit = () => {
 const keys = reactive(Object.keys(form));
 const progress = computed(() => {
   let formLength = novaStar.value ? keys.length : keys.length - 2;
+
+  if(saved.value) {
+    formLength -= 1;
+  }
+
   let completed = 0;
 
   for (const key of keys) {
@@ -65,6 +76,9 @@ const progress = computed(() => {
   return Math.round((completed / formLength) * 100);
 });
 
+/**
+ * Change the page if the current items pass validation.
+ */
 function changePage(forward: boolean) {
   forward ? pageNum.value++ : pageNum.value--;
 }
@@ -76,6 +90,7 @@ function openModal() {
 function closeModal() {
   pageNum.value = 0;
   showNucModal.value = false;
+  saved.value = false;
 }
 </script>
 
@@ -103,80 +118,30 @@ function closeModal() {
         <!--A basic form separated into different pages-->
         <form @submit.prevent class="mt-4 mx-5">
           <div v-if="pageNum === 0" class="mt-4 mx-5 flex flex-col">
-            <label>
-              Encryption Key
-            </label>
-            <input
-                v-model="form.AppKey"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="XXXX_0000"
-                required />
-
-            <label>
-              Lab Location
-            </label>
-            <input
-                v-model="form.LabLocation"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="Thebarton"
-                required />
-
-            <label>
-              CBus IP Address
-            </label>
-            <input
-                v-model="form.CbusIP"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="192.168.0.100"
-                required />
-
-            <label>
-              CBus Nuc Script Id
-            </label>
-            <input
-                v-model="form.CbusNucScriptId"
-                class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                placeholder="4194304001"
-                required />
+            <SetupSingleInput :title="'Encryption Key'" :placeholder="'XXXX_0000'" v-model="form.AppKey"/>
+            <SetupSingleInput :title="'Lab Location'" :placeholder="'Thebarton'" v-model="form.LabLocation"/>
+            <SetupSingleInput :title="'CBus IP Address'" :placeholder="'192.168.0.100'" v-model="form.CbusIP"/>
+            <SetupSingleInput :title="'CBus Nuc Script Id'" :placeholder="'4194305000'" v-model="form.CbusNucScriptId"/>
           </div>
 
           <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
-              <label class="my-2">
-                CBus Login details
-              </label>
-              <input
-                  v-model="form.CbusLogin"
-                  class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                  placeholder="username"
-                  required />
+            <SetupDoubleInput
+                :title="'CBus Account details'"
+                :placeholderOne="'username'"
+                :placeholderTwo="'password'"
+                v-model:input-one="form.CbusLogin"
+                v-model:input-two="form.CbusPassword"
+            />
 
-              <input
-                  v-model="form.CbusPassword"
-                  class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                  placeholder="password"
-                  required />
-
-              <div class="flex flex-row justify-between">
-                <label class="my-2">
-                  NovaStar Login details <span class="text-xs">(Optional)</span>
-                </label>
-
-                <div class="items-center">
-                  <label for="includeNova" class="text-xs mr-2">Include</label>
-                  <input id="includeNova" v-model="novaStar" type="checkbox">
-                </div>
-              </div>
-              <input
-                  v-if="novaStar"
-                  v-model="form.NovaStarLogin"
-                  class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                  placeholder="username" />
-
-              <input
-                  v-if="novaStar"
-                  v-model="form.NovaStarPassword"
-                  class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-                  placeholder="password" />
+            <SetupDoubleInput
+                :title="'NovaStar Login details'"
+                :placeholderOne="'username'"
+                :placeholderTwo="'password'"
+                v-model:input-one="form.NovaStarLogin"
+                v-model:input-two="form.NovaStarPassword"
+                :optional="true"
+                v-model:visible="novaStar"
+            />
           </div>
 
           <div v-if="pageNum === 2" class="my-4 mx-5 flex flex-col">
@@ -185,39 +150,30 @@ function closeModal() {
             </label>
 
             <div v-for="(key, index) in Object.keys(form)" :key="index">
-              {{key}} = {{form[key]}}
+              <div v-if="!key.includes('NovaStar')">
+                {{key}} = {{form[key]}}
+              </div>
+              <div v-else-if="novaStar && key.includes('NovaStar')">
+                {{key}} = {{form[key]}}
+              </div>
             </div>
           </div>
 
-          <div class="flex justify-end">
-            <button
-                v-if="pageNum > 0"
-                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="changePage(false)"
-            >Back</button>
-
-            <button
-                v-if="pageNum < 2"
-                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="changePage(true)"
-            >Next</button>
-
-            <button
-                v-if="pageNum === 2"
-                type="submit"
-                class="h-8 w-24 px-3 mt-2 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="handleSubmit"
-            >Save</button>
-          </div>
+          <SetupNavigation
+              v-model:pageNum="pageNum"
+              v-model:saved="saved"
+              @change-page="changePage"
+              @close-modal="closeModal"
+              @handle-submit="handleSubmit"/>
         </form>
 
-        <ManualProgress :progress="progress"/>
+        <ManualProgress v-if="!saved" :progress="progress"/>
       </template>
 
       <template v-slot:footer>
         <footer class="mt-4 mb-6 text-right flex flex-row justify-end">
-          <button class="w-24 h-8 mr-7 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
-                  v-on:click="showNucModal = false"
+          <button v-if="!saved" class="w-24 h-8 mr-7 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
+                  v-on:click="closeModal"
           >Cancel</button>
         </footer>
       </template>
