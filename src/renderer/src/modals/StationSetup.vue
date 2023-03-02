@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import {computed, reactive, ref, watch} from "vue";
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue";
 import * as CONSTANT from "../assets/constants/_application";
@@ -7,13 +7,58 @@ import ManualProgress from "../components/loading/ManualProgress.vue";
 import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
 import SetupDoubleInput from "../components/forms/SetupDoubleInput.vue";
 import SetupNavigation from "../components/forms/SetupNavigation.vue";
+import useVuelidate from "@vuelidate/core";
+import { required, helpers } from "@vuelidate/validators";
 import { useLibraryStore } from '../store/libraryStore';
+import SetupChoiceSelection from "../components/forms/SetupChoiceSelection.vue";
 
 const libraryStore = useLibraryStore()
 const showStationModal = ref(false);
 const pageNum = ref(0);
 const back = ref(false);
 const saved = ref(false);
+const steamCMD = ref(false);
+
+const rules = {
+  form: {
+    AppKey: {
+      required: helpers.withMessage("Encryption key is required", required),
+      $autoDirty: true
+    },
+    LabLocation: {
+      required: helpers.withMessage("LabLocation is required", required),
+      $autoDirty: true
+    },
+    StationId: {
+      required: helpers.withMessage("StationId is required", required),
+      $autoDirty: true
+    },
+    room: {
+      required: helpers.withMessage("Room is required", required),
+      $autoDirty: true
+    },
+    NucAddress: {
+      required: helpers.withMessage("NucAddress is required", required),
+      $autoDirty: true
+    },
+    SteamUserName: {
+      required: helpers.withMessage("SteamUserName is required", required),
+      $autoDirty: true
+    },
+    SteamPassword: {
+      required: helpers.withMessage("SteamPassword is required", required),
+      $autoDirty: true
+    },
+    StationMode: {
+      required: helpers.withMessage("StationMode is required", required),
+      $autoDirty: true
+    },
+    HeadsetType: {
+      required: helpers.withMessage("HeadsetType is required", required),
+      $autoDirty: true
+    }
+  }
+}
 
 const form = reactive({
   AppKey: '',
@@ -27,6 +72,8 @@ const form = reactive({
   HeadsetType: '',
 });
 
+const v$ = useVuelidate(rules, { form });
+
 function configureSteamCMD() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
@@ -35,10 +82,10 @@ function configureSteamCMD() {
   closeModal();
 }
 
-const stationModes = ['VR', 'Appliance', 'Content'];
-const headsetTypes = ['Vive Pro 1', 'Vive Pro 2'];
+const handleSubmit = async () => {
+  const result = await v$.value.$validate();
+  if (!result) { return; }
 
-const handleSubmit = () => {
   // handle form submission here
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
@@ -56,23 +103,63 @@ const handleSubmit = () => {
 // @ts-ignore
 const keys = reactive(Object.keys(form));
 const progress = computed(() => {
-  let formLength = keys.length;
-  let completed = 0;
-
-  for (const key of keys) {
-    if (form[key] !== '' && form[key] !== undefined) {
-      completed++;
-    }
-  }
-
+  const formLength = steamCMD.value ? keys.length : keys.length - 3;
+  const completed = keys.filter(key => form[key] !== '' && form[key] !== undefined).length;
   return Math.round((completed / formLength) * 100);
 });
 
 /**
+ * Trigger an event when novaStar changes, empty the form values so the progress is re-calculated
+ */
+watch(steamCMD, (newVal) => {
+  if(!newVal) {
+    form.SteamUserName = '';
+    form.SteamPassword = '';
+    form.HeadsetType = '';
+  }
+});
+
+/**
+ * Validate certain fields that are passed in.
+ * @param fieldNames An array of fields to validate for a particular page.
+ */
+function createValidator(fieldNames: string[]): () => boolean {
+  return () => {
+    for (const fieldName of fieldNames) {
+      v$.value.form[fieldName].$touch();
+      if (v$.value.form[fieldName].$error) {
+        return false;
+      }
+    }
+    return true;
+  };
+}
+
+// Computed property that returns the list of fields to validate for page two
+const pageTwoFields = computed(() => [
+  'StationMode',
+  ...(steamCMD.value ? ['SteamUserName', 'SteamPassword', 'HeadsetType'] : [])
+]);
+
+const validatePageOne = () => createValidator(['AppKey', 'LabLocation', 'StationId', 'room', 'NucAddress'])();
+const validatePageTwo = () => createValidator(pageTwoFields.value)();
+
+/**
  * Change the page if the current items pass validation.
  */
-function changePage(forward: boolean) {
-  forward ? pageNum.value++ : pageNum.value--;
+async function changePage(forward: boolean) {
+  //Allowed to go backwards whenever
+  if (!forward) {
+    pageNum.value--;
+    return;
+  }
+
+  const validators = [validatePageOne, validatePageTwo];
+  if (validators[pageNum.value] && !validators[pageNum.value]()) {
+    return;
+  }
+
+  pageNum.value++;
 }
 
 function openModal() {
@@ -110,11 +197,11 @@ function closeModal() {
         <!--A basic form separated into different pages-->
         <form @submit.prevent class="mt-4 mx-5">
           <div v-if="pageNum === 0" class="mt-4 mx-5 flex flex-col">
-            <SetupSingleInput :title="'Encryption Key'" :placeholder="'XXXX_0000'" v-model="form.AppKey"/>
-            <SetupSingleInput :title="'Lab Location'" :placeholder="'Thebarton'" v-model="form.LabLocation"/>
-            <SetupSingleInput :title="'Station ID'" :placeholder="'1'" v-model="form.StationId"/>
-            <SetupSingleInput :title="'Room'" :placeholder="'Classroom'" v-model="form.room"/>
-            <SetupSingleInput :title="'NUC IP Address'" :placeholder="'192.168.0.100'" v-model="form.NucAddress"/>
+            <SetupSingleInput :title="'Encryption Key'" :placeholder="'XXXX_0000'" :v$="v$.form.AppKey" v-model="form.AppKey"/>
+            <SetupSingleInput :title="'Lab Location'" :placeholder="'Thebarton'" :v$="v$.form.LabLocation" v-model="form.LabLocation"/>
+            <SetupSingleInput :title="'Station ID'" :placeholder="'1'" :v$="v$.form.StationId" v-model="form.StationId"/>
+            <SetupSingleInput :title="'Room'" :placeholder="'Classroom'" :v$="v$.form.room" v-model="form.room"/>
+            <SetupSingleInput :title="'NUC IP Address'" :placeholder="'192.168.0.100'" :v$="v$.form.NucAddress" v-model="form.NucAddress"/>
           </div>
 
           <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
@@ -124,9 +211,13 @@ function closeModal() {
                 :placeholderTwo="'password'"
                 v-model:input-one="form.SteamUserName"
                 v-model:input-two="form.SteamPassword"
+                :v$One="v$.form.SteamUserName"
+                :v$Two="v$.form.SteamPassword"
+                :optional="true"
+                v-model:visible="steamCMD"
             />
 
-            <div class="flex justify-end">
+            <div v-if="steamCMD" class="flex justify-end">
               <button
                   :disabled="form['SteamPassword'] === '' || form['SteamUserName'] === ''"
                   class="h-8 w-56 px-3 mt-2 mr-2 rounded-lg bg-primary text-white"
@@ -138,41 +229,18 @@ function closeModal() {
               >Configure SteamCMD</button>
             </div>
 
-            <label class="my-2">
-              Station Mode
-            </label>
+            <SetupChoiceSelection
+                v-if="steamCMD"
+                :title="'Headset Type'"
+                :choices="['Vive Pro 1', 'Vive Pro 2']"
+                v-model="form.HeadsetType"
+                :v$="v$.form.HeadsetType" />
 
-            <div class="flex mx-5">
-              <div v-for="type in stationModes" v-bind:key="type">
-                <div
-                  v-on:click="form['StationMode'] = type.toLocaleLowerCase()"
-                  class="w-24 mr-4 rounded-lg justify-center cursor-pointer hover:bg-gray-200"
-                  :class="{
-                    'bg-gray-300': type.toLocaleLowerCase() !== form['StationMode'],
-                    'bg-green-300': type.toLocaleLowerCase() === form['StationMode']
-                  }">
-                  {{type}}
-                </div>
-              </div>
-            </div>
-
-            <label class="my-2">
-              Headset Type
-            </label>
-
-            <div class="flex mx-5 mb-4">
-              <div v-for="type in headsetTypes" v-bind:key="type">
-                <div
-                    v-on:click="form['HeadsetType'] = type.split(' ').join('')"
-                    class="w-24 mr-4 rounded-lg justify-center cursor-pointer hover:bg-gray-200"
-                    :class="{
-                    'bg-gray-300': type.split(' ').join('') !== form['HeadsetType'],
-                    'bg-green-300': type.split(' ').join('') === form['HeadsetType']
-                  }">
-                  {{type}}
-                </div>
-              </div>
-            </div>
+            <SetupChoiceSelection
+              :title="'Station Mode'"
+              :choices="['Appliance', 'Content', ...(steamCMD ? ['VR'] : [])]"
+              v-model="form.StationMode"
+              :v$="v$.form.StationMode" />
           </div>
 
           <div v-if="pageNum === 2" class="my-4 mx-5 flex flex-col">

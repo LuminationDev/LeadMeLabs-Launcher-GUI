@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive } from "vue";
+import {computed, ref, reactive, watch} from "vue";
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
@@ -7,6 +7,8 @@ import ManualProgress from "../components/loading/ManualProgress.vue";
 import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
 import SetupDoubleInput from "../components/forms/SetupDoubleInput.vue";
 import SetupNavigation from "../components/forms/SetupNavigation.vue";
+import useVuelidate from "@vuelidate/core";
+import { required, helpers } from "@vuelidate/validators";
 import { useLibraryStore } from '../store/libraryStore';
 
 const libraryStore = useLibraryStore()
@@ -15,6 +17,43 @@ const pageNum = ref(0);
 const back = ref(false);
 const saved = ref(false);
 const novaStar = ref(false);
+
+const rules = {
+  form: {
+    AppKey: {
+      required: helpers.withMessage("Encryption key is required", required),
+      $autoDirty: true
+    },
+    LabLocation: {
+      required: helpers.withMessage("LabLocation is required", required),
+      $autoDirty: true
+    },
+    CbusIP: {
+      required: helpers.withMessage("CbusIP is required", required),
+      $autoDirty: true
+    },
+    CbusNucScriptId: {
+      required: helpers.withMessage("CbusNucScriptId is required", required),
+      $autoDirty: true
+    },
+    CbusLogin: {
+      required: helpers.withMessage("CbusLogin is required", required),
+      $autoDirty: true
+    },
+    CbusPassword: {
+      required: helpers.withMessage("CbusPassword is required", required),
+      $autoDirty: true
+    },
+    NovaStarLogin: {
+      required: helpers.withMessage("NovaStarLogin is required", required),
+      $autoDirty: true
+    },
+    NovaStarPassword: {
+      required: helpers.withMessage("NovaStarPassword is required", required),
+      $autoDirty: true
+    },
+  }
+}
 
 const form = reactive({
   AppKey: '',
@@ -27,28 +66,38 @@ const form = reactive({
   NovaStarPassword: '',
 });
 
-const handleSubmit = () => {
-  // handle form submission here
-  //Transform the form into the useful information
-  const data = form;
+const v$ = useVuelidate(rules, { form });
 
-  data['CbusLogin'] = `${form.CbusLogin}:${form.CbusPassword}`;
-  delete data['CbusPassword'];
+/**
+ * Transform the reactive form into the necessary format to satisfy the JSON string the backend requires.
+ */
+const transformForm = () => {
+  const data = { ...form };
+  data.CbusLogin = `${form.CbusLogin}:${form.CbusPassword}`;
+  delete data.CbusPassword;
 
-  //Add or remove the NovaStar details depending on if they exist
-  if(novaStar.value && form.NovaStarLogin && form.NovaStarPassword) {
-    data['NovaStarLogin'] = `${form.NovaStarLogin}:${form.NovaStarPassword}`;
-    delete data['NovaStarPassword'];
+  if (novaStar.value) {
+    data.NovaStarLogin = `${form.NovaStarLogin}:${form.NovaStarPassword}`;
+    delete data.NovaStarPassword;
   } else {
-    delete data['NovaStarLogin'];
-    delete data['NovaStarPassword'];
+    data.NovaStarLogin = null;
+    data.NovaStarPassword = null;
   }
+
+  return data;
+};
+
+const handleSubmit = async () => {
+  const result = await v$.value.$validate();
+  if (!result) { return; }
+
+  const data = transformForm();
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
     channelType: CONSTANT.CONFIG_APPLICATION,
     name: libraryStore.getSelectedApplication.name,
-    value: JSON.stringify(data)
+    value: JSON.stringify(data),
   });
 
   saved.value = true;
@@ -58,29 +107,65 @@ const handleSubmit = () => {
  * Calculate the amount of nuc inputs to track progress.
  */
 const keys = reactive(Object.keys(form));
+// Computed property that returns the length of the form
 const progress = computed(() => {
-  let formLength = novaStar.value ? keys.length : keys.length - 2;
-
-  if(saved.value) {
-    formLength -= 1;
-  }
-
-  let completed = 0;
-
-  for (const key of keys) {
-    if (form[key] !== '' && form[key] !== undefined) {
-      completed++;
-    }
-  }
-
+  const formLength = novaStar.value ? keys.length : keys.length - 2;
+  const completed = keys.filter(key => form[key] !== '' && form[key] !== undefined).length;
   return Math.round((completed / formLength) * 100);
 });
 
 /**
+ * Trigger an event when novaStar changes, empty the form values so the progress is re-calculated
+ */
+watch(novaStar, (newVal) => {
+  if(!newVal) {
+    form.NovaStarLogin = '';
+    form.NovaStarPassword = '';
+  }
+});
+
+/**
+ * Validate certain fields that are passed in.
+ * @param fieldNames An array of fields to validate for a particular page.
+ */
+function createValidator(fieldNames: string[]): () => boolean {
+  return () => {
+    for (const fieldName of fieldNames) {
+      v$.value.form[fieldName].$touch();
+      if (v$.value.form[fieldName].$error) {
+        return false;
+      }
+    }
+    return true;
+  };
+}
+
+// Computed property that returns the list of fields to validate for page two
+const pageTwoFields = computed(() => [
+  'CbusLogin',
+  'CbusPassword',
+  ...(novaStar.value ? ['NovaStarLogin', 'NovaStarPassword'] : []),
+]);
+
+const validatePageOne = () => createValidator(['AppKey', 'LabLocation', 'CbusIP', 'CbusNucScriptId'])();
+const validatePageTwo = () => createValidator(pageTwoFields.value)();
+
+/**
  * Change the page if the current items pass validation.
  */
-function changePage(forward: boolean) {
-  forward ? pageNum.value++ : pageNum.value--;
+async function changePage(forward: boolean) {
+  //Allowed to go backwards whenever
+  if (!forward) {
+    pageNum.value--;
+    return;
+  }
+
+  const validators = [validatePageOne, validatePageTwo];
+  if (validators[pageNum.value] && !validators[pageNum.value]()) {
+    return;
+  }
+
+  pageNum.value++;
 }
 
 function openModal() {
@@ -118,10 +203,10 @@ function closeModal() {
         <!--A basic form separated into different pages-->
         <form @submit.prevent class="mt-4 mx-5">
           <div v-if="pageNum === 0" class="mt-4 mx-5 flex flex-col">
-            <SetupSingleInput :title="'Encryption Key'" :placeholder="'XXXX_0000'" v-model="form.AppKey"/>
-            <SetupSingleInput :title="'Lab Location'" :placeholder="'Thebarton'" v-model="form.LabLocation"/>
-            <SetupSingleInput :title="'CBus IP Address'" :placeholder="'192.168.0.100'" v-model="form.CbusIP"/>
-            <SetupSingleInput :title="'CBus Nuc Script Id'" :placeholder="'4194305000'" v-model="form.CbusNucScriptId"/>
+            <SetupSingleInput :title="'Encryption Key'" :placeholder="'XXXX_0000'" :v$="v$.form.AppKey" v-model="form.AppKey"/>
+            <SetupSingleInput :title="'Lab Location'" :placeholder="'Thebarton'" :v$="v$.form.LabLocation" v-model="form.LabLocation"/>
+            <SetupSingleInput :title="'CBus IP Address'" :placeholder="'192.168.0.100'" :v$="v$.form.CbusIP" v-model="form.CbusIP"/>
+            <SetupSingleInput :title="'CBus Nuc Script Id'" :placeholder="'4194305000'" :v$="v$.form.CbusNucScriptId" v-model="form.CbusNucScriptId"/>
           </div>
 
           <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
@@ -131,6 +216,8 @@ function closeModal() {
                 :placeholderTwo="'password'"
                 v-model:input-one="form.CbusLogin"
                 v-model:input-two="form.CbusPassword"
+                :v$One="v$.form.CbusLogin"
+                :v$Two="v$.form.CbusPassword"
             />
 
             <SetupDoubleInput
@@ -139,6 +226,8 @@ function closeModal() {
                 :placeholderTwo="'password'"
                 v-model:input-one="form.NovaStarLogin"
                 v-model:input-two="form.NovaStarPassword"
+                :v$One="v$.form.NovaStarLogin"
+                :v$Two="v$.form.NovaStarPassword"
                 :optional="true"
                 v-model:visible="novaStar"
             />
