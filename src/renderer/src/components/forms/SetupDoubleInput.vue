@@ -48,10 +48,10 @@ defineProps({
     </label>
 
     <div class="items-center">
-      <label for="includeNova" class="text-xs mr-2">Include</label>
+      <label for="optional" class="text-xs mr-2">Include</label>
       <input
           type="checkbox"
-          id="includeNova"
+          id="optional"
           :checked="visible"
           @input="$emit('update:visible', $event.target.checked)" >
     </div>
