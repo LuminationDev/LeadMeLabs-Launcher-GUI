@@ -6,11 +6,11 @@ import * as CONSTANT from "../assets/constants/_application";
 import ManualProgress from "../components/loading/ManualProgress.vue";
 import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
 import SetupDoubleInput from "../components/forms/SetupDoubleInput.vue";
+import SetupChoiceSelection from "../components/forms/SetupChoiceSelection.vue";
 import SetupNavigation from "../components/forms/SetupNavigation.vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
 import { useLibraryStore } from '../store/libraryStore';
-import SetupChoiceSelection from "../components/forms/SetupChoiceSelection.vue";
 
 const libraryStore = useLibraryStore()
 const showStationModal = ref(false);
@@ -83,6 +83,7 @@ function configureSteamCMD() {
 }
 
 const handleSubmit = async () => {
+  // @ts-ignore
   const result = await v$.value.$validate();
   if (!result) { return; }
 
@@ -126,7 +127,9 @@ watch(steamCMD, (newVal) => {
 function createValidator(fieldNames: string[]): () => boolean {
   return () => {
     for (const fieldName of fieldNames) {
+      // @ts-ignore
       v$.value.form[fieldName].$touch();
+      // @ts-ignore
       if (v$.value.form[fieldName].$error) {
         return false;
       }

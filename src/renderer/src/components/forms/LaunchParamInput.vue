@@ -1,28 +1,26 @@
 <script setup lang="ts">
-import { ref, defineEmits } from "vue";
+import { ref } from "vue";
 
 const collapse = ref(false);
 
 defineProps({
+  id: {
+    type: Number,
+    required: true,
+  },
   paramInput: {
     type: Object,
     required: true,
   },
+  keyError: {
+    type: Boolean,
+    required: true,
+  },
+  valueError: {
+    type: Boolean,
+    required: true,
+  },
 });
-
-const emit = defineEmits(['update', 'add-key', 'remove-input']);
-
-function updateValue(newValue) {
-  emit('update', newValue)
-}
-
-function updateKey(newKey) {
-  emit('add-key', newKey)
-}
-
-function removeInput() {
-  emit('remove-input')
-}
 </script>
 
 <template>
@@ -39,24 +37,40 @@ function removeInput() {
         </div>
           <div
               class="ml-4 mr-2 text-lg text-red-600 font-semibold cursor-pointer"
-              v-on:click="removeInput"
+              v-on:click="$emit('remove-input')"
           >X</div>
       </div>
     </div>
 
-    <div
-        class="flex flex-col"
-        :class="{'hidden': collapse}">
+    <div class="flex flex-col">
+
       <input
-          :value="paramInput.key" @input="updateKey($event.target.value)"
+          :value="paramInput.key" @input="$emit('update-key', $event.target.value)"
           class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+          :class="{
+            'border-red-800 focus:border-red-900': keyError,
+            'hidden': collapse
+          }"
           placeholder="key"
-          required />
+          @blur="$emit('change-validation', id, 'key', paramInput.key === '')" />
+
+      <div class="flex flex-col items-end mr-2" v-if="keyError">
+        <div class="text-red-800 text-xs">A key is required.</div>
+      </div>
+
       <input
-          :value="paramInput.value" @input="updateValue($event.target.value)"
+          :value="paramInput.value" @input="$emit('update-value', $event.target.value)"
           class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
+          :class="{
+            'border-red-800 focus:border-red-900': valueError,
+            'hidden': collapse
+          }"
           placeholder="value"
-          required />
+          @blur="$emit('change-validation', id, 'value', paramInput.value === '')" />
+
+      <div class="flex flex-col items-end mr-2" v-if="valueError">
+        <div class="text-red-800 text-xs">A value is required.</div>
+      </div>
     </div>
   </div>
 </template>

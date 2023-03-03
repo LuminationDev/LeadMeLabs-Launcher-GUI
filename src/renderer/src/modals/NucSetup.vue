@@ -88,6 +88,7 @@ const transformForm = () => {
 };
 
 const handleSubmit = async () => {
+  // @ts-ignore
   const result = await v$.value.$validate();
   if (!result) { return; }
 
@@ -131,7 +132,9 @@ watch(novaStar, (newVal) => {
 function createValidator(fieldNames: string[]): () => boolean {
   return () => {
     for (const fieldName of fieldNames) {
+      // @ts-ignore
       v$.value.form[fieldName].$touch();
+      // @ts-ignore
       if (v$.value.form[fieldName].$error) {
         return false;
       }
