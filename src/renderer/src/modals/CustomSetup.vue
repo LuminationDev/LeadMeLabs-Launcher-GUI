@@ -3,8 +3,8 @@ import {computed, reactive, ref} from "vue";
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
-import { useLibraryStore } from '../store/libraryStore'
 import LaunchParamInput from "../components/forms/LaunchParamInput.vue";
+import { useLibraryStore } from '../store/libraryStore'
 
 const libraryStore = useLibraryStore()
 const showCustomModal = ref(false);
@@ -14,6 +14,8 @@ const back = ref(false);
 
 //Empty form for parameters
 const form = reactive({});
+//Handle adding extra form inputs
+const paramInputs = ref([])
 
 //Load in any previously saved values
 const params = computed(() => {
@@ -26,19 +28,61 @@ const params = computed(() => {
   return customParams;
 });
 
-//Handle adding extra form inputs
-const paramInputs = ref([])
+/**
+ * Change the validation error field on a particular dynamic input. Triggered by a Blur event on a
+ * LaunchParamInput component.
+ * @param id A number of the id of the input field.
+ * @param field A string of the field type, 'key' or 'value'.
+ * @param invalid A boolean of if it is invalid.
+ */
+function changeValidation(id: number, field: string, invalid: boolean) {
+  const input = paramInputs.value.find((input) => input.id === id);
+  if (input) {
+    input[field + 'Error'] = invalid;
+  }
+}
+
+/**
+ * Loop through all dynamic fields and check if they are valid.
+ * @return A boolean representing if all the dynamic fields are valid.
+ */
+function areAllFieldsValid(): boolean {
+  for(const input in paramInputs.value) {
+    if(paramInputs.value[input].key === '') {
+      paramInputs.value[input].keyError = true;
+      return false;
+    }
+
+    if(paramInputs.value[input].value === '') {
+      paramInputs.value[input].valueError = true;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Add a new pair of input fields only if the current are valid.
+ */
+function addNewInput() {
+  if(!areAllFieldsValid()) {
+    return;
+  }
+
+  addParamInput('', '');
+}
 
 function addParamInput(key: string, value: string) {
   generateKey(key, value);
-  paramInputs.value.push({ id: paramID.value, key: key, value: value });
+  paramInputs.value.push({ id: paramID.value, key: key, value: value, keyError: false, valueError: false });
 }
 
 function generateKey(key: string, value: string) {
   form[`paramInput${++paramID.value}`] = { key: key, value: value };
 }
 
-function addKey(newKey, index, id) {
+function updateKey(newKey, index, id) {
   form[`paramInput${id}`]['key'] = newKey;
   paramInputs.value[index].key = newKey;
 }
@@ -61,6 +105,10 @@ function removeInput(id) {
 }
 
 const handleSubmit = () => {
+  if(!areAllFieldsValid()) {
+    return;
+  }
+
   // @ts-ignore
   const paramInputsDict: Record<string, string> = Object.values(form).reduce((dict, { key, value }) => {
     dict[key] = value
@@ -101,7 +149,7 @@ function clearENV() {
     delete form[key]
   });
 
-  addParamInput('Key', 'Value');
+  addParamInput('', '');
 }
 
 function start() {
@@ -110,7 +158,7 @@ function start() {
   }
 
   if(paramInputs.value.length === 0) {
-    addParamInput('Key', 'Value');
+    addParamInput('', '');
   }
 
   pageNum.value++
@@ -163,7 +211,6 @@ function closeModal() {
       </template>
 
       <template v-slot:content>
-
         <div v-if="pageNum === 0" class="flex flex-col items-center">
           <div class="w-128 px-10 pt-4 mb-4 text-center">
             The following wizard sets launch parameters in the manifest file. Parameters be will
@@ -186,16 +233,20 @@ function closeModal() {
           <div class="max-h-96 overflow-y-auto flex flex-col">
             <div v-for="(paramInput, index) in paramInputs" :key="paramInput.id">
               <LaunchParamInput
+                  :id="paramInput.id"
                   :paramInput="paramInput"
-                  @update="updateParamInput($event, index, paramInput.id)"
-                  @add-key="addKey($event, index, paramInput.id)"
+                  :key-error="paramInput.keyError"
+                  :value-error="paramInput.valueError"
+                  @change-validation="changeValidation"
+                  @update-value="updateParamInput($event, index, paramInput.id)"
+                  @update-key="updateKey($event, index, paramInput.id)"
                   @remove-input="removeInput(paramInput.id)"/>
             </div>
           </div>
           <div class="flex justify-end">
             <button
                 class="h-8 w-24 px-3 mt-2 mb-4 mr-2 rounded-lg bg-primary text-white hover:bg-blue-400"
-                v-on:click="addParamInput('', '')"
+                v-on:click="addNewInput"
             >Add</button>
             <button
                 type="submit"
