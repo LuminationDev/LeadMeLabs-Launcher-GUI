@@ -18,5 +18,7 @@ export const APPLICATION_PARAMETERS = 'launch_parameters'
 export const APPLICATION_AUTOSTART = 'autostart_application'
 export const APPLICATION_SCHEDULER = 'schedule_application'
 
-export const CONFIG_APPLICATION = 'config_application'
+export const CONFIG_APPLICATION_RETURN = 'application_config'
+export const CONFIG_APPLICATION_SET = 'set_config_application'
+export const CONFIG_APPLICATION_GET = 'get_config_application'
 export const CONFIG_APPLICATION_STEAMCMD = 'config_steamcmd'

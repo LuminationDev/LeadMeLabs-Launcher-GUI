@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { Application } from '../models'
 import * as CONSTANTS from '../assets/constants/_application';
-import { ref } from "vue";
+import {reactive, ref} from "vue";
 
 //Preset applications - Use this as an example of the LeadMe ID Library?
 const values = {
@@ -40,6 +40,7 @@ export const useLibraryStore = defineStore({
     state: () => ({
         selectedApplication: '',
         applicationParameters: {},
+        applicationSetup: reactive([]),
         applications: ref(new Map<string, Application>(Object.entries(values)))
     }),
     actions: {
@@ -108,5 +109,9 @@ export const useLibraryStore = defineStore({
         getSelectedApplication(): Application | undefined {
             return this.applications.get(this.selectedApplication)
         },
+
+        getSetupConfig(): string[] {
+            return this.applicationSetup;
+        }
     }
 });

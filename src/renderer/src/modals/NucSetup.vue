@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, reactive, watch} from "vue";
+import { computed, ref, reactive, watch } from "vue";
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
@@ -66,6 +66,38 @@ const form = reactive({
   NovaStarPassword: '',
 });
 
+//Keep track of any previously saved values for this experience.
+const setupParams = computed(() => libraryStore.applicationSetup);
+watch(setupParams, (newValue) => {
+  if(newValue.length === 0) {
+    return;
+  }
+
+  newValue.forEach(value => {
+    console.log(value);
+    let values = value.split("=");
+    let details;
+
+    switch(values[0]) {
+      case "CbusLogin":
+        details = values[1].split(":");
+        form.CbusLogin = details[0];
+        form.CbusPassword = details[1];
+        break
+
+      case "NovaStarLogin":
+        details = values[1].split(":");
+        form.NovaStarLogin = details[0];
+        form.NovaStarPassword = details[1];
+        novaStar.value = true;
+        break
+
+      default:
+        form[values[0]] = values[1];
+    }
+  });
+});
+
 const v$ = useVuelidate(rules, { form });
 
 /**
@@ -76,27 +108,23 @@ const transformForm = () => {
   data.CbusLogin = `${form.CbusLogin}:${form.CbusPassword}`;
   delete data.CbusPassword;
 
-  if (novaStar.value) {
+  if(novaStar.value) {
     data.NovaStarLogin = `${form.NovaStarLogin}:${form.NovaStarPassword}`;
     delete data.NovaStarPassword;
   } else {
-    data.NovaStarLogin = null;
-    data.NovaStarPassword = null;
+    delete data.NovaStarLogin;
+    delete data.NovaStarPassword;
   }
 
   return data;
 };
 
 const handleSubmit = async () => {
-  // @ts-ignore
-  const result = await v$.value.$validate();
-  if (!result) { return; }
-
   const data = transformForm();
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION,
+    channelType: CONSTANT.CONFIG_APPLICATION_SET,
     name: libraryStore.getSelectedApplication.name,
     value: JSON.stringify(data),
   });
@@ -172,6 +200,12 @@ async function changePage(forward: boolean) {
 }
 
 function openModal() {
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.CONFIG_APPLICATION_GET,
+    name: libraryStore.getSelectedApplication.name
+  });
+
   showNucModal.value = true;
 }
 
@@ -242,7 +276,7 @@ function closeModal() {
             </label>
 
             <div v-for="(key, index) in Object.keys(form)" :key="index">
-              <div v-if="!key.includes('NovaStar')">
+              <div v-if="!['NovaStar', 'TIME_CREATED'].some(k => key.includes(k))">
                 {{key}} = {{form[key]}}
               </div>
               <div v-else-if="novaStar && key.includes('NovaStar')">

@@ -57,6 +57,13 @@ api.ipcRenderer.on('app_manifest_query', (event, application: any) => {
   console.log(application);
   libraryStore.applicationParameters = application.params;
 });
+
+//Populate the libraryStore with an applications current config
+// @ts-ignore
+api.ipcRenderer.on(CONSTANT.CONFIG_APPLICATION_RETURN, (event, info: any) => {
+  console.log(info);
+  libraryStore.applicationSetup = info.data;
+});
 </script>
 
 <template>

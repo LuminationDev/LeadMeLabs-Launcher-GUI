@@ -1,15 +1,27 @@
 <script setup lang="ts">
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
-import { useLibraryStore } from '../store/libraryStore'
 import * as CONSTANT from "../assets/constants/_application";
 import { Application } from "../models";
 import { ref } from "vue";
+import useVuelidate from "@vuelidate/core";
+import { required, helpers } from "@vuelidate/validators";
+import { useLibraryStore } from '../store/libraryStore'
+import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
 
 const libraryStore = useLibraryStore()
 const showImportModal = ref(false);
 const name = ref("");
 const fileInput = ref<HTMLInputElement | null>(null)
+
+const rules = {
+  name: {
+    required: helpers.withMessage("File name is required", required),
+    $autoDirty: true
+  }
+}
+
+const v$ = useVuelidate(rules, { name });
 
 const importApplication = (): void => {
   let altPath = fileInput.value.files[0]["path"];
@@ -76,14 +88,7 @@ function closeModal() {
 
       <template v-slot:content>
         <div class="flex flex-col mt-4 mx-5">
-          <label>
-            Experience Name
-          </label>
-          <input
-              v-model="name"
-              class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
-              placeholder="My Experience"
-              required />
+          <SetupSingleInput :title="'Experience Name'" :placeholder="'My Experience'" :v$="v$.name" v-model="name"/>
 
           <div class="flex justify-center">
             <label
