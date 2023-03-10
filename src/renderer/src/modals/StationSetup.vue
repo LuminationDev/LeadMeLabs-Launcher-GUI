@@ -84,6 +84,10 @@ watch(setupParams, (newValue) => {
     let values = value.split("=");
 
     form[values[0]] = values[1];
+
+    if(values[0].includes("Steam")) {
+      steamCMD.value = true;
+    }
   });
 });
 
@@ -92,7 +96,9 @@ const v$ = useVuelidate(rules, { form });
 function configureSteamCMD() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD
+    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD,
+    username: form.SteamUserName,
+    password: form.SteamPassword
   });
   closeModal();
 }
@@ -289,7 +295,7 @@ function closeModal() {
               <div v-if="!['Steam', 'Headset', 'TIME_CREATED'].some(k => key.includes(k))">
                 {{key}} = {{form[key]}}
               </div>
-              <div v-else-if="steamCMD && key.includes('Steam') && key.includes('Headset')">
+              <div v-else-if="steamCMD && (key.includes('Steam') || key.includes('Headset'))">
                 {{key}} = {{form[key]}}
               </div>
             </div>

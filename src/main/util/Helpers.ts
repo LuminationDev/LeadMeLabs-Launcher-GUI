@@ -57,28 +57,31 @@ export default class Helpers {
                     void this.downloadApplication(_event, info);
                     break;
                 case "config_steamcmd":
-                    this.configureSteamCMD(_event, info);
+                    void this.configureSteamCMD(_event, info);
                     break;
                 case "launch_parameters":
-                    this.setManifestAppParameters(_event, info);
+                    void this.setManifestAppParameters(_event, info);
                     break;
                 case "autostart_application":
-                    this.setManifestAutoStart(_event, info);
+                    void this.setManifestAutoStart(_event, info);
                     break;
                 case "query_installed_applications":
-                    this.installedApplications(_event, info);
+                    void this.installedApplications(_event, info);
                     break;
                 case "query_manifest_app":
-                    this.getLaunchParameters(_event, info);
+                    void this.getLaunchParameters(_event, info);
                     break;
                 case "delete_application":
-                    this.deleteApplication(_event, info);
+                    void this.deleteApplication(_event, info);
                     break;
                 case "launch_application":
                     void this.launchApplication(_event, info);
                     break;
+                case "stop_application":
+                    void this.killAProcess(info.name, false);
+                    break;
                 case "set_config_application":
-                    this.configApplication(_event, info);
+                    void this.configApplication(_event, info);
                     break;
                 case "get_config_application":
                     this.getApplicationConfig(_event, info);
@@ -215,8 +218,8 @@ export default class Helpers {
      * There are extra download criteria associated with the Station and NUC software. This function handles the downloading
      * and folder creation required for installation.
      */
-    extraDownloadCriteria(appName: string, directoryPath: string): void {
-        const encryptedData = Encryption.encryptData(`TIME_CREATED=${new Date()}`);
+    async extraDownloadCriteria(appName: string, directoryPath: string): Promise<void> {
+        const encryptedData = await Encryption.encryptData(`TIME_CREATED=${new Date()}`);
 
         //If installing the Station or NUC software edit the .env file with the time created
         fs.writeFile(join(directoryPath, '_config/config.env'), encryptedData, function (err) {
@@ -300,7 +303,7 @@ export default class Helpers {
      * Open up SteamCMD for the first time, installing and updating the components and passing the default Steam experience
      * location and the login parameters, this will pause on the Steam Guard step.
      */
-    configureSteamCMD(_event: IpcMainEvent, _: any) {
+    async configureSteamCMD(_event: IpcMainEvent, info: any) {
         //The launcher directory path
         const directoryPath = join(this.appDirectory, 'Station')
 
@@ -308,21 +311,28 @@ export default class Helpers {
         const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
         fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
-        //Find the local steam variables
-        const config = join(this.appDirectory, 'Station/_config/config.env');
+        let steamUserName: string;
+        let steamPassword: string
 
-        //Read the file and remove any previous entries for the same item
-        const data = fs.readFileSync(config, {encoding: 'utf-8'});
-        const decryptedData = Encryption.decryptData(data);
-        let dataArray = decryptedData.split('\n'); // convert file data in an array
+        //Use the provided variables or use the locally saved ones
+        if(info.username !== undefined && info.password !== undefined) {
+            steamUserName = info.username;
+            steamPassword = info.password;
+        } else {
+            //Find the local steam variables
+            const config = join(this.appDirectory, 'Station/_config/config.env');
 
-        // looking for a line that contains the Steam username and password, split the line to get the value.
-        const usernameKeyword = "SteamUserName";
-        const steamUserName: string = dataArray.filter(line => line.startsWith(usernameKeyword))[0].split("=")[1];
+            const data = fs.readFileSync(config, {encoding: 'utf-8'});
+            const decryptedData = await Encryption.decryptData(data);
+            let dataArray = decryptedData.split('\n'); // convert file data in an array
 
-        const passwordKeyword = "SteamPassword";
-        const steamPassword: string = dataArray.filter(line => line.startsWith(passwordKeyword))[0].split("=")[1];
+            // looking for a line that contains the Steam username and password, split the line to get the value.
+            const usernameKeyword = "SteamUserName";
+            steamUserName = dataArray.filter(line => line.startsWith(usernameKeyword))[0].split("=")[1];
 
+            const passwordKeyword = "SteamPassword";
+            steamPassword = dataArray.filter(line => line.startsWith(passwordKeyword))[0].split("=")[1];
+        }
 
         if (steamUserName === null || steamPassword === null) {
             this.mainWindow.webContents.send('status_update', {
@@ -345,7 +355,7 @@ export default class Helpers {
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
      */
-    updateAppManifest(appName: string, type: string, altPath: string|null): string {
+    async updateAppManifest(appName: string, type: string, altPath: string|null): Promise<string> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
@@ -361,13 +371,20 @@ export default class Helpers {
         //Check if the file exists
         const exists = fs.existsSync(filePath);
 
+        console.log(exists);
+
         if (exists) {
             try {
-                const objects: Array<AppEntry> = this.readObjects(filePath);
+                console.log("DOES EXIST");
+
+                const objects: Array<AppEntry> = await this.readObjects(filePath);
+
+                console.log(objects);
+
                 appJSON.id = this.generateUniqueId(objects);
 
                 objects.push(appJSON);
-                this.writeObjects(filePath, objects);
+                await this.writeObjects(filePath, objects);
             } catch (err) {
                 this.mainWindow.webContents.send('status_update', {
                     name: 'Manifest',
@@ -378,11 +395,13 @@ export default class Helpers {
             return appJSON.id;
         }
 
+        console.log("DOES NOT EXIST");
+
         const objects: Array<AppEntry> = [];
         appJSON.id = this.generateUniqueId(objects);
 
         objects.push(appJSON);
-        this.writeObjects(filePath, objects);
+        await this.writeObjects(filePath, objects);
 
         return appJSON.id;
     }
@@ -402,11 +421,14 @@ export default class Helpers {
     /**
      * Function to read the objects from a JSON file.
      */
-    readObjects = (filename: string): Array<AppEntry> => {
+    readObjects = async (filename: string): Promise<Array<AppEntry>> => {
         if (fs.existsSync(filename)) {
             const data = fs.readFileSync(filename, 'utf-8');
-            const decryptedData = Encryption.decryptData(data);
+            if(data.length === 0) {
+                return [];
+            }
 
+            const decryptedData = await Encryption.decryptData(data);
             return JSON.parse(decryptedData);
         }
         return [];
@@ -415,8 +437,8 @@ export default class Helpers {
     /**
      * Function to write the objects to a JSON file
      */
-    writeObjects = (filename: string, jsonArray: Array<AppEntry>) => {
-        const encryptedData = Encryption.encryptData(JSON.stringify(jsonArray));
+    writeObjects = async (filename: string, jsonArray: Array<AppEntry>) => {
+        const encryptedData = await Encryption.encryptData(JSON.stringify(jsonArray));
 
         //Create the file and write the new application entry in
         fs.writeFile(filename, encryptedData, (err) => {
@@ -455,8 +477,8 @@ export default class Helpers {
      * @param filePath A string of the path to the manifest.
      * @param name A string of the application name to be searched for.
      */
-    collectManifestEntry(filePath: string, name: string): readonly [Array<AppEntry> | undefined, AppEntry | undefined] {
-        const jsonArray: Array<AppEntry> = this.readObjects(filePath);
+    async collectManifestEntry(filePath: string, name: string): Promise<readonly [Array<AppEntry> | undefined, AppEntry | undefined]> {
+        const jsonArray: Array<AppEntry> = await this.readObjects(filePath);
 
         //Check if the application exists
         console.log(jsonArray);
@@ -479,12 +501,12 @@ export default class Helpers {
      * Update an applications entry in the manifest file with the supplied launch parameters, these can be login
      * credentials or start up parameters etc.
      */
-    setManifestAppParameters(_event: IpcMainEvent, info: any): void {
+    async setManifestAppParameters(_event: IpcMainEvent, info: any): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
         if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = this.collectManifestEntry(filePath, info.name);
+            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
             if(jsonArray === undefined || entry === undefined) return;
 
             //Update the entry or remove them
@@ -506,7 +528,7 @@ export default class Helpers {
                 }
             }
 
-            this.writeObjects(filePath, jsonArray);
+            await this.writeObjects(filePath, jsonArray);
         } catch (err) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -519,18 +541,18 @@ export default class Helpers {
      * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
      * opened.
      */
-    setManifestAutoStart(_event: IpcMainEvent, info: any): void {
+    async setManifestAutoStart(_event: IpcMainEvent, info: any): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
         if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = this.collectManifestEntry(filePath, info.name);
+            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
             if(jsonArray === undefined || entry === undefined) return;
 
             //Update the entry
             entry.autostart = info.autostart;
 
-            this.writeObjects(filePath, jsonArray);
+            await this.writeObjects(filePath, jsonArray);
         } catch (err) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -543,10 +565,10 @@ export default class Helpers {
      * Get the launch parameters values that may be assigned to an application from the manifest file.
      * @param appName A string of the experience name being searched for.
      */
-    getLaunchParameterValues(appName: string): string[] {
+    async getLaunchParameterValues(appName: string): Promise<string[]> {
         let params: string[] = [];
 
-        const app = this.getManifestDetails(appName);
+        const app = await this.getManifestDetails(appName);
         if(app === undefined) return params;
         if(app.parameters === undefined || app.parameters === null) return params;
 
@@ -561,10 +583,10 @@ export default class Helpers {
      * Get the launch parameters that may be assigned to an application from the manifest file. Sending the information
      * back to the front end for a live update.
      */
-    getLaunchParameters(_event: IpcMainEvent, info: any): void {
+    async getLaunchParameters(_event: IpcMainEvent, info: any): Promise<void> {
         let params = {};
 
-        const app = this.getManifestDetails(info.applicationName);
+        const app = await this.getManifestDetails(info.applicationName);
         if(app === undefined) return;
         if(app.parameters === undefined || app.parameters === null) return;
 
@@ -582,9 +604,9 @@ export default class Helpers {
      * Get the manifest details for a specific application.
      * @param appName A string of the experience name being searched for.
      */
-    getManifestDetails(appName: string): AppEntry|undefined {
+    async getManifestDetails(appName: string): Promise<AppEntry | undefined> {
         const filePath = join(this.appDirectory, 'manifest.json');
-        const objects: Array<AppEntry> = this.readObjects(filePath);
+        const objects: Array<AppEntry> = await this.readObjects(filePath);
 
         return objects.find(obj => obj.name == appName);
     }
@@ -592,7 +614,7 @@ export default class Helpers {
     /**
      * On start up detect what Applications are currently installed on the local machine.
      */
-    installedApplications(_event: IpcMainEvent, _: any): void {
+    async installedApplications(_event: IpcMainEvent, _: any): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists
@@ -601,7 +623,7 @@ export default class Helpers {
         //Search the local manifest for installed experiences
         if(exists) {
             try {
-                const installed: Array<AppEntry> = this.readObjects(filePath);
+                const installed: Array<AppEntry> = await this.readObjects(filePath);
 
                 this.mainWindow.webContents.send('applications_installed', installed);
                 return;
@@ -624,10 +646,10 @@ export default class Helpers {
     /**
      * Delete an application, including all sub folders and saved data.
      */
-    deleteApplication(_event: IpcMainEvent, info: any): void {
+    async deleteApplication(_event: IpcMainEvent, info: any): Promise<void> {
         //If true the application is an imported one
         if(info.altPath != '') {
-            this.removeFromAppManifest(info.name);
+            await this.removeFromAppManifest(info.name);
 
             //Send back the new application and its assigned ID
             this.mainWindow.webContents.send('application_imported', {
@@ -640,11 +662,11 @@ export default class Helpers {
         else {
             const directoryPath = join(this.appDirectory, info.name)
 
-            this.killAProcess(info.name);
+            this.killAProcess(info.name, true);
 
             fs.rmSync(directoryPath, { recursive: true, force: true });
 
-            this.removeFromAppManifest(info.name);
+            await this.removeFromAppManifest(info.name);
 
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
@@ -657,7 +679,7 @@ export default class Helpers {
      * Remove an entry from the manifest, this may occur when an application has been deleted or moved.
      * @param appName A string of the experience name being removed from the manifest.
      */
-    removeFromAppManifest(appName: string): void {
+    async removeFromAppManifest(appName: string): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists
@@ -671,12 +693,12 @@ export default class Helpers {
         }
 
         try {
-            let jsonArray: Array<AppEntry> = this.readObjects(filePath);
+            let jsonArray: Array<AppEntry> = await this.readObjects(filePath);
 
             //Remove the entry from the list
             jsonArray = jsonArray.filter(entry => entry.name !== appName)
 
-            this.writeObjects(filePath, jsonArray);
+            await this.writeObjects(filePath, jsonArray);
         } catch (err) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -689,7 +711,7 @@ export default class Helpers {
      * Launch a requested application.
      */
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        this.killAProcess(info.name);
+        this.killAProcess(info.name, true);
 
         if(info.name == "Station" || info.name == "NUC") {
             await this.updateLeadMeApplication(info.name);
@@ -847,7 +869,7 @@ export default class Helpers {
      * Update an env file that is associated with the Station or NUC applications. If there is a previous entry for a value
      * with the same key override that key/value pair.
      */
-    configApplication(_event: IpcMainEvent, info: any): void {
+    async configApplication(_event: IpcMainEvent, info: any): Promise<void> {
         const config = join(this.appDirectory, `${info.name}/_config/config.env`)
         const data = JSON.parse(info.value);
 
@@ -857,7 +879,7 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = Encryption.encryptData(newDataArray.join('\n'));
+        const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
 
         fs.writeFile(config, encryptedData, (err) => {
             if (err) throw err;
@@ -872,8 +894,8 @@ export default class Helpers {
         const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
         //Read the file and remove any previous entries for the same item
-        fs.readFile(config, {encoding: 'utf-8'}, (err, data) => {
-            const decryptedData = Encryption.decryptData(data);
+        fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
+            const decryptedData = await Encryption.decryptData(data);
 
             let dataArray = decryptedData.split('\n'); // convert file data in an array
 
@@ -980,12 +1002,12 @@ export default class Helpers {
         });
     }
 
-    //TODO not working properly
     /**
      * Stop a running process on the local machine.
      * @param appName A string of the process to stop.
+     * @param backend A boolean for if this was triggered from the frontend of backend.
      */
-    killAProcess(appName: string): void {
+    killAProcess(appName: string, backend: boolean): void {
         const isWindows = process.platform === 'win32';
 
         // Use `taskkill` on Windows, `pkill` otherwise
@@ -993,13 +1015,19 @@ export default class Helpers {
 
         //Execute the command to find and kill the process by its name - it will not remove the directory
         //if the process is still running.
-        exec(`${killCommand} ${appName}`, (error) => {
+        exec(`${killCommand} ${appName}.exe`, (error) => {
             if (error) {
                 console.error(`Error executing command: ${error}`);
                 return;
             }
 
             console.log(`Process "${appName}" has been closed successfully.`);
+
+            if(!backend) {
+                this.mainWindow.webContents.send('stop_application', {
+                    name: appName
+                });
+            }
         });
     }
 }
