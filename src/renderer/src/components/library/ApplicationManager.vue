@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import * as CONSTANT from '../../assets/constants/_application'
+import { computed, onMounted, ref } from 'vue';
+import * as CONSTANT from '../../assets/constants/_application';
 import Spinner from "../loading/Spinner.vue";
 import BaseProgress from "../loading/BaseProgress.vue";
 import GenericButton from "../buttons/GenericButton.vue";
-import { useLibraryStore } from '../../store/libraryStore'
+import ErrorNotification from "../../modals/ErrorNotification.vue";
+import { useLibraryStore } from '../../store/libraryStore';
+import {APPLICATION_STOP} from "../../assets/constants/_application";
 
 const libraryStore = useLibraryStore()
 
 const download_progress = ref(0);
+const showError = ref(false);
+const errorMessage = ref("");
+
+const closeErrorModal = () => {
+  showError.value = false;
+}
 
 const selectedApplication = computed(() => {
   return libraryStore.getSelectedApplication
@@ -19,10 +27,16 @@ const applicationStatus = computed(() => {
   return app !== undefined ? app.status : 'Unselected'
 })
 
+/**
+ * Start a process for the application that has been selected, the backend will start a leadme_apps application or
+ * follow the altPath if it is supplied/not null.
+ */
 const launchApplication = (): void => {
   if (selectedApplication.value === undefined) {
       return
   }
+
+  libraryStore.updateApplicationStatusByName(selectedApplication.value.name, CONSTANT.STATUS_RUNNING);
 
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
@@ -33,6 +47,27 @@ const launchApplication = (): void => {
   })
 }
 
+/**
+ * Stop an application that is running. It sends an api call to the backend to call a kill process based on the name or
+ * alternate path that is supplied.
+ */
+const stopApplication = (): void => {
+  if (selectedApplication.value === undefined) {
+    return
+  }
+
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_STOP,
+    id: selectedApplication.value.id,
+    name: selectedApplication.value.name
+  });
+}
+
+/**
+ * Send an api call to the backend asking to download an application. The applications' download URL is supplied along
+ * with its name and the folder it should be saved in.
+ */
 const downloadApplication = (): void => {
   if (selectedApplication.value === undefined) {
       return
@@ -59,6 +94,7 @@ onMounted(() => {
     download_progress.value = progress * 100;
   })
 
+  //TODO DO NOT DOUBLE THIS UP?
   // @ts-ignore
   api.ipcRenderer.on('status_update', (event, status) => {
     console.log(event)
@@ -66,6 +102,16 @@ onMounted(() => {
 
     if(status.message === 'Clean up complete') {
       libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_INSTALLED);
+    }
+
+    if(status.message === 'Server offline') {
+      libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_NOT_INSTALLED);
+
+      console.log(showError.value);
+
+      //Show warning message?
+      errorMessage.value = status.message;
+      showError.value = true;
     }
   })
 })
@@ -95,6 +141,8 @@ const resumeDownloadingApplication = (): void => {
 
 <!--Manage the installing and launching of an application.-->
 <template>
+  <ErrorNotification @close-error-modal="closeErrorModal" :show-error="showError" :message="errorMessage"/>
+
   <GenericButton
       v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
       class="h-10 w-32 bg-white text-base"
@@ -102,6 +150,14 @@ const resumeDownloadingApplication = (): void => {
       :callback="launchApplication"
       :spinnerColor="'#000000'"
   >Launch</GenericButton>
+
+  <GenericButton
+      v-if="applicationStatus === CONSTANT.STATUS_RUNNING"
+      class="h-10 w-32 bg-red-400 text-base hover:bg-red-200"
+      :type="'primary'"
+      :callback="stopApplication"
+      :spinnerColor="'#000000'"
+  >Stop</GenericButton>
 
   <GenericButton
       v-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED"

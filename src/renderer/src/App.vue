@@ -57,6 +57,19 @@ api.ipcRenderer.on('app_manifest_query', (event, application: any) => {
   console.log(application);
   libraryStore.applicationParameters = application.params;
 });
+
+//Populate the libraryStore with an applications current config
+// @ts-ignore
+api.ipcRenderer.on(CONSTANT.CONFIG_APPLICATION_RETURN, (event, info: any) => {
+  console.log(info);
+  libraryStore.applicationSetup = info.data;
+});
+
+// Notify the store that an application has stopped
+// @ts-ignore
+api.ipcRenderer.on(CONSTANT.APPLICATION_STOP, (event, info: any) => {
+  libraryStore.updateApplicationStatusByName(info.name, CONSTANT.STATUS_INSTALLED);
+});
 </script>
 
 <template>

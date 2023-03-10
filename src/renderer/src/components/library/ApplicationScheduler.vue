@@ -85,11 +85,11 @@ onMounted(() => {
   <div class="w-full flex flex-row px-4">
     <div v-if="status === ''" class="w-full flex-col items-center justify-around">
       <GenericButton
-          class=" h-8 w-24 text-base font-poppins
+          class=" h-8 w-42 text-base font-poppins
           rounded-md bg-green-400 hover:bg-green-300"
           :callback="createSchedulerTask"
           :spinnerColor="'#000000'"
-      >Create</GenericButton>
+      >Create Scheduler Task</GenericButton>
     </div>
 
     <div v-else class="w-full">
