@@ -16,9 +16,6 @@ export default class Encryption {
             await this._collectSecret();
         }
 
-        console.log("KEY");
-        console.log(this.key);
-
         const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
         let encrypted = cipher.update(dataToEncrypt, 'utf8', 'hex');
         encrypted += cipher.final('hex');
