@@ -1,6 +1,5 @@
 import fs from "fs";
 import xml2js from "xml2js";
-import Encryption from "./Encryption";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
@@ -8,7 +7,7 @@ import { exec, execSync, spawn } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //use for production hosting server
-import { app, BrowserWindow, net } from "electron";
+import { app, BrowserWindow } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 
 interface AppEntry {
@@ -54,37 +53,31 @@ export default class Helpers {
                     this.importApplication(_event, info);
                     break;
                 case "download_application":
-                    void this.downloadApplication(_event, info);
+                    this.downloadApplication(_event, info);
                     break;
                 case "config_steamcmd":
-                    void this.configureSteamCMD(_event, info);
+                    this.configureSteamCMD(_event, info);
                     break;
                 case "launch_parameters":
-                    void this.setManifestAppParameters(_event, info);
+                    this.setManifestAppParameters(_event, info);
                     break;
                 case "autostart_application":
-                    void this.setManifestAutoStart(_event, info);
+                    this.setManifestAutoStart(_event, info);
                     break;
                 case "query_installed_applications":
-                    void this.installedApplications(_event, info);
+                    this.installedApplications(_event, info);
                     break;
                 case "query_manifest_app":
-                    void this.getLaunchParameters(_event, info);
+                    this.getLaunchParameters(_event, info);
                     break;
                 case "delete_application":
-                    void this.deleteApplication(_event, info);
+                    this.deleteApplication(_event, info);
                     break;
                 case "launch_application":
                     void this.launchApplication(_event, info);
                     break;
-                case "stop_application":
-                    void this.killAProcess(info.name, false);
-                    break;
-                case "set_config_application":
-                    void this.configApplication(_event, info);
-                    break;
-                case "get_config_application":
-                    this.getApplicationConfig(_event, info);
+                case "config_application":
+                    this.configApplication(_event, info);
                     break;
                 case "schedule_application":
                     this.createTaskSchedulerItem(_event, info);
@@ -119,7 +112,7 @@ export default class Helpers {
      * This function handles the downloading of a file from a given URL to a preset application folder. Periodically it will
      * send the progress information back to the renderer for user feedback.
      */
-    async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
+    downloadApplication(_event: IpcMainEvent, info: any): void {
         //console.log(_event)
         console.log(info)
 
@@ -140,16 +133,6 @@ export default class Helpers {
         info.properties.onProgress = (status): void => {
             console.log(status)
             this.mainWindow.webContents.send('download_progress', status)
-        }
-
-        //Check if the server is online
-        if(!await this.checkFileAvailability(info.url)) {
-            this.mainWindow.webContents.send('status_update', {
-                name: info.name,
-                message: 'Server offline'
-            });
-
-            return;
         }
 
         // @ts-ignore
@@ -185,44 +168,12 @@ export default class Helpers {
     }
 
     /**
-     * Check if an online resource is available.
-     * @param url A string of the resource to check for.
-     */
-    async checkFileAvailability(url): Promise<boolean> {
-        const request_call = new Promise((resolve, reject) => {
-            const request = net.request(url);
-
-            request.on('response', (response) => {
-                if (response.statusCode === 200) {
-                    resolve(true);
-                } else {
-                    console.log(`Failed to fetch ${url}: status code ${response.statusCode}`);
-                    reject(false);
-                }
-            });
-
-            request.on('error', (error) => {
-                console.log(`Failed to fetch ${url}: ${error}`);
-                reject(false);
-            });
-
-            request.end();
-        }).catch(error => {
-            console.log(error);
-        });
-
-        return <boolean>await request_call;
-    }
-
-    /**
      * There are extra download criteria associated with the Station and NUC software. This function handles the downloading
      * and folder creation required for installation.
      */
-    async extraDownloadCriteria(appName: string, directoryPath: string): Promise<void> {
-        const encryptedData = await Encryption.encryptData(`TIME_CREATED=${new Date()}`);
-
+    extraDownloadCriteria(appName: string, directoryPath: string): void {
         //If installing the Station or NUC software edit the .env file with the time created
-        fs.writeFile(join(directoryPath, '_config/config.env'), encryptedData, function (err) {
+        fs.writeFile(join(directoryPath, '_config/config.env'), `TIME_CREATED=${new Date()}`, function (err) {
             if (err) throw err;
             console.log('Config file is updated successfully.');
         });
@@ -303,7 +254,7 @@ export default class Helpers {
      * Open up SteamCMD for the first time, installing and updating the components and passing the default Steam experience
      * location and the login parameters, this will pause on the Steam Guard step.
      */
-    async configureSteamCMD(_event: IpcMainEvent, info: any) {
+    configureSteamCMD(_event: IpcMainEvent, _: any) {
         //The launcher directory path
         const directoryPath = join(this.appDirectory, 'Station')
 
@@ -311,28 +262,21 @@ export default class Helpers {
         const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
         fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
-        let steamUserName: string;
-        let steamPassword: string
+        //Find the local steam variables
+        const config = join(this.appDirectory, 'Station/_config/config.env');
 
-        //Use the provided variables or use the locally saved ones
-        if(info.username !== undefined && info.password !== undefined) {
-            steamUserName = info.username;
-            steamPassword = info.password;
-        } else {
-            //Find the local steam variables
-            const config = join(this.appDirectory, 'Station/_config/config.env');
+        //Read the file and remove any previous entries for the same item
+        const data = fs.readFileSync(config, {encoding: 'utf-8'});
 
-            const data = fs.readFileSync(config, {encoding: 'utf-8'});
-            const decryptedData = await Encryption.decryptData(data);
-            let dataArray = decryptedData.split('\n'); // convert file data in an array
+        let dataArray = data.split('\n'); // convert file data in an array
 
-            // looking for a line that contains the Steam username and password, split the line to get the value.
-            const usernameKeyword = "SteamUserName";
-            steamUserName = dataArray.filter(line => line.startsWith(usernameKeyword))[0].split("=")[1];
+        // looking for a line that contains the Steam username and password, split the line to get the value.
+        const usernameKeyword = "SteamUserName";
+        const steamUserName: string = dataArray.filter(line => line.startsWith(usernameKeyword))[0].split("=")[1];
 
-            const passwordKeyword = "SteamPassword";
-            steamPassword = dataArray.filter(line => line.startsWith(passwordKeyword))[0].split("=")[1];
-        }
+        const passwordKeyword = "SteamPassword";
+        const steamPassword: string = dataArray.filter(line => line.startsWith(passwordKeyword))[0].split("=")[1];
+
 
         if (steamUserName === null || steamPassword === null) {
             this.mainWindow.webContents.send('status_update', {
@@ -342,6 +286,7 @@ export default class Helpers {
             return;
         }
 
+        //TODO this is create a 'program' folder - fix this...  I think?
         const args = ` +force_install_dir \\"C:/Program Files (x86)/Steam\\" +login ${steamUserName} ${steamPassword}`;
 
         //Open SteamCMD for first time installation/update
@@ -355,7 +300,7 @@ export default class Helpers {
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
      */
-    async updateAppManifest(appName: string, type: string, altPath: string|null): Promise<string> {
+    updateAppManifest(appName: string, type: string, altPath: string|null): string {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
@@ -371,20 +316,13 @@ export default class Helpers {
         //Check if the file exists
         const exists = fs.existsSync(filePath);
 
-        console.log(exists);
-
         if (exists) {
             try {
-                console.log("DOES EXIST");
-
-                const objects: Array<AppEntry> = await this.readObjects(filePath);
-
-                console.log(objects);
-
+                const objects: Array<AppEntry> = this.readObjects(filePath);
                 appJSON.id = this.generateUniqueId(objects);
 
                 objects.push(appJSON);
-                await this.writeObjects(filePath, objects);
+                this.writeObjects(filePath, objects);
             } catch (err) {
                 this.mainWindow.webContents.send('status_update', {
                     name: 'Manifest',
@@ -395,13 +333,11 @@ export default class Helpers {
             return appJSON.id;
         }
 
-        console.log("DOES NOT EXIST");
-
         const objects: Array<AppEntry> = [];
         appJSON.id = this.generateUniqueId(objects);
 
         objects.push(appJSON);
-        await this.writeObjects(filePath, objects);
+        this.writeObjects(filePath, objects);
 
         return appJSON.id;
     }
@@ -421,15 +357,10 @@ export default class Helpers {
     /**
      * Function to read the objects from a JSON file.
      */
-    readObjects = async (filename: string): Promise<Array<AppEntry>> => {
+    readObjects = (filename: string) => {
         if (fs.existsSync(filename)) {
             const data = fs.readFileSync(filename, 'utf-8');
-            if(data.length === 0) {
-                return [];
-            }
-
-            const decryptedData = await Encryption.decryptData(data);
-            return JSON.parse(decryptedData);
+            return JSON.parse(data);
         }
         return [];
     }
@@ -437,11 +368,9 @@ export default class Helpers {
     /**
      * Function to write the objects to a JSON file
      */
-    writeObjects = async (filename: string, jsonArray: Array<AppEntry>) => {
-        const encryptedData = await Encryption.encryptData(JSON.stringify(jsonArray));
-
+    writeObjects = (filename: string, objects: Array<AppEntry>) => {
         //Create the file and write the new application entry in
-        fs.writeFile(filename, encryptedData, (err) => {
+        fs.writeFile(filename, JSON.stringify(objects), (err) => {
             if (err) throw err;
 
             this.mainWindow.webContents.send('status_update', {
@@ -452,62 +381,39 @@ export default class Helpers {
     }
 
     /**
-     * Check whether a file exists given the file path, if it does not, send a message to the front end notifying
-     * what file could not be found.
-     * @param filePath A string representing the path to a particular file.
-     * @param fileName A string of the file name, this will appear on the front end message.
+     * Update an applications entry in the manifest file with the supplied launch parameters, these can be login
+     * credentials or start up parameters etc.
      */
-    checkFileExists(filePath: string, fileName: string): boolean {
+    setManifestAppParameters(_event: IpcMainEvent, info: any): void {
+        const filePath = join(this.appDirectory, 'manifest.json');
+
         //Check if the file exists
         const exists = fs.existsSync(filePath);
 
         if (!exists) {
             this.mainWindow.webContents.send('status_update', {
-                name: fileName,
-                message: `${fileName} file does not exist.`
+                name: 'Manifest',
+                message: 'Manifest file does not exist.'
             });
         }
-
-        return exists;
-    }
-
-    /**
-     * Collect a specific application entry from the manifest. This returns the full array of applications as well as
-     * the application that was searched for.
-     * @param filePath A string of the path to the manifest.
-     * @param name A string of the application name to be searched for.
-     */
-    async collectManifestEntry(filePath: string, name: string): Promise<readonly [Array<AppEntry> | undefined, AppEntry | undefined]> {
-        const jsonArray: Array<AppEntry> = await this.readObjects(filePath);
-
-        //Check if the application exists
-        console.log(jsonArray);
-
-        //Find the application
-        const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === name);
-
-        if(entry === undefined) {
-            this.mainWindow.webContents.send('status_update', {
-                name: name,
-                message: `${name} does not exist in the manifest.`
-            });
-            return [undefined, undefined];
-        }
-
-        return [jsonArray, entry] as const;
-    }
-
-    /**
-     * Update an applications entry in the manifest file with the supplied launch parameters, these can be login
-     * credentials or start up parameters etc.
-     */
-    async setManifestAppParameters(_event: IpcMainEvent, info: any): Promise<void> {
-        const filePath = join(this.appDirectory, 'manifest.json');
-        if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
-            if(jsonArray === undefined || entry === undefined) return;
+            const data = fs.readFileSync(filePath);
+            const jsonArray: Array<AppEntry> = JSON.parse(data.toString());
+
+            //Check if the application exists
+            console.log(jsonArray);
+
+            //Find the application
+            const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === info.name);
+
+            if(entry === undefined) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: info.name,
+                    message: `${info.name} does not exist in the manifest.`
+                });
+                return;
+            }
 
             //Update the entry or remove them
             if(info.action === "clear") {
@@ -528,7 +434,16 @@ export default class Helpers {
                 }
             }
 
-            await this.writeObjects(filePath, jsonArray);
+            //Create the file and write the new application entry in
+            fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
+                if (err) throw err;
+
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file is updated successfully.'
+                });
+            });
+
         } catch (err) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -541,18 +456,50 @@ export default class Helpers {
      * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
      * opened.
      */
-    async setManifestAutoStart(_event: IpcMainEvent, info: any): Promise<void> {
+    setManifestAutoStart(_event: IpcMainEvent, info: any): void {
         const filePath = join(this.appDirectory, 'manifest.json');
-        if(!this.checkFileExists(filePath, 'Manifest')) { return }
+
+        //Check if the file exists
+        const exists = fs.existsSync(filePath);
+
+        if (!exists) {
+            this.mainWindow.webContents.send('status_update', {
+                name: 'Manifest',
+                message: 'Manifest file does not exist.'
+            });
+        }
 
         try {
-            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
-            if(jsonArray === undefined || entry === undefined) return;
+            const data = fs.readFileSync(filePath);
+            const jsonArray: Array<AppEntry> = JSON.parse(data.toString());
+
+            //Check if the application exists
+            console.log(jsonArray);
+
+            //Find the application
+            const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === info.name);
+
+            if(entry === undefined) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: info.name,
+                    message: `${info.name} does not exist in the manifest.`
+                });
+                return;
+            }
 
             //Update the entry
             entry.autostart = info.autostart;
 
-            await this.writeObjects(filePath, jsonArray);
+            //Create the file and write the new application entry in
+            fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
+                if (err) throw err;
+
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file is updated successfully.'
+                });
+            });
+
         } catch (err) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -565,10 +512,10 @@ export default class Helpers {
      * Get the launch parameters values that may be assigned to an application from the manifest file.
      * @param appName A string of the experience name being searched for.
      */
-    async getLaunchParameterValues(appName: string): Promise<string[]> {
+    getLaunchParameterValues(appName: string): string[] {
         let params: string[] = [];
 
-        const app = await this.getManifestDetails(appName);
+        const app = this.getManifestDetails(appName);
         if(app === undefined) return params;
         if(app.parameters === undefined || app.parameters === null) return params;
 
@@ -583,10 +530,10 @@ export default class Helpers {
      * Get the launch parameters that may be assigned to an application from the manifest file. Sending the information
      * back to the front end for a live update.
      */
-    async getLaunchParameters(_event: IpcMainEvent, info: any): Promise<void> {
+    getLaunchParameters(_event: IpcMainEvent, info: any): void {
         let params = {};
 
-        const app = await this.getManifestDetails(info.applicationName);
+        const app = this.getManifestDetails(info.applicationName);
         if(app === undefined) return;
         if(app.parameters === undefined || app.parameters === null) return;
 
@@ -604,9 +551,9 @@ export default class Helpers {
      * Get the manifest details for a specific application.
      * @param appName A string of the experience name being searched for.
      */
-    async getManifestDetails(appName: string): Promise<AppEntry | undefined> {
+    getManifestDetails(appName: string): AppEntry|undefined {
         const filePath = join(this.appDirectory, 'manifest.json');
-        const objects: Array<AppEntry> = await this.readObjects(filePath);
+        const objects: Array<AppEntry> = this.readObjects(filePath);
 
         return objects.find(obj => obj.name == appName);
     }
@@ -614,7 +561,7 @@ export default class Helpers {
     /**
      * On start up detect what Applications are currently installed on the local machine.
      */
-    async installedApplications(_event: IpcMainEvent, _: any): Promise<void> {
+    installedApplications(_event: IpcMainEvent, _: any): void {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists
@@ -623,7 +570,8 @@ export default class Helpers {
         //Search the local manifest for installed experiences
         if(exists) {
             try {
-                const installed: Array<AppEntry> = await this.readObjects(filePath);
+                const data = fs.readFileSync(filePath);
+                const installed: Array<AppEntry> = JSON.parse(data.toString());
 
                 this.mainWindow.webContents.send('applications_installed', installed);
                 return;
@@ -646,10 +594,10 @@ export default class Helpers {
     /**
      * Delete an application, including all sub folders and saved data.
      */
-    async deleteApplication(_event: IpcMainEvent, info: any): Promise<void> {
+    deleteApplication(_event: IpcMainEvent, info: any): void {
         //If true the application is an imported one
         if(info.altPath != '') {
-            await this.removeFromAppManifest(info.name);
+            this.removeFromAppManifest(info.name);
 
             //Send back the new application and its assigned ID
             this.mainWindow.webContents.send('application_imported', {
@@ -662,11 +610,11 @@ export default class Helpers {
         else {
             const directoryPath = join(this.appDirectory, info.name)
 
-            this.killAProcess(info.name, true);
+            this.killAProcess(info.name);
 
             fs.rmSync(directoryPath, { recursive: true, force: true });
 
-            await this.removeFromAppManifest(info.name);
+            this.removeFromAppManifest(info.name);
 
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
@@ -679,7 +627,7 @@ export default class Helpers {
      * Remove an entry from the manifest, this may occur when an application has been deleted or moved.
      * @param appName A string of the experience name being removed from the manifest.
      */
-    async removeFromAppManifest(appName: string): Promise<void> {
+    removeFromAppManifest(appName: string): void {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists
@@ -693,12 +641,25 @@ export default class Helpers {
         }
 
         try {
-            let jsonArray: Array<AppEntry> = await this.readObjects(filePath);
+            const data = fs.readFileSync(filePath);
+            let jsonArray: Array<AppEntry> = JSON.parse(data.toString());
+
+            //Check if the application exists
+            console.log(jsonArray);
 
             //Remove the entry from the list
             jsonArray = jsonArray.filter(entry => entry.name !== appName)
 
-            await this.writeObjects(filePath, jsonArray);
+            //Create the file and write the new application entry in
+            fs.writeFile(filePath, JSON.stringify(jsonArray), (err) => {
+                if (err) throw err;
+
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'Manifest',
+                    message: 'Manifest file is updated successfully.'
+                });
+            });
+
         } catch (err) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -711,8 +672,6 @@ export default class Helpers {
      * Launch a requested application.
      */
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        this.killAProcess(info.name, true);
-
         if(info.name == "Station" || info.name == "NUC") {
             await this.updateLeadMeApplication(info.name);
         }
@@ -732,6 +691,7 @@ export default class Helpers {
         });
     }
 
+    //TODO need to check if the server is online
     /**
      * Check for an update for either the Station or NUC software, if there is one download and extract the update, do
      * not download files such as steamcmd or override config.env
@@ -749,9 +709,6 @@ export default class Helpers {
             return;
         }
 
-        //Check if the server is online
-        if(!await this.checkFileAvailability(path)) return;
-
         const request_call = new Promise((resolve, reject) => {
             http.get(path, (response) => {
                 let chunks_of_data = "";
@@ -767,9 +724,6 @@ export default class Helpers {
                 });
 
                 response.on('error', (error) => {
-                    console.log("ERROR");
-                    console.log(error);
-
                     // promise rejected on error
                     reject(error);
                 });
@@ -838,7 +792,9 @@ export default class Helpers {
                 this.mainWindow.webContents.send('status_update', {
                     name: appName,
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
-                });
+                })
+
+                this.killAProcess(appName);
 
                 //Unzip the project and add it to the local installation folder
                 extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
@@ -869,7 +825,7 @@ export default class Helpers {
      * Update an env file that is associated with the Station or NUC applications. If there is a previous entry for a value
      * with the same key override that key/value pair.
      */
-    async configApplication(_event: IpcMainEvent, info: any): Promise<void> {
+    configApplication(_event: IpcMainEvent, info: any): void {
         const config = join(this.appDirectory, `${info.name}/_config/config.env`)
         const data = JSON.parse(info.value);
 
@@ -879,9 +835,7 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
-
-        fs.writeFile(config, encryptedData, (err) => {
+        fs.writeFile(config, newDataArray.join('\n'), (err) => {
             if (err) throw err;
             console.log ('Successfully updated the file data');
         });
@@ -894,16 +848,10 @@ export default class Helpers {
         const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
         //Read the file and remove any previous entries for the same item
-        fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
-            const decryptedData = await Encryption.decryptData(data);
-
-            let dataArray = decryptedData.split('\n'); // convert file data in an array
+        fs.readFile(config, {encoding: 'utf-8'}, function(err, data) {
+            let dataArray = data.split('\n'); // convert file data in an array
 
             //Send the data array back to the front end.
-            this.mainWindow.webContents.send('application_config', {
-                name: info.name,
-                data: dataArray
-            });
         });
     }
 
@@ -920,7 +868,7 @@ export default class Helpers {
         switch (info.type) {
             case "list":
                 args = `SCHTASKS /QUERY /TN ${taskFolder} /fo LIST`;
-                exec(`${args}`, (error, stdout) => {
+                exec(`${args}`, (error, stdout, stderr) => {
                     //Send the output back to the user
                     this.mainWindow.webContents.send('scheduler_update', {
                         message: stdout,
@@ -955,7 +903,7 @@ export default class Helpers {
                 return;
         }
 
-        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (error, stdout)=> {
+        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (error, stdout, stderr)=> {
             this.mainWindow.webContents.send('scheduler_update', {
                 message: stdout,
                 type: info.type
@@ -1005,29 +953,17 @@ export default class Helpers {
     /**
      * Stop a running process on the local machine.
      * @param appName A string of the process to stop.
-     * @param backend A boolean for if this was triggered from the frontend of backend.
      */
-    killAProcess(appName: string, backend: boolean): void {
-        const isWindows = process.platform === 'win32';
-
-        // Use `taskkill` on Windows, `pkill` otherwise
-        const killCommand = isWindows ? 'taskkill /F /IM' : 'pkill';
-
+    killAProcess(appName: string): void {
         //Execute the command to find and kill the process by its name - it will not remove the directory
         //if the process is still running.
-        exec(`${killCommand} ${appName}.exe`, (error) => {
+        exec(`pkill ${appName}`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Error executing command: ${error}`);
                 return;
             }
 
             console.log(`Process "${appName}" has been closed successfully.`);
-
-            if(!backend) {
-                this.mainWindow.webContents.send('stop_application', {
-                    name: appName
-                });
-            }
         });
     }
 }

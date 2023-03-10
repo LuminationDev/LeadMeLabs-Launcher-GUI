@@ -60,7 +60,7 @@ const rules = {
   }
 }
 
-let form = reactive({
+const form = reactive({
   AppKey: '',
   LabLocation: '',
   StationId: '',
@@ -72,61 +72,27 @@ let form = reactive({
   HeadsetType: '',
 });
 
-//Keep track of any previously saved values for this experience.
-const setupParams = computed(() => libraryStore.applicationSetup);
-watch(setupParams, (newValue) => {
-  if(newValue.length === 0) {
-    return;
-  }
-
-  newValue.forEach(value => {
-    console.log(value);
-    let values = value.split("=");
-
-    form[values[0]] = values[1];
-
-    if(values[0].includes("Steam")) {
-      steamCMD.value = true;
-    }
-  });
-});
-
 const v$ = useVuelidate(rules, { form });
 
 function configureSteamCMD() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD,
-    username: form.SteamUserName,
-    password: form.SteamPassword
+    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD
   });
   closeModal();
 }
 
-/**
- * Transform the reactive form into the necessary format to satisfy the JSON string the backend requires.
- */
-const transformForm = () => {
-  const data = { ...form };
-
-  if(!steamCMD.value) {
-    delete data.SteamUserName;
-    delete data.SteamPassword;
-    delete data.HeadsetType;
-  }
-
-  return data;
-};
-
 const handleSubmit = async () => {
-  const data = transformForm();
+  // @ts-ignore
+  const result = await v$.value.$validate();
+  if (!result) { return; }
 
   // handle form submission here
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_SET,
+    channelType: CONSTANT.CONFIG_APPLICATION,
     name: libraryStore.getSelectedApplication.name,
-    value: JSON.stringify(data)
+    value: JSON.stringify(form)
   });
 
   saved.value = true;
@@ -200,12 +166,6 @@ async function changePage(forward: boolean) {
 }
 
 function openModal() {
-  // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_GET,
-    name: libraryStore.getSelectedApplication.name
-  });
-
   showStationModal.value = true;
 }
 
@@ -292,12 +252,7 @@ function closeModal() {
             </label>
 
             <div v-for="(key, index) in Object.keys(form)" :key="index">
-              <div v-if="!['Steam', 'Headset', 'TIME_CREATED'].some(k => key.includes(k))">
-                {{key}} = {{form[key]}}
-              </div>
-              <div v-else-if="steamCMD && (key.includes('Steam') || key.includes('Headset'))">
-                {{key}} = {{form[key]}}
-              </div>
+              {{key}} = {{form[key]}}
             </div>
           </div>
 

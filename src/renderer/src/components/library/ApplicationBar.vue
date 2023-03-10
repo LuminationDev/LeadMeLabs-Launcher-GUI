@@ -40,16 +40,16 @@ const deleteApplication = (): void => {
   <div class="h-24 px-8 bg-gray-100 rounded flex items-center justify-between">
     <ApplicationManager />
 
-    <StationSetup v-if="applicationName === 'Station' && [CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)" />
-    <NucSetup v-else-if="applicationName === 'NUC' && [CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)" />
+    <StationSetup v-if="applicationName === 'Station' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
+    <NucSetup v-else-if="applicationName === 'NUC' && applicationStatus === CONSTANT.STATUS_INSTALLED" />
     <CustomSetup v-else-if="
           applicationName !== 'Station'
           && applicationName !== 'NUC'
-          && [CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)"
+          && applicationStatus === CONSTANT.STATUS_INSTALLED"
     />
 
     <GenericButton
-        v-if="[CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)"
+        v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
         class="h-10 w-32 bg-white text-base
         text-red-400 font-poppins font-semibold
         rounded-md border-2 border-red-400 hover:bg-red-50"

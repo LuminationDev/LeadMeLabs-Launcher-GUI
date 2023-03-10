@@ -32,14 +32,14 @@ const setAutostart = (): void => {
     <div class="h-6 text-xl rounded flex items-baseline justify-between">
       <p class="text-black font-bold">{{ applicationName }}</p>
 
-      <div v-if="[CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)" class="text-sm">
+      <div v-if="applicationStatus === CONSTANT.STATUS_INSTALLED" class="text-sm">
         <p>Auto Start</p>
         <input class="h-5 w-5 ml-2" type="checkbox" v-model="checked" @change="setAutostart()"/>
       </div>
     </div>
 
     <div class="h-44 w-full bg-gray-100 rounded">
-      <div class="w-full" v-if="['Station', 'NUC'].includes(applicationName) && [CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)">
+      <div class="w-full" v-if="(applicationName === 'Station' || applicationName === 'NUC') && applicationStatus === CONSTANT.STATUS_INSTALLED">
         <ApplicationScheduler />
       </div>
 
