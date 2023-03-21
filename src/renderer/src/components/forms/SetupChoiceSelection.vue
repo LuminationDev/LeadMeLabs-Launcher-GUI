@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// @ts-ignore
 defineProps({
   title: {
     type: String,
@@ -28,11 +29,11 @@ defineProps({
     <div v-for="type in choices" v-bind:key="type">
 
       <div
-          @click="$emit('update:modelValue', type.toLocaleLowerCase())"
+          @click="$emit('update:modelValue', type.split(' ').join(''))"
           class="w-24 mr-4 rounded-lg justify-center cursor-pointer"
           :class="{
-                    'bg-gray-300 hover:bg-gray-200': type.toLocaleLowerCase() !== modelValue,
-                    'bg-green-300 hover:bg-green-200': type.toLocaleLowerCase() === modelValue
+                    'bg-gray-300 hover:bg-gray-200': type.split(' ').join('') !== modelValue,
+                    'bg-green-300 hover:bg-green-200': type.split(' ').join('') === modelValue
                   }">
         {{type}}
       </div>

@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
-import Header from './layout/Header.vue'
+import { RouterView } from 'vue-router';
+import Header from './layout/Header.vue';
 import { AppEntry } from "./interfaces/appIntefaces";
-import { useLibraryStore } from './store/libraryStore'
 import UpdateNotification from "./modals/UpdateNotification.vue";
 import { Application } from "./models";
 import * as CONSTANT from "./assets/constants/_application";
-
-const libraryStore = useLibraryStore()
+import { useLibraryStore } from './store/libraryStore';
+const libraryStore = useLibraryStore();
 
 //First this to do is check if any applications are installed - only register and trigger it on start up.
 // @ts-ignore
@@ -15,14 +14,43 @@ api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
   channelType: CONSTANT.QUERY_INSTALLED
 });
 
+//Backend listener
 // @ts-ignore
-api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) => {
-  //Cycle through the supplied manifest list and update the individual entries.
+api.ipcRenderer.on('backend_message', (event, info) => {
+  switch(info.channelType) {
+    case "applications_installed":
+      installedApplications(info.content);
+      break;
+
+    case "app_manifest_query":
+      manifestParams(info);
+      break;
+
+    case CONSTANT.CONFIG_APPLICATION_RETURN:
+      configParams(info);
+      break;
+
+    case CONSTANT.APPLICATION_STOP:
+      applicationStopped(info);
+      break;
+
+    case "application_imported":
+      applicationImported(info);
+      break;
+
+    default:
+      break;
+  }
+});
+
+/**
+ * Cycle through the supplied manifest list and update the individual entries within the library store.
+ * @param appArray
+ */
+function installedApplications(appArray: Array<AppEntry>) {
   appArray.forEach(application => {
     //Detect if the application is an import
     if(application.altPath != '' && application.altPath != null) {
-      console.log(application);
-
       let importedApp: Application = new Application(
           application.id,
           application.name,
@@ -35,7 +63,6 @@ api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) 
       libraryStore.addImportApplication(importedApp)
     }
     else {
-      console.log(application);
       libraryStore.updateApplicationStatusByName(application.name, CONSTANT.STATUS_INSTALLED);
 
       //Open the application if required by autostart flag
@@ -49,27 +76,54 @@ api.ipcRenderer.on('applications_installed', (event, appArray: Array<AppEntry>) 
       }
     }
   });
-});
+}
 
-//Populate the libraryStore with manifest parameters for the CustomModal
-// @ts-ignore
-api.ipcRenderer.on('app_manifest_query', (event, application: any) => {
-  console.log(application);
-  libraryStore.applicationParameters = application.params;
-});
-
-//Populate the libraryStore with an applications current config
-// @ts-ignore
-api.ipcRenderer.on(CONSTANT.CONFIG_APPLICATION_RETURN, (event, info: any) => {
+/**
+ * Populate the libraryStore with manifest parameters for the CustomModal
+ * @param info
+ */
+function manifestParams(info: any) {
   console.log(info);
-  libraryStore.applicationSetup = info.data;
-});
+  libraryStore.applicationParameters = info.params;
+}
 
-// Notify the store that an application has stopped
-// @ts-ignore
-api.ipcRenderer.on(CONSTANT.APPLICATION_STOP, (event, info: any) => {
+/**
+ * Populate the libraryStore with an applications current config
+ * @param info
+ */
+function configParams(info: any) {
+  libraryStore.applicationSetup = info.data;
+}
+
+/**
+ * Notify the store that an application has stopped
+ * @param info
+ */
+function applicationStopped(info: any) {
   libraryStore.updateApplicationStatusByName(info.name, CONSTANT.STATUS_INSTALLED);
-});
+}
+
+/**
+ * Confirmation that an application has been imported or removed correctly. This updates the library store with the
+ * appropriate information.
+ * @param info
+ */
+function applicationImported(info: any) {
+  if(info.action === "import") {
+    let application: Application = new Application(
+        info.id,
+        info.name,
+        '',
+        info.altPath,
+        CONSTANT.STATUS_INSTALLED
+    );
+
+    //Add the application to the library list
+    libraryStore.addImportApplication(application)
+  } else if (info.action === "removed") {
+    libraryStore.removeImportedApplication(info.name);
+  }
+}
 </script>
 
 <template>

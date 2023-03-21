@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import * as CONSTANT from "../../assets/constants/_application"
-import { useLibraryStore } from '../../store/libraryStore'
-import ApplicationScheduler from "./ApplicationScheduler.vue";
 import ApplicationBar from "./ApplicationBar.vue";
-const libraryStore = useLibraryStore()
+import ApplicationImage from "./ApplicationImage.vue";
+import { useLibraryStore } from '../../store/libraryStore'
+const libraryStore = useLibraryStore();
 
 const applicationName = computed(() => {
     const app = libraryStore.getSelectedApplication
@@ -38,15 +38,7 @@ const setAutostart = (): void => {
       </div>
     </div>
 
-    <div class="h-44 w-full bg-gray-100 rounded">
-      <div class="w-full" v-if="['Station', 'NUC'].includes(applicationName) && [CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)">
-        <ApplicationScheduler />
-      </div>
-
-      <div v-else class="w-full flex flex-col items-center justify-center">
-        <p class="text-black">Image</p>
-      </div>
-    </div>
+    <ApplicationImage />
 
     <ApplicationBar />
   </div>
