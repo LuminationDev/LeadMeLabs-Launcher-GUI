@@ -80,7 +80,6 @@ watch(setupParams, (newValue) => {
   }
 
   newValue.forEach(value => {
-    console.log(value);
     let values = value.split("=");
 
     form[values[0]] = values[1];
@@ -113,7 +112,7 @@ const transformForm = () => {
     delete data.SteamUserName;
     delete data.SteamPassword;
     delete data.HeadsetType;
-  }
+  } 
 
   return data;
 };
@@ -144,7 +143,7 @@ const progress = computed(() => {
 });
 
 /**
- * Trigger an event when novaStar changes, empty the form values so the progress is re-calculated
+ * Trigger an event when steamCMD checkbox changes, empty the form values so the progress is re-calculated
  */
 watch(steamCMD, (newVal) => {
   if(!newVal) {
@@ -172,7 +171,9 @@ function createValidator(fieldNames: string[]): () => boolean {
   };
 }
 
-// Computed property that returns the list of fields to validate for page two
+/**
+ * Computed property that returns the list of fields to validate for page two
+ */
 const pageTwoFields = computed(() => [
   'StationMode',
   ...(steamCMD.value ? ['SteamUserName', 'SteamPassword', 'HeadsetType'] : [])

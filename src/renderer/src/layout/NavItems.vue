@@ -14,7 +14,7 @@ const active = computed(() => {
     const name = useRoute().name // current path
     let path = props.target.replace('/', '') // check it's this
     if (path === '') {
-        path = 'home'
+        path = 'library'
     }
     return name === path
 })

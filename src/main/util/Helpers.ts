@@ -4,7 +4,7 @@ import Encryption from "./Encryption";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
-import { exec, execSync, spawn } from "child_process";
+import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //use for production hosting server
@@ -51,7 +51,7 @@ export default class Helpers {
         this.ipcMain.on('helper_function', (_event, info) => {
             switch(info.channelType) {
                 case "import_application":
-                    this.importApplication(_event, info);
+                    void this.importApplication(_event, info);
                     break;
                 case "download_application":
                     void this.downloadApplication(_event, info);
@@ -101,12 +101,12 @@ export default class Helpers {
      * along with the name within the local manifest but the original files are not moved at all. The idea is to simple
      * point to the file wherever that may be on the hard drive.
      */
-    importApplication(_event: IpcMainEvent, info: any): void {
-        console.log(info)
-        let AppId = this.updateAppManifest(info.name, "Custom", info.altPath);
+    async importApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        let AppId = await this.updateAppManifest(info.name, "Custom", info.altPath);
 
         //Send back the new application and its assigned ID
-        this.mainWindow.webContents.send('application_imported', {
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "application_imported",
             id: AppId,
             name: info.name,
             altPath: info.altPath,
@@ -120,9 +120,6 @@ export default class Helpers {
      * send the progress information back to the renderer for user feedback.
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        //console.log(_event)
-        console.log(info)
-
         //Need to back up from the main file that is being run
         const directoryPath = join(this.appDirectory, info.name)
         this.mainWindow.webContents.send('status_update', {
@@ -138,7 +135,6 @@ export default class Helpers {
 
         //Maintain a trace on the download progress
         info.properties.onProgress = (status): void => {
-            console.log(status)
             this.mainWindow.webContents.send('download_progress', status)
         }
 
@@ -283,7 +279,6 @@ export default class Helpers {
             }
         }
 
-        console.log(steamCMDInfo)
         //Download/Extra/Clean up SteamCMD
         // @ts-ignore
         download(BrowserWindow.getFocusedWindow(), steamCMDInfo.url, steamCMDInfo.properties).then((dl) => {
@@ -371,19 +366,14 @@ export default class Helpers {
         //Check if the file exists
         const exists = fs.existsSync(filePath);
 
-        console.log(exists);
-
         if (exists) {
             try {
-                console.log("DOES EXIST");
-
                 const objects: Array<AppEntry> = await this.readObjects(filePath);
-
-                console.log(objects);
 
                 appJSON.id = this.generateUniqueId(objects);
 
                 objects.push(appJSON);
+
                 await this.writeObjects(filePath, objects);
             } catch (err) {
                 this.mainWindow.webContents.send('status_update', {
@@ -480,9 +470,6 @@ export default class Helpers {
     async collectManifestEntry(filePath: string, name: string): Promise<readonly [Array<AppEntry> | undefined, AppEntry | undefined]> {
         const jsonArray: Array<AppEntry> = await this.readObjects(filePath);
 
-        //Check if the application exists
-        console.log(jsonArray);
-
         //Find the application
         const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === name);
 
@@ -513,7 +500,8 @@ export default class Helpers {
             if(info.action === "clear") {
                 entry.parameters = {};
 
-                this.mainWindow.webContents.send('app_manifest_query', {
+                this.mainWindow.webContents.send('backend_message', {
+                    channelType: "app_manifest_query",
                     name: info.applicationName,
                     params: entry.parameters
                 });
@@ -594,7 +582,8 @@ export default class Helpers {
             params[key] = value;
         }
 
-        this.mainWindow.webContents.send('app_manifest_query', {
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "app_manifest_query",
             name: info.applicationName,
             params
         });
@@ -625,7 +614,12 @@ export default class Helpers {
             try {
                 const installed: Array<AppEntry> = await this.readObjects(filePath);
 
-                this.mainWindow.webContents.send('applications_installed', installed);
+                this.mainWindow.webContents.send('backend_message',
+                {
+                        channelType: "applications_installed",
+                        content: installed
+                    }
+                );
                 return;
             } catch (err) {
                 this.mainWindow.webContents.send('status_update', {
@@ -640,7 +634,10 @@ export default class Helpers {
             });
         }
 
-        this.mainWindow.webContents.send('applications_installed', []);
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "applications_installed",
+            content: []
+        });
     }
 
     /**
@@ -652,7 +649,8 @@ export default class Helpers {
             await this.removeFromAppManifest(info.name);
 
             //Send back the new application and its assigned ID
-            this.mainWindow.webContents.send('application_imported', {
+            this.mainWindow.webContents.send('backend_message', {
+                channelType: "application_imported",
                 name: info.name,
                 altPath: info.altPath,
                 action: "removed",
@@ -767,9 +765,7 @@ export default class Helpers {
                 });
 
                 response.on('error', (error) => {
-                    console.log("ERROR");
                     console.log(error);
-
                     // promise rejected on error
                     reject(error);
                 });
@@ -780,10 +776,13 @@ export default class Helpers {
         let onlineVersion: string = <string>await request_call;
 
         //Write out and then get the local version
-        const args = ` writeversion`;
+        const args = `writeversion`;
 
         try {
-            execSync(resolve(directoryPath, `${appName}.exe`) + args);
+            // Replace "program.exe" with the path to your program
+            const program = spawnSync(resolve(directoryPath, `${appName}.exe`), [args]);
+
+            console.log(`Program exited with status: ${program.status}`);
         } catch (error) {
             // @ts-ignore
             console.log(error.toString());
@@ -793,6 +792,7 @@ export default class Helpers {
 
         if(!fs.existsSync(versionPath)) {
             console.log("Cannot find file path.");
+            return;
         }
         const localVersion = fs.readFileSync(versionPath, 'utf8')
 
@@ -851,7 +851,7 @@ export default class Helpers {
                     fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
                     this.mainWindow.webContents.send('status_update', {
                         name: appName,
-                        message: 'Clean up complete'
+                        message: 'Update clean up complete'
                     })
 
                     resolve("Download Complete");
@@ -861,8 +861,7 @@ export default class Helpers {
             })
         });
 
-        const result = await download_call;
-        console.log(result);
+        await download_call;
     }
 
     /**
@@ -900,7 +899,8 @@ export default class Helpers {
             let dataArray = decryptedData.split('\n'); // convert file data in an array
 
             //Send the data array back to the front end.
-            this.mainWindow.webContents.send('application_config', {
+            this.mainWindow.webContents.send('backend_message', {
+                channelType: "application_config",
                 name: info.name,
                 data: dataArray
             });
@@ -1013,21 +1013,21 @@ export default class Helpers {
         // Use `taskkill` on Windows, `pkill` otherwise
         const killCommand = isWindows ? 'taskkill /F /IM' : 'pkill';
 
-        //Execute the command to find and kill the process by its name - it will not remove the directory
-        //if the process is still running.
-        exec(`${killCommand} ${appName}.exe`, (error) => {
-            if (error) {
-                console.error(`Error executing command: ${error}`);
-                return;
-            }
+        try {
+            //Execute the command to find and kill the process by its name - it will not remove the directory
+            //if the process is still running.
+            execSync(`${killCommand} ${appName}.exe`);
 
-            console.log(`Process "${appName}" has been closed successfully.`);
-
-            if(!backend) {
-                this.mainWindow.webContents.send('stop_application', {
+            if (!backend) {
+                this.mainWindow.webContents.send('backend_message', {
+                    channelType: "stop_application",
                     name: appName
                 });
             }
-        });
+        }
+        catch (error) {
+            // @ts-ignore
+            console.log(error.toString());
+        }
     }
 }

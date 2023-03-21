@@ -32,6 +32,13 @@ const values = {
         'http://localhost:8082/program-vrinput',
         '',
         CONSTANTS.STATUS_NOT_INSTALLED
+    ),
+    '5': new Application(
+        '5',
+        'ActualGame',
+        'http://localhost:8082/program-actualgame',
+        '',
+        CONSTANTS.STATUS_NOT_INSTALLED
     )
 }
 

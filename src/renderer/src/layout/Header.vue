@@ -8,9 +8,9 @@ import NavItems from './NavItems.vue'
             <div class="sidebar-title mr-8">
                 <h2 class="title font-bold text-lg text-center">LeadMe Launcher</h2>
             </div>
-            <NavItems target="/">Home</NavItems>
+            <NavItems target="/">Library</NavItems>
             <NavItems target="/dashboard">Dashboard</NavItems>
-            <NavItems target="/library">Library</NavItems>
+            <NavItems target="/home">Home</NavItems>
             <NavItems target="/store">Store</NavItems>
         </nav>
     </header>

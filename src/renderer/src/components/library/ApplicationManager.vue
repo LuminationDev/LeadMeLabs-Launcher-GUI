@@ -6,10 +6,8 @@ import BaseProgress from "../loading/BaseProgress.vue";
 import GenericButton from "../buttons/GenericButton.vue";
 import ErrorNotification from "../../modals/ErrorNotification.vue";
 import { useLibraryStore } from '../../store/libraryStore';
-import {APPLICATION_STOP} from "../../assets/constants/_application";
 
-const libraryStore = useLibraryStore()
-
+const libraryStore = useLibraryStore();
 const download_progress = ref(0);
 const showError = ref(false);
 const errorMessage = ref("");
@@ -88,18 +86,13 @@ const downloadApplication = (): void => {
 onMounted(() => {
   // @ts-ignore
   api.ipcRenderer.on('download_progress', (event, progress) => {
-    console.log(event)
-    console.log(progress) // Progress in fraction, between 0 and 1
-
     download_progress.value = progress * 100;
   })
 
   //TODO DO NOT DOUBLE THIS UP?
   // @ts-ignore
   api.ipcRenderer.on('status_update', (event, status) => {
-    console.log(event)
-    console.log(status)
-
+    //TODO this cancels out the STATUS_RUNNING
     if(status.message === 'Clean up complete') {
       libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_INSTALLED);
     }
@@ -107,14 +100,12 @@ onMounted(() => {
     if(status.message === 'Server offline') {
       libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_NOT_INSTALLED);
 
-      console.log(showError.value);
-
       //Show warning message?
       errorMessage.value = status.message;
       showError.value = true;
     }
-  })
-})
+  });
+});
 
 const pauseDownloadingApplication = (): void => {
     if (selectedApplication.value === undefined) {
