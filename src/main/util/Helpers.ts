@@ -1017,17 +1017,18 @@ export default class Helpers {
             //Execute the command to find and kill the process by its name - it will not remove the directory
             //if the process is still running.
             execSync(`${killCommand} ${appName}.exe`);
-
+        }
+        catch (error) {
+            // @ts-ignore
+            console.log(error.toString());
+        }
+        finally {
             if (!backend) {
                 this.mainWindow.webContents.send('backend_message', {
                     channelType: "stop_application",
                     name: appName
                 });
             }
-        }
-        catch (error) {
-            // @ts-ignore
-            console.log(error.toString());
         }
     }
 }

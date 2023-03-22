@@ -29,7 +29,7 @@ const applicationList = computed(() => {
           :class="{'bg-gray-100': application.name === applicationName}"
           @click="libraryStore.changeApplication(application.id)">
 
-          <p :class="{'text-gray-400': application.status !== CONSTANT.STATUS_INSTALLED}">
+          <p :class="{'text-gray-400': ![CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(application.status)}">
             {{ application.name }}
           </p>
       </div>

@@ -21,22 +21,15 @@ const values = {
     ),
     '3': new Application(
         '3',
-        'InputTest',
-        'http://localhost:8082/program-inputtest',
+        'ActualGame',
+        'http://localhost:8082/program-actualgame',
         '',
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '4': new Application(
         '4',
-        'VRInput',
-        'http://localhost:8082/program-vrinput',
-        '',
-        CONSTANTS.STATUS_NOT_INSTALLED
-    ),
-    '5': new Application(
-        '5',
-        'ActualGame',
-        'http://localhost:8082/program-actualgame',
+        'PluginTest',
+        'http://localhost:8082/program-plugintest',
         '',
         CONSTANTS.STATUS_NOT_INSTALLED
     )
