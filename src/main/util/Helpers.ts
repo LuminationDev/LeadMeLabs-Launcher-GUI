@@ -53,6 +53,9 @@ export default class Helpers {
                 case "import_application":
                     void this.importApplication(_event, info);
                     break;
+                case "set_application_image":
+                    void this.setApplicationImage(_event, info);
+                    break;
                 case "download_application":
                     void this.downloadApplication(_event, info);
                     break;
@@ -112,6 +115,21 @@ export default class Helpers {
             altPath: info.altPath,
             action: "import",
             message: `Imported application added: ${info.name}`
+        });
+    }
+
+    /**
+     * This function allow takes a path that the user has chosen for an image and then copies that image into the folder
+     * of the supplied application. This allows the image to be used as the header image for the launcher and on the
+     * LeadMe labs tablet.
+     */
+    async setApplicationImage(_event: IpcMainEvent, info: any): Promise<void> {
+        const localFile = `${join(this.appDirectory, info.name)}\\header.jpg`;
+
+        // File header.jpg will be created or overwritten by default.
+        fs.copyFile(info.imagePath, localFile, (err) => {
+            if (err) throw err;
+            console.log(`${info.imagePath} was copied to ${localFile}`);
         });
     }
 
@@ -617,6 +635,7 @@ export default class Helpers {
                 this.mainWindow.webContents.send('backend_message',
                 {
                         channelType: "applications_installed",
+                        directory: this.appDirectory,
                         content: installed
                     }
                 );

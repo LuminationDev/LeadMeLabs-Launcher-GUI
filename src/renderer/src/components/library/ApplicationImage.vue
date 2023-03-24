@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import {computed, ref, watch} from "vue";
 import * as CONSTANT from "../../assets/constants/_application"
 import ApplicationScheduler from "./ApplicationScheduler.vue";
-
 
 //TODO make the computed variables below generic and reusable
 import { useLibraryStore } from "../../store/libraryStore";
@@ -18,29 +17,62 @@ const applicationStatus = computed(() => {
   return app !== undefined ? app.status : 'Unselected'
 });
 
+const selectedImagePath = ref("");
+const imageInput = ref<HTMLInputElement | null>(null);
+const setImage = () => {
+  selectedImagePath.value = imageInput.value.files[0]["path"];
+
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.APPLICATION_IMAGE_SET,
+    name: applicationName.value,
+    imagePath: selectedImagePath.value
+  });
+}
+
+const imageSource = ref();
 
 //If there is an alternate path recorded this means there may be a locally saved image
-const imagePath = computed(() => {
+const imagePath = computed(async () => {
   const app = libraryStore.getSelectedApplication
-  if(app === null || app === undefined) return null;
+  if (app === null || app === undefined) return null;
+  if(app.name === "Station" || app.name === "NUC") return;
 
   const altPath = app.altPath;
+  let inputUrl;
 
-  //TODO load an image of the application in
   //Locate the image from the supplied path
   if(altPath !== null && altPath !== "") {
-    console.log(altPath);
-
     //Get the parent folder
-    const folder = altPath.substring(0, altPath.lastIndexOf("/"));
+    const folder = altPath.substring(0, altPath.lastIndexOf("\\"));
+    //Use the custom media loader protocol defined in the main.ts
+    inputUrl = `media-loader://${folder}\\header.jpg`;
+  } else {
+    inputUrl = `media-loader://${libraryStore.appDirectory}\\${app.name}\\header.jpg`;
   }
 
-  //Locate the image from the leadme_apps path
-  if(app.name !== "Station" || app.name !== "NUC") {
-
+  let finalUrl;
+  try {
+    finalUrl = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.src = inputUrl;
+      image.onload = () => {
+        resolve(inputUrl);
+      }
+      image.onerror = () => {
+        reject(null);
+      }
+    });
+  }
+  catch (e) {
+    finalUrl = null;
   }
 
-  return null;
+  imageSource.value = finalUrl;
+});
+
+watch(imagePath, (newVal) => {
+  imageSource.value = newVal;
 });
 </script>
 
@@ -52,8 +84,28 @@ const imagePath = computed(() => {
 
     <div v-else class="w-full flex flex-col items-center justify-center">
       <div v-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED" class="text-black">NOT INSTALLED</div>
-      <div v-else-if="imagePath === null" class="text-black">Image Not Found</div>
-      <img v-else src="" :alt="`${applicationName} Header image`"/>
+
+      <div v-else-if="imageSource === null" class="text-black flex flex-col items-center">
+        Image Not Found
+
+        <label
+            for="files"
+            class="w-full h-8 mt-3 rounded-lg flex items-center justify-center text-white bg-primary cursor-pointer hover:bg-blue-400"
+        >
+          <input class="hidden" id="files" ref="imageInput" type="file" @change="setImage">
+          Find Image
+        </label>
+      </div>
+
+      <div v-else class="w-full h-full relative">
+        <label
+            for="files"
+            class="w-6 h-6 absolute bottom-0 right-0 rounded-tl-lg bg-white cursor-pointer border-black border-2 hover:bg-blue-400"
+        >
+          <input class="hidden" id="files" ref="imageInput" type="file" @change="setImage">
+        </label>
+        <img class="w-full h-full" :src="imageSource" :alt="`${applicationName} Header image`"/>
+      </div>
     </div>
   </div>
 </template>

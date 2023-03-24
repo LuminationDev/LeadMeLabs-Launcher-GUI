@@ -1,4 +1,6 @@
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray } = require('electron');
+import fs from "fs";
+
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 const { autoUpdater } = require('electron-updater');
 import { join } from 'path';
 import Helpers from "./util/Helpers";
@@ -81,6 +83,13 @@ function setupTrayIcon(): void {
 }
 
 app.whenReady().then(() => {
+
+  protocol.interceptFileProtocol('media-loader', (request, callback) => {
+    const url = request.url.replace("media-loader://", "");
+    // @ts-ignore
+    callback(fs.existsSync(url) ? url : null);
+  });
+
   createWindow();
   setupTrayIcon();
 

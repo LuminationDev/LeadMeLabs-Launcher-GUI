@@ -17,7 +17,7 @@ const applicationList = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col [&>div]:my-2">
+  <div class="w-full flex flex-col [&>div]:my-2">
 
     <ApplicationImport />
 
@@ -29,9 +29,15 @@ const applicationList = computed(() => {
           :class="{'bg-gray-100': application.name === applicationName}"
           @click="libraryStore.changeApplication(application.id)">
 
-          <p :class="{'text-gray-400': ![CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(application.status)}">
+        <div class="flex flex-col">
+          <div :class="{'text-gray-400': ![CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(application.status)}">
             {{ application.name }}
-          </p>
+          </div>
+
+          <div class="text-blue-400 text-xs items-center" v-if="[CONSTANT.STATUS_DOWNLOADING, CONSTANT.STATUS_RUNNING].includes(application.status)">
+            {{application.status === CONSTANT.STATUS_DOWNLOADING ? '(Installing...)' : '(Running...)'}}
+          </div>
+        </div>
       </div>
     </div>
   </div>
