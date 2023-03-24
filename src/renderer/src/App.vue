@@ -19,7 +19,7 @@ api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
 api.ipcRenderer.on('backend_message', (event, info) => {
   switch(info.channelType) {
     case "applications_installed":
-      installedApplications(info.content);
+      installedApplications(info.directory, info.content);
       break;
 
     case "app_manifest_query":
@@ -45,9 +45,12 @@ api.ipcRenderer.on('backend_message', (event, info) => {
 
 /**
  * Cycle through the supplied manifest list and update the individual entries within the library store.
+ * @param directoryPath
  * @param appArray
  */
-function installedApplications(appArray: Array<AppEntry>) {
+function installedApplications(directoryPath: string, appArray: Array<AppEntry>) {
+  libraryStore.appDirectory = directoryPath;
+
   appArray.forEach(application => {
     //Detect if the application is an import
     if(application.altPath != '' && application.altPath != null) {

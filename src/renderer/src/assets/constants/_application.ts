@@ -10,6 +10,7 @@ export const QUERY_INSTALLED = 'query_installed_applications'
 export const QUERY_MANIFEST_APP = 'query_manifest_app'
 
 export const APPLICATION_IMPORT = 'import_application'
+export const APPLICATION_IMAGE_SET = 'set_application_image'
 export const APPLICATION_LAUNCH = 'launch_application'
 export const APPLICATION_STOP = 'stop_application'
 export const APPLICATION_DOWNLOAD = 'download_application'

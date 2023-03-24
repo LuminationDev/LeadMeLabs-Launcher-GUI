@@ -38,6 +38,7 @@ const values = {
 export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
+        appDirectory: '',
         selectedApplication: '',
         applicationParameters: {},
         applicationSetup: reactive([]),

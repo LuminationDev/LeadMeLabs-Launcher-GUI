@@ -9,7 +9,7 @@ const libraryStore = useLibraryStore()
 
 <template>
     <!--List of Applications-->
-    <div class="sidebar basis-1/4 bg-white rounded-3xl">
+    <div class="sidebar w-48 bg-white rounded-3xl">
         <Sidebar title="Applications">
             <template #content>
                 <LibraryMenu />
@@ -17,7 +17,7 @@ const libraryStore = useLibraryStore()
         </Sidebar>
     </div>
     <!--Selected Application details-->
-    <div class="content basis-3/4 bg-white ml-2 rounded-3xl w-full px-6 pt-2">
+    <div class="content w-full bg-white ml-2 rounded-3xl w-full px-6 pt-2">
         <div v-if="libraryStore.selectedApplication === ''" class="w-full"></div>
         <div v-else class="w-full">
             <ApplicationPanel />

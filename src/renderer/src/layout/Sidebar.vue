@@ -10,7 +10,7 @@ defineProps({
 </script>
 
 <template>
-    <header class="navbar">
+    <header class="w-full navbar">
         <nav class="flex flex-col w-full p-5 pt-5 text-black">
             <div class="sidebar-title mb-2">
                 <h2 class="title font-bold text-lg text-center">{{ title }}</h2>
