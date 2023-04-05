@@ -10,6 +10,7 @@ const values = {
         'Station',
         'http://localhost:8082/program-station',
         '',
+        false,
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '2': new Application(
@@ -17,6 +18,7 @@ const values = {
         'NUC',
         'http://localhost:8082/program-nuc',
         '',
+        false,
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '3': new Application(
@@ -24,6 +26,7 @@ const values = {
         'ActualGame',
         'http://localhost:8082/program-actualgame',
         '',
+        false,
         CONSTANTS.STATUS_NOT_INSTALLED
     ),
     '4': new Application(
@@ -31,6 +34,7 @@ const values = {
         'PluginTest',
         'http://localhost:8082/program-plugintest',
         '',
+        false,
         CONSTANTS.STATUS_NOT_INSTALLED
     )
 }
@@ -95,6 +99,21 @@ export const useLibraryStore = defineStore({
             const app = this.applications.get(key)
             if(app != undefined) {
                 app.status = status
+            }
+        },
+
+        /**
+         * Update the status of a store application using its name.
+         * @param appName A string representing the name of an application.
+         * @param autoStart A boolean of the new autoStart value to be saved.
+         */
+        updateApplicationAutoStartByName(appName: string, autoStart: boolean) {
+            const key = this.getKeyFromValue(appName)
+            if(key == undefined) { return; }
+
+            const app = this.applications.get(key)
+            if(app != undefined) {
+                app.autoStart = autoStart
             }
         },
 

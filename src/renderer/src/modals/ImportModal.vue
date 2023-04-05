@@ -29,18 +29,31 @@ const selectApplication = (): void => {
 
 const importApplication = (): void => {
   //Make sure a file is selected and that it is an executable
-  if(filePath.value != null && filePath.value.endsWith(".exe")) {
+  if(filePath.value != null && checkFileExtension(filePath.value)) {
     //@ts-ignore
     api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
       channelType: CONSTANT.APPLICATION_IMPORT,
       name: name.value,
       altPath: filePath.value
     });
-  }
 
-  //Reset the file input
-  fileInput.value.value = "";
-  closeModal();
+    //Reset the file input
+    fileInput.value.value = "";
+    closeModal();
+  } else {
+    //TODO alert the user that the file path cannot be handled.
+    fileInput.value.value = "";
+  }
+}
+
+/**
+ * Check against the approved file extensions to see if we can properly manage the supplied file path.
+ */
+function checkFileExtension(filePath: String): boolean {
+  let accepted: String[] = [".exe", ".lnk"];
+
+  //TODO finish this
+  return true;
 }
 
 function openModal() {

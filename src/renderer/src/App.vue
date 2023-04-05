@@ -49,6 +49,8 @@ api.ipcRenderer.on('backend_message', (event, info) => {
  * @param appArray
  */
 function installedApplications(directoryPath: string, appArray: Array<AppEntry>) {
+  console.log(appArray);
+
   libraryStore.appDirectory = directoryPath;
 
   appArray.forEach(application => {
@@ -59,24 +61,27 @@ function installedApplications(directoryPath: string, appArray: Array<AppEntry>)
           application.name,
           '',
           application.altPath,
+          application.autostart,
           CONSTANT.STATUS_INSTALLED
       );
 
       //Add the application to the library list
-      libraryStore.addImportApplication(importedApp)
+      libraryStore.addImportApplication(importedApp);
     }
     else {
       libraryStore.updateApplicationStatusByName(application.name, CONSTANT.STATUS_INSTALLED);
+      libraryStore.updateApplicationAutoStartByName(application.name, application.autostart);
+    }
 
-      //Open the application if required by autostart flag
-      if (application.autostart) {
-        // @ts-ignore
-        api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-          channelType: CONSTANT.APPLICATION_LAUNCH,
-          id: application.id,
-          name: application.name
-        })
-      }
+    //Open the application if required by autostart flag
+    if (application.autostart) {
+      // @ts-ignore
+      api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+        channelType: CONSTANT.APPLICATION_LAUNCH,
+        id: application.id,
+        name: application.name,
+        path: application.altPath === null ? "" : application.altPath
+      });
     }
   });
 }
@@ -118,6 +123,7 @@ function applicationImported(info: any) {
         info.name,
         '',
         info.altPath,
+        false,
         CONSTANT.STATUS_INSTALLED
     );
 

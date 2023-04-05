@@ -81,7 +81,7 @@ export default class Helpers {
                     void this.launchApplication(_event, info);
                     break;
                 case "stop_application":
-                    void this.killAProcess(info.name, false);
+                    void this.killAProcess(info.name, info.altPath, false);
                     break;
                 case "set_config_application":
                     void this.configApplication(_event, info);
@@ -167,7 +167,7 @@ export default class Helpers {
         }
 
         // @ts-ignore
-        download(BrowserWindow.getFocusedWindow(), info.url, info.properties).then((dl) => {
+        download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -265,7 +265,7 @@ export default class Helpers {
 
         //Download/Extra/Clean up SetVol
         // @ts-ignore
-        download(BrowserWindow.getFocusedWindow(), setVolInfo.url, setVolInfo.properties).then((dl) => {
+        download(BrowserWindow.fromId(this.mainWindow.id), setVolInfo.url, setVolInfo.properties).then((dl) => {
             extract(dl.getSavePath(), {dir: setVolDirectory}).then(() => {
                 //Delete the downloaded zip folder
                 fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
@@ -299,7 +299,7 @@ export default class Helpers {
 
         //Download/Extra/Clean up SteamCMD
         // @ts-ignore
-        download(BrowserWindow.getFocusedWindow(), steamCMDInfo.url, steamCMDInfo.properties).then((dl) => {
+        download(BrowserWindow.fromId(this.mainWindow.id), steamCMDInfo.url, steamCMDInfo.properties).then((dl) => {
             extract(dl.getSavePath(), {dir: steamCMDDirectory}).then(() => {
                 //Delete the downloaded zip folder
                 fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
@@ -403,7 +403,7 @@ export default class Helpers {
             return appJSON.id;
         }
 
-        console.log("DOES NOT EXIST");
+        console.log("Manifest does not exist");
 
         const objects: Array<AppEntry> = [];
         appJSON.id = this.generateUniqueId(objects);
@@ -679,7 +679,7 @@ export default class Helpers {
         else {
             const directoryPath = join(this.appDirectory, info.name)
 
-            this.killAProcess(info.name, true);
+            this.killAProcess(info.name, info.altPath, true);
 
             fs.rmSync(directoryPath, { recursive: true, force: true });
 
@@ -728,7 +728,9 @@ export default class Helpers {
      * Launch a requested application.
      */
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        this.killAProcess(info.name, true);
+        console.log(info);
+
+        this.killAProcess(info.name, info.path, true);
 
         if(info.name == "Station" || info.name == "NUC") {
             await this.updateLeadMeApplication(info.name);
@@ -853,7 +855,7 @@ export default class Helpers {
 
         const download_call = new Promise((resolve, reject) => {
             // @ts-ignore
-            download(BrowserWindow.getFocusedWindow(), info.url, info.properties).then((dl) => {
+            download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
                 this.mainWindow.webContents.send('status_update', {
                     name: appName,
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -1024,18 +1026,21 @@ export default class Helpers {
     /**
      * Stop a running process on the local machine.
      * @param appName A string of the process to stop.
+     * @param filePath A string of the alternate file path, this is to stop imported applications.
      * @param backend A boolean for if this was triggered from the frontend of backend.
      */
-    killAProcess(appName: string, backend: boolean): void {
+    killAProcess(appName: string, filePath: string, backend: boolean): void {
         const isWindows = process.platform === 'win32';
 
         // Use `taskkill` on Windows, `pkill` otherwise
-        const killCommand = isWindows ? 'taskkill /F /IM' : 'pkill';
+        const killCommand = isWindows ? 'taskkill /F /FI' : 'pkill';
+
+        //TODO finish the import stop via the filePath name later
 
         try {
             //Execute the command to find and kill the process by its name - it will not remove the directory
             //if the process is still running.
-            execSync(`${killCommand} ${appName}.exe`);
+            execSync(`${killCommand} "imagename eq ${appName}*"`);
         }
         catch (error) {
             // @ts-ignore

@@ -39,8 +39,8 @@ const asyncCall = (): Promise<void> => {
   <button
       :id="buttonId"
       :class="{
-            'rounded-lg text-white text-base': true,
-            'w-32 bg-primary hover:bg-blue-400': type === 'primary',
+            'rounded-lg text-base': true,
+            'w-32 bg-primary text-white hover:bg-blue-400': type === 'primary',
             'w-32 bg-primary hover:bg-blue-400 font-semibold': type === 'secondary',
             'w-32 bg-white  border-2 border-primary hover:bg-primary hover:text-white text-primary':
                 type === 'white',
