@@ -85,7 +85,7 @@ onMounted(() => {
   <div class="w-full flex flex-row px-4">
     <div v-if="status === ''" class="w-full flex-col items-center justify-around">
       <GenericButton
-          class=" h-8 w-42 text-base font-poppins
+          class=" h-8 w-42 text-base font-poppins text-white
           rounded-md bg-green-400 hover:bg-green-300"
           :callback="createSchedulerTask"
           :spinnerColor="'#000000'"
@@ -101,7 +101,7 @@ onMounted(() => {
         <GenericButton
             v-if="status !== ''"
             :class="{
-              'h-8 w-24 text-base font-poppins rounded-md': true,
+              'h-8 w-24 text-base text-white font-poppins rounded-md': true,
               'bg-green-400 hover:bg-green-300': !enabled,
               'bg-orange-400 hover:bg-orange-300': enabled,
             }"

@@ -6,9 +6,18 @@ import ApplicationImage from "./ApplicationImage.vue";
 import { useLibraryStore } from '../../store/libraryStore'
 const libraryStore = useLibraryStore();
 
+//Track if the application has auto enabled in the manifest
+const checked = ref();
 const applicationName = computed(() => {
     const app = libraryStore.getSelectedApplication
-    return app !== undefined ? app.name : 'Unselected'
+
+    if(app == undefined) {
+      checked.value = false;
+      return 'Unselected';
+    } else {
+      checked.value = app.autoStart;
+      return app.name;
+    }
 });
 
 const applicationStatus = computed(() => {
@@ -16,13 +25,19 @@ const applicationStatus = computed(() => {
   return app !== undefined ? app.status : 'Unselected'
 });
 
-const checked = ref();
+const applicationAutoStart = computed(() => {
+  const app = libraryStore.getSelectedApplication
+  return app !== undefined ? app.autoStart : false;
+});
+
 const setAutostart = (): void => {
+  libraryStore.updateApplicationAutoStartByName(applicationName.value, checked.value);
+
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
     channelType: CONSTANT.APPLICATION_AUTOSTART,
     name: applicationName.value,
-    autostart: checked.value
+    autostart: applicationAutoStart.value
   });
 }
 </script>

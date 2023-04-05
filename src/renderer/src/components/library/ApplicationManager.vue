@@ -58,7 +58,8 @@ const stopApplication = (): void => {
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
     channelType: CONSTANT.APPLICATION_STOP,
     id: selectedApplication.value.id,
-    name: selectedApplication.value.name
+    name: selectedApplication.value.name,
+    path: selectedApplication.value.altPath
   });
 }
 
@@ -136,7 +137,7 @@ const resumeDownloadingApplication = (): void => {
 
   <GenericButton
       v-if="applicationStatus === CONSTANT.STATUS_INSTALLED"
-      class="h-10 w-32 bg-white text-base"
+      class="h-10 w-32 text-base"
       :type="'primary'"
       :callback="launchApplication"
       :spinnerColor="'#000000'"

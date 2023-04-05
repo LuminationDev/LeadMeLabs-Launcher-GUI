@@ -1,18 +1,19 @@
 import fs from "fs";
-
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 const { autoUpdater } = require('electron-updater');
 import { join } from 'path';
 import Helpers from "./util/Helpers";
 import AutoUpdate from "./util/AppUpdate";
+import Migrator from "./util/Migrator";
 
 //Maintain a reference to the window
 let mainWindow
 
 function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 1000,
     height: 800,
+    show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -22,8 +23,8 @@ function createWindow () {
 
   // Show the main window and check for application updates
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-    mainWindow.webContents.openDevTools()
+    //TODO remove devtools before launch/only load if in dev env
+    mainWindow.webContents.openDevTools();
     void autoUpdater.checkForUpdatesAndNotify();
   })
 
@@ -89,6 +90,16 @@ app.whenReady().then(() => {
     // @ts-ignore
     callback(fs.existsSync(url) ? url : null);
   });
+
+  let software = app.commandLine.getSwitchValue("software");
+  let directory = app.commandLine.getSwitchValue("directory");
+
+  //If the Station or NUC is passed as the command line argument then attempt to perform the migration
+  if(["Station", "NUC"].includes(software)) {
+    new Migrator(software, directory);
+  }
+
+  console.log("Starting electron application");
 
   createWindow();
   setupTrayIcon();
