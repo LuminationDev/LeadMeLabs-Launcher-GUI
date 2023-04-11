@@ -20,14 +20,25 @@ autoUpdater.on('update-downloaded', () => {
     });
   }
 
+  downloadWindow.close();
+  downloadWindow = null;
+
   const isSilent = true
   const isForceRunAfter = true
   autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
+  if(!downloadWindow) {
+    createDownloadWindow();
+  }
+
   // Calculate download progress percentage
-  const progress = Math.floor(progressObj.percent);
+  const progress = Math.floor(progressObj.percent)/100;
+
+  if(downloadWindow) {
+    downloadWindow.setProgressBar(progress);
+  }
 
   if(mainWindow) {
     mainWindow.webContents.send('backend_message', {
@@ -37,9 +48,37 @@ autoUpdater.on('download-progress', (progressObj) => {
   }
 })
 
+let downloadWindow;
+function createDownloadWindow() {
+  downloadWindow = new BrowserWindow({
+    width: 400,
+    height: 150,
+    show: false,
+    resizable: false,
+    webPreferences: {
+      preload: join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    }
+  });
+
+  downloadWindow.setMenu(null);
+
+  downloadWindow.on('ready-to-show', () => {
+    downloadWindow.show();
+  });
+
+  downloadWindow.webContents.setWindowOpenHandler((details) => {
+    console.log('inside set window open handler')
+    void shell.openExternal(details.url)
+    return { action: 'deny' }
+  });
+
+  downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
+}
+
 //Maintain a reference to the window
 let mainWindow
-
 function createWindow () {
   mainWindow = new BrowserWindow({
     width: 1000,
@@ -54,9 +93,9 @@ function createWindow () {
 
   // Show the main window and check for application updates
   mainWindow.on('ready-to-show', () => {
-    // if (process.env.NODE_ENV === 'development') {
+    //if (process.env.NODE_ENV === 'development') {
       mainWindow.webContents.openDevTools();
-    // }
+    //}
 
     if (process.env.NODE_ENV !== 'development') {
       autoUpdater.checkForUpdates().then((result: UpdateCheckResult|null) => {
