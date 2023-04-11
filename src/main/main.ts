@@ -1,10 +1,41 @@
-import fs from "fs";
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
-const { autoUpdater } = require('electron-updater');
+import fs from "fs";
+import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers from "./util/Helpers";
-import AutoUpdate from "./util/AppUpdate";
 import Migrator from "./util/Migrator";
+
+autoUpdater.autoDownload = true;
+autoUpdater.setFeedURL({
+  provider: 'generic',
+  url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+})
+
+// Listen for update download progress events
+autoUpdater.on('update-downloaded', () => {
+  if(mainWindow) {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "update_ready",
+      name: "UPDATE DOWNLOADED"
+    });
+  }
+
+  const isSilent = true
+  const isForceRunAfter = true
+  autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
+})
+
+autoUpdater.on('download-progress', (progressObj) => {
+  // Calculate download progress percentage
+  const progress = Math.floor(progressObj.percent);
+
+  if(mainWindow) {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "update_downloading",
+      progress
+    });
+  }
+})
 
 //Maintain a reference to the window
 let mainWindow
@@ -23,9 +54,23 @@ function createWindow () {
 
   // Show the main window and check for application updates
   mainWindow.on('ready-to-show', () => {
-    //TODO remove devtools before launch/only load if in dev env
-    mainWindow.webContents.openDevTools();
-    void autoUpdater.checkForUpdatesAndNotify();
+    // if (process.env.NODE_ENV === 'development') {
+      mainWindow.webContents.openDevTools();
+    // }
+
+    if (process.env.NODE_ENV !== 'development') {
+      autoUpdater.checkForUpdates().then((result: UpdateCheckResult|null) => {
+        if (result === null) return;
+
+        mainWindow.webContents.send('backend_message', {
+          channelType: "update_ready",
+          name: "UPDATE",
+          data: result,
+          hosting: "Hosting version: " + result.updateInfo.version,
+          version: "Current version: " + app.getVersion()
+        });
+      })
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -83,8 +128,7 @@ function setupTrayIcon(): void {
   })
 }
 
-app.whenReady().then(() => {
-
+app.whenReady().then(async () => {
   protocol.interceptFileProtocol('media-loader', (request, callback) => {
     const url = request.url.replace("media-loader://", "");
     // @ts-ignore
@@ -95,14 +139,15 @@ app.whenReady().then(() => {
   let directory = app.commandLine.getSwitchValue("directory");
 
   //If the Station or NUC is passed as the command line argument then attempt to perform the migration
-  if(["Station", "NUC"].includes(software)) {
-    new Migrator(software, directory);
+  if (["Station", "NUC"].includes(software)) {
+    const migrate = new Migrator(software, directory);
+    await migrate.RunMigration();
   }
-
-  console.log("Starting electron application");
 
   createWindow();
   setupTrayIcon();
+
+  console.log("Starting electron application");
 
   //Load in all the helper functions
   new Helpers(ipcMain, mainWindow).startup();
@@ -128,6 +173,3 @@ app.whenReady().then(() => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit()
 });
-
-//Handle auto updating
-new AutoUpdate(ipcMain, mainWindow, autoUpdater).listenForUpdates();

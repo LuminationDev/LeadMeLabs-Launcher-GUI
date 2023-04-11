@@ -28,6 +28,7 @@ export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
+    host: string = 'http://localhost:8082'; //TODO repoint to the hosting server when testing the application
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -257,7 +258,7 @@ export default class Helpers {
         fs.mkdirSync(setVolDirectory, {recursive: true});
 
         let setVolInfo = {
-            url: "http://localhost:8082/program-setvol",
+            url: `${this.host}/program-setvol`,
             properties: {
                 directory: setVolDirectory
             }
@@ -291,7 +292,7 @@ export default class Helpers {
         fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
         let steamCMDInfo = {
-            url: "http://localhost:8082/program-steamcmd",
+            url: `${this.host}/program-steamcmd`,
             properties: {
                 directory: steamCMDDirectory
             }
@@ -761,9 +762,9 @@ export default class Helpers {
         let path;
 
         if(appName === "NUC") {
-            path = "http://localhost:8082/program-nuc-version";
+            path = `${this.host}/program-nuc-version`;
         } else if(appName === "Station") {
-            path = "http://localhost:8082/program-station-version";
+            path = `${this.host}//program-station-version`;
         } else {
             return;
         }
