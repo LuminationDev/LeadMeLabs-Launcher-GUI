@@ -2,7 +2,8 @@ import { app } from "electron";
 import fs from "fs-extra";
 import { join } from "path";
 import Encryption from "./Encryption";
-import { exec } from "child_process";
+import { execSync } from "child_process";
+import dialog = Electron.dialog;
 
 interface AppEntry {
     type: string
@@ -54,8 +55,8 @@ export default class Migrator {
 
             //Execute the command to find and kill the process by its name - it will not move the directory
             //if the process is still running.
-            exec(`${killCommand} "imagename eq ${this.software}*"`);
-            exec(`${killCommand} "imagename eq Launcher.exe"`);
+            execSync(`${killCommand} "imagename eq ${this.software}*"`);
+            execSync(`${killCommand} "imagename eq Launcher.exe"`);
         } catch (error) {
             // @ts-ignore
             console.log(error.toString());
@@ -89,7 +90,12 @@ export default class Migrator {
     Move(source, destination) {
         //fs.move creates any required parent directories
         fs.move(source, destination, { overwrite: true }, async (err) => {
-            if (err) return console.log(err);
+            if (err) {
+                dialog.showErrorBox(
+                    "Migration Error",
+                    `${this.software} was unable to be moved to the leadme_apps folder on attempt number: ${this.attempt}`);
+                return;
+            }
             console.log(`Folder ${this.software} moved successfully`);
 
             await this.UpdateManifest();
