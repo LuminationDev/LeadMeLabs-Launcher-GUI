@@ -1,7 +1,8 @@
-import { app } from "electron";
+import { app, dialog } from "electron";
 import fs from "fs-extra";
 import { join } from "path";
 import Encryption from "./Encryption";
+import { execSync } from "child_process";
 
 interface AppEntry {
     type: string
@@ -21,30 +22,63 @@ interface AppEntry {
 export default class Migrator {
     software: string;
     directory: string;
-    appDirectory: string = join(__dirname, '../../../../..', 'leadme_apps');
+    appDirectory: string = process.env.APPDATA + '/leadme_apps';
+    attemptLimit: number = 5;
+    attempt: number = 0;
 
     constructor(software: string, directory: string) {
         this.software = software;
         this.directory = directory;
-
-        this.RunMigration();
     }
 
     /**
-     * Create the source link from the provided arguments, check if the path exists and the perform the directory
+     * Create the source link from the provided arguments, check if the path exists and perform the directory
      * transfer.
      */
-    RunMigration(): void {
+    async RunMigration(): Promise<void> {
+        this.attempt++;
+
         //Move the station folder into the leadme_apps
         const source = `C:\\Users\\${this.directory}\\${this.software}`;
         const destination = `${this.appDirectory}\\${this.software}`;
 
         //Check to see if it has already been moved
-        if(fs.existsSync(destination)) return;
+        if (fs.existsSync(destination)) return;
 
-        //Check if the file exists
-        if(!fs.existsSync(source)) return;
+        //Check if the software folder exists
+        if (!fs.existsSync(source)) return;
+
+        try {
+            // Use `taskkill` on Windows
+            const killCommand = 'taskkill /F /FI';
+
+            //Execute the command to find and kill the process by its name - it will not move the directory
+            //if the process is still running.
+            execSync(`${killCommand} "imagename eq ${this.software}*"`);
+            execSync(`${killCommand} "imagename eq Launcher.exe"`);
+        } catch (error) {
+            // @ts-ignore
+            console.log(error.toString());
+        }
+
+        //Wait for the program to exit
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        console.log("Moving folders");
         this.Move(source, destination);
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        //Check that the folder has been moved, if not try again.
+        if (fs.existsSync(destination) || this.attempt >= this.attemptLimit) {
+            //Restart the application - removing the current command arguments
+            app.commandLine.removeSwitch("software");
+            app.commandLine.removeSwitch("directory");
+            app.relaunch();
+            app.exit();
+        } else {
+            await this.RunMigration();
+        }
     }
 
     /**
@@ -53,8 +87,14 @@ export default class Migrator {
      * @param destination
      */
     Move(source, destination) {
-        fs.move(source, destination, async (err) => {
-            if (err) return console.log(err);
+        //fs.move creates any required parent directories
+        fs.move(source, destination, { overwrite: true }, async (err) => {
+            if (err) {
+                dialog.showErrorBox(
+                    "Migration Error",
+                    `${this.software} was unable to be moved to the leadme_apps folder on attempt number: ${this.attempt}`);
+                return;
+            }
             console.log(`Folder ${this.software} moved successfully`);
 
             await this.UpdateManifest();
@@ -100,12 +140,6 @@ export default class Migrator {
             objects.push(appJSON);
             await this.writeObjects(filePath, objects);
         }
-
-        //Restart the application - removing the current command arguments
-        app.commandLine.removeSwitch("software");
-        app.commandLine.removeSwitch("directory");
-        app.relaunch();
-        app.exit();
     }
 
     /**

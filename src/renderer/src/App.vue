@@ -39,6 +39,7 @@ api.ipcRenderer.on('backend_message', (event, info) => {
       break;
 
     default:
+      console.log(info);
       break;
   }
 });

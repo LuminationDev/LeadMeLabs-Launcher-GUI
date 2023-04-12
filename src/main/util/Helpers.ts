@@ -7,7 +7,7 @@ import extract from "extract-zip";
 import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
-import * as https from "https"; //use for production hosting server
+import * as https from "https"; //TODO use for production hosting server
 import { app, BrowserWindow, net } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 
@@ -28,11 +28,12 @@ export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
+    host: string = 'http://localhost:8082'; //TODO repoint to the hosting server when testing the application
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
-        this.appDirectory = join(__dirname, '../../../../..', 'leadme_apps');
+        this.appDirectory = process.env.APPDATA + '/leadme_apps';
     }
 
     /**
@@ -257,7 +258,7 @@ export default class Helpers {
         fs.mkdirSync(setVolDirectory, {recursive: true});
 
         let setVolInfo = {
-            url: "http://localhost:8082/program-setvol",
+            url: `${this.host}/program-setvol`,
             properties: {
                 directory: setVolDirectory
             }
@@ -291,7 +292,7 @@ export default class Helpers {
         fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
         let steamCMDInfo = {
-            url: "http://localhost:8082/program-steamcmd",
+            url: `${this.host}/program-steamcmd`,
             properties: {
                 directory: steamCMDDirectory
             }
@@ -761,9 +762,9 @@ export default class Helpers {
         let path;
 
         if(appName === "NUC") {
-            path = "http://localhost:8082/program-nuc-version";
+            path = `${this.host}/program-nuc-version`;
         } else if(appName === "Station") {
-            path = "http://localhost:8082/program-station-version";
+            path = `${this.host}//program-station-version`;
         } else {
             return;
         }

@@ -10,7 +10,13 @@
         "shortcutName": "LeadMe Launcher"
     },
     "win": {
-        "target": "nsis"
+        "target": "nsis",
+        "publish": [
+            {
+                "provider": "generic",
+                "url": "https://electronlauncher.herokuapp.com/static/electron-launcher"
+            }
+        ]
     },
     "linux":  {
         "target": ["snap"]
