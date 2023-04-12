@@ -1,9 +1,8 @@
-import { app } from "electron";
+import { app, dialog } from "electron";
 import fs from "fs-extra";
 import { join } from "path";
 import Encryption from "./Encryption";
 import { execSync } from "child_process";
-import dialog = Electron.dialog;
 
 interface AppEntry {
     type: string
