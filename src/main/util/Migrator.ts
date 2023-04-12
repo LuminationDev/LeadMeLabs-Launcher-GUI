@@ -22,7 +22,7 @@ interface AppEntry {
 export default class Migrator {
     software: string;
     directory: string;
-    appDirectory: string = join(__dirname, '../../../../..', 'leadme_apps');
+    appDirectory: string = process.env.APPDATA + '/leadme_apps';
     attemptLimit: number = 5;
     attempt: number = 0;
 

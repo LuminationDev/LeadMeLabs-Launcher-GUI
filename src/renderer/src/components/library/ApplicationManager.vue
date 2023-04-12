@@ -153,7 +153,7 @@ const resumeDownloadingApplication = (): void => {
 
   <GenericButton
       v-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED"
-      class="h-10 w-32 bg-white text-base"
+      class="h-10 w-32 text-base"
       :type="'primary'"
       :callback="downloadApplication"
       :spinnerColor="'#000000'"

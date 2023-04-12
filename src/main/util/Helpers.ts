@@ -7,7 +7,7 @@ import extract from "extract-zip";
 import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
-import * as https from "https"; //use for production hosting server
+import * as https from "https"; //TODO use for production hosting server
 import { app, BrowserWindow, net } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 
@@ -33,7 +33,7 @@ export default class Helpers {
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
-        this.appDirectory = join(__dirname, '../../../../..', 'leadme_apps');
+        this.appDirectory = process.env.APPDATA + '/leadme_apps';
     }
 
     /**

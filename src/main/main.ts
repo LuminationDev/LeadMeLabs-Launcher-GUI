@@ -16,16 +16,18 @@ autoUpdater.on('update-downloaded', () => {
   if(mainWindow) {
     mainWindow.webContents.send('backend_message', {
       channelType: "update_ready",
-      name: "UPDATE DOWNLOADED"
+      name: "UPDATE DOWNLOADED, close any open applications"
     });
   }
 
-  downloadWindow.close();
-  downloadWindow = null;
+  //Wait for any open applications to close
+  setTimeout(() => {
+    //Close the download window?
 
-  const isSilent = true
-  const isForceRunAfter = true
-  autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
+    const isSilent = true
+    const isForceRunAfter = true
+    autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
+  }, 4000);
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
