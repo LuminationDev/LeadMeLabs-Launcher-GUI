@@ -23,7 +23,7 @@ export default class Migrator {
     software: string;
     directory: string;
     appDirectory: string = process.env.APPDATA + '/leadme_apps';
-    attemptLimit: number = 5;
+    attemptLimit: number = 10;
     attempt: number = 0;
 
     constructor(software: string, directory: string) {
@@ -69,8 +69,8 @@ export default class Migrator {
 
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        //Check that the folder has been moved, if not try again.
-        if (fs.existsSync(destination) || this.attempt >= this.attemptLimit) {
+        //Check that the folder has been moved (source deleted, destination created), if not try again.
+        if ((!fs.existsSync(source) && fs.existsSync(destination)) || this.attempt >= this.attemptLimit) {
             //Restart the application - removing the current command arguments
             app.commandLine.removeSwitch("software");
             app.commandLine.removeSwitch("directory");

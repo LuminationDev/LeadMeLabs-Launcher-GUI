@@ -21,6 +21,12 @@
     "linux":  {
         "target": ["snap"]
     },
+    "extraResources": [
+        {
+            "from": "./_batch",
+            "to": "../_batch"
+        }
+    ],
     "files": [
         "build/main/**/*",
         {

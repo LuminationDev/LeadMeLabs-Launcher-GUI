@@ -990,7 +990,7 @@ export default class Helpers {
      * XML we can set far more than a command line interface and add different triggers and conditions.
      */
     modifyDefaultXML(taskFolder: string, appName: string, outputPath: string): void {
-        const exePath = join(this.appDirectory, `${appName}/_batch/LeadMeLabs-SoftwareChecker.exe`)
+        const exePath = join(__dirname, '../../../../..', '_batch/LeadMeLabs-SoftwareChecker.exe');
 
         const filePath = join(app.getAppPath(), 'static', 'template.xml');
         const data = fs.readFileSync(filePath, "utf16le")
