@@ -20,6 +20,11 @@ autoUpdater.on('update-downloaded', () => {
     });
   }
 
+  if(downloadWindow) {
+    //Setting progress above 1 turns the bar into an indeterminate loading bar while waiting for restart
+    downloadWindow.setProgressBar(2);
+  }
+
   //Wait for any open applications to close
   setTimeout(() => {
     //Close the download window?
@@ -104,7 +109,7 @@ function createWindow () {
         if (result === null) return;
 
         mainWindow.webContents.send('backend_message', {
-          channelType: "update_ready",
+          channelType: "update_check",
           name: "UPDATE",
           data: result,
           hosting: "Hosting version: " + result.updateInfo.version,
