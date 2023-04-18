@@ -8,7 +8,7 @@ const values = {
     '1': new Application(
         '1',
         'Station',
-        'http://localhost:8082/program-station',
+        'https://learninglablauncherdevelopment.herokuapp.com/program-station',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
@@ -16,7 +16,7 @@ const values = {
     '2': new Application(
         '2',
         'NUC',
-        'http://localhost:8082/program-nuc',
+        'https://learninglablauncherdevelopment.herokuapp.com/program-nuc',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
