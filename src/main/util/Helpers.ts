@@ -28,7 +28,7 @@ export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
-    host: string = 'http://localhost:8082'; //TODO repoint to the hosting server when testing the application
+    host: string = 'https://learninglablauncherdevelopment.herokuapp.com'; //TODO repoint to the hosting server when testing the application
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -764,7 +764,7 @@ export default class Helpers {
         if(appName === "NUC") {
             path = `${this.host}/program-nuc-version`;
         } else if(appName === "Station") {
-            path = `${this.host}//program-station-version`;
+            path = `${this.host}/program-station-version`;
         } else {
             return;
         }
@@ -773,7 +773,7 @@ export default class Helpers {
         if(!await this.checkFileAvailability(path)) return;
 
         const request_call = new Promise((resolve, reject) => {
-            http.get(path, (response) => {
+            https.get(path, (response) => {
                 let chunks_of_data = "";
 
                 response.on('data', (chunk) => {
