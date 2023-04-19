@@ -389,7 +389,7 @@ export default class Helpers {
             try {
                 const objects: Array<AppEntry> = await this.readObjects(filePath);
 
-                appJSON.id = this.generateUniqueId(objects);
+                appJSON.id = this.generateUniqueId(appName, objects);
 
                 objects.push(appJSON);
 
@@ -407,7 +407,7 @@ export default class Helpers {
         console.log("Manifest does not exist");
 
         const objects: Array<AppEntry> = [];
-        appJSON.id = this.generateUniqueId(objects);
+        appJSON.id = this.generateUniqueId(appName, objects);
 
         objects.push(appJSON);
         await this.writeObjects(filePath, objects);
@@ -417,13 +417,27 @@ export default class Helpers {
 
     /**
      * Function to generate a unique ID for each object.
+     * @param name
      * @param objects An array of JSON objects that conform to the AppEntry interface.
      */
-    generateUniqueId = (objects: Array<AppEntry>) => {
-        let id;
-        do {
-            id = Math.floor(Math.random() * 1000000); // Generate a random 6-digit number as ID
-        } while (objects.find(obj => obj.id === id)); // Check if the ID already exists
+    generateUniqueId = (name: string, objects: Array<AppEntry>) => {
+        const allowedChars = 'abcdefghijklmnopqrstuvwxyz0123456789 ~`!@#$%^&*()-_=+[{]}\\|;:\'",<.>/?';
+
+        let id = name
+            .toLowerCase()
+            .split('')
+            .map((char) => {
+                const index = allowedChars.indexOf(char);
+                if (index >= 0) {
+                    return (index + 11).toString();
+                } else {
+                    return '';
+                }
+            })
+            .join('');
+
+        console.log(id);
+
         return id;
     }
 
