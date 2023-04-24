@@ -7,7 +7,7 @@ import extract from "extract-zip";
 import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
-import * as https from "https"; //TODO use for production hosting server
+import * as https from "https"; //Use for production hosting server
 import { app, BrowserWindow, net } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 
@@ -28,6 +28,7 @@ export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
+    //host: string = 'http://localhost:8082';
     host: string = 'https://learninglablauncherdevelopment.herokuapp.com'; //TODO repoint to the hosting server when testing the application
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
@@ -125,7 +126,13 @@ export default class Helpers {
      * LeadMe labs tablet.
      */
     async setApplicationImage(_event: IpcMainEvent, info: any): Promise<void> {
+        const parentFolder = join(this.appDirectory, info.name);
         const localFile = `${join(this.appDirectory, info.name)}\\header.jpg`;
+
+        //Create the folder if it does not exist
+        if(!fs.existsSync(parentFolder)) {
+            fs.mkdirSync(parentFolder);
+        }
 
         // File header.jpg will be created or overwritten by default.
         fs.copyFile(info.imagePath, localFile, (err) => {
@@ -678,10 +685,19 @@ export default class Helpers {
      * Delete an application, including all sub folders and saved data.
      */
     async deleteApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        const directoryPath = join(this.appDirectory, info.name)
+
+        this.killAProcess(info.name, info.altPath, true);
+
+        //Remove the app's directory, this may be a custom folder with a header image as well
+        if(fs.existsSync(directoryPath)) {
+            fs.rmSync(directoryPath, {recursive: true, force: true});
+        }
+
+        await this.removeFromAppManifest(info.name);
+
         //If true the application is an imported one
         if(info.altPath != '') {
-            await this.removeFromAppManifest(info.name);
-
             //Send back the new application and its assigned ID
             this.mainWindow.webContents.send('backend_message', {
                 channelType: "application_imported",
@@ -690,16 +706,7 @@ export default class Helpers {
                 action: "removed",
                 message: `Imported application removed: ${info.name}`
             });
-        }
-        else {
-            const directoryPath = join(this.appDirectory, info.name)
-
-            this.killAProcess(info.name, info.altPath, true);
-
-            fs.rmSync(directoryPath, { recursive: true, force: true });
-
-            await this.removeFromAppManifest(info.name);
-
+        } else {
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `${info.name} removed.`
@@ -1055,7 +1062,8 @@ export default class Helpers {
         try {
             //Execute the command to find and kill the process by its name - it will not remove the directory
             //if the process is still running.
-            execSync(`${killCommand} "imagename eq ${appName}*"`);
+            const result = execSync(`${killCommand} "imagename eq ${appName}*"`).toString();
+            console.log(result);
         }
         catch (error) {
             // @ts-ignore

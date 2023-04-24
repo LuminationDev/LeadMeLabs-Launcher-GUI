@@ -14,10 +14,7 @@ div {
 
 @layer components {
     .textfield-primary {
-        @apply mr-1 border-2 rounded-lg p-2 border-black w-9/12;
-    }
-    .textfield-automation {
-        @apply border-2 rounded-lg p-2 border-black w-16;
+        @apply mr-1 border-2 rounded-lg p-2 border-black;
     }
 }
 .radio-custom-container {

@@ -4,9 +4,9 @@ import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
 import ManualProgress from "../components/loading/ManualProgress.vue";
-import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
-import SetupDoubleInput from "../components/forms/SetupDoubleInput.vue";
-import SetupNavigation from "../components/forms/SetupNavigation.vue";
+import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
+import SetupDoubleInput from "../components/inputs/SetupDoubleInput.vue";
+import SetupNavigation from "../components/inputs/SetupNavigation.vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
 import { useLibraryStore } from '../store/libraryStore';
@@ -74,7 +74,6 @@ watch(setupParams, (newValue) => {
   }
 
   newValue.forEach(value => {
-    console.log(value);
     let values = value.split("=");
     let details;
 

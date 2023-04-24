@@ -6,7 +6,7 @@ import { ref } from "vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
 import { useLibraryStore } from '../store/libraryStore'
-import SetupSingleInput from "../components/forms/SetupSingleInput.vue";
+import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
 
 const libraryStore = useLibraryStore()
 const showImportModal = ref(false);
@@ -61,6 +61,9 @@ function openModal() {
 }
 
 function closeModal() {
+  name.value = "";
+  filePath.value = "";
+  fileInput.value.value = "";
   showImportModal.value = false;
 }
 </script>
@@ -86,12 +89,10 @@ function closeModal() {
       </template>
 
       <template v-slot:content>
-        <div class="flex flex-col mt-4 mx-5">
+        <div class="flex flex-col mt-4 mx-4">
           <SetupSingleInput :title="'Experience Name'" :placeholder="'My Experience'" :v$="v$.name" v-model="name"/>
 
-          <div class="flex justify-center mt-2">
-            <div class="w-72 mr-2 text-xs overflow-y-auto items-center">{{filePath}}</div>
-
+          <div class="flex justify-between mt-2">
             <label
                 for="files"
                 class="w-24 h-8 rounded-lg flex items-center justify-center"
@@ -103,6 +104,8 @@ function closeModal() {
               <input :disabled="name.length === 0" class="hidden" id="files" ref="fileInput" type="file" @change="selectApplication">
               Find file
             </label>
+
+            <div class="w-full ml-10 text-xs overflow-y-auto items-center">{{filePath}}</div>
           </div>
         </div>
       </template>

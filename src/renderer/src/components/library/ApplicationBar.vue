@@ -33,6 +33,9 @@ const deleteApplication = (): void => {
     name: app.name,
     altPath: app.altPath
   });
+
+  //Reset the selected application
+  libraryStore.selectedApplication = undefined;
 }
 </script>
 

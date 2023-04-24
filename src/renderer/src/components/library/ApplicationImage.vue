@@ -40,32 +40,51 @@ const imagePath = computed(async () => {
 
   const altPath = app.altPath;
   let inputUrl;
+  let finalUrl;
 
   //Locate the image from the supplied path
-  if(altPath !== null && altPath !== "") {
+  if (altPath !== null && altPath !== "") {
     //Get the parent folder
     const folder = altPath.substring(0, altPath.lastIndexOf("\\"));
     //Use the custom media loader protocol defined in the main.ts
     inputUrl = `media-loader://${folder}\\header.jpg`;
-  } else {
-    inputUrl = `media-loader://${libraryStore.appDirectory}\\${app.name}\\header.jpg`;
+
+    try {
+      finalUrl = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.src = inputUrl;
+        image.onload = () => {
+          resolve(inputUrl);
+        }
+        image.onerror = () => {
+          reject(null);
+        }
+      });
+    }
+    catch (e) {
+      finalUrl = null;
+    }
   }
 
-  let finalUrl;
-  try {
-    finalUrl = await new Promise((resolve, reject) => {
-      const image = new Image();
-      image.src = inputUrl;
-      image.onload = () => {
-        resolve(inputUrl);
-      }
-      image.onerror = () => {
-        reject(null);
-      }
-    });
-  }
-  catch (e) {
-    finalUrl = null;
+  //Check the local app directory as a backup.
+  if (finalUrl === null){
+    inputUrl = `media-loader://${libraryStore.appDirectory}\\${app.name}\\header.jpg`;
+
+    try {
+      finalUrl = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.src = inputUrl;
+        image.onload = () => {
+          resolve(inputUrl);
+        }
+        image.onerror = () => {
+          reject(null);
+        }
+      });
+    }
+    catch (e) {
+      finalUrl = null;
+    }
   }
 
   imageSource.value = finalUrl;
