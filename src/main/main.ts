@@ -1,3 +1,5 @@
+import semver from "semver/preload";
+
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
@@ -115,15 +117,22 @@ function createWindow () {
           hosting: "Hosting version: " + result.updateInfo.version,
           version: "Current version: " + app.getVersion()
         });
+
+        //Detect if there is an update, if not send the auto start command
+        if(!semver.gt(result.updateInfo.version, app.getVersion())) {
+          mainWindow.webContents.send('backend_message', {
+            channelType: "autostart_active"
+          });
+        }
       })
     }
-  })
+  });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     console.log('inside set window open handler')
     void shell.openExternal(details.url)
     return { action: 'deny' }
-  })
+  });
 
   if (process.env.NODE_ENV === 'development') {
     const rendererPort = process.argv[2];

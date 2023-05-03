@@ -1,14 +1,42 @@
 import { defineStore } from 'pinia'
 import { Application } from '../models'
+import { reactive, ref } from "vue";
 import * as CONSTANTS from '../assets/constants/_application';
-import {reactive, ref} from "vue";
 
 //Preset applications - Use this as an example of the LeadMe ID Library?
+// const values = {
+//     '1': new Application(
+//         '1',
+//         'Station',
+//         'http://localhost:8082/program-station',
+//         '',
+//         false,
+//         CONSTANTS.STATUS_NOT_INSTALLED
+//     ),
+//     '2': new Application(
+//         '2',
+//         'NUC',
+//         'http://localhost:8082/program-nuc',
+//         '',
+//         false,
+//         CONSTANTS.STATUS_NOT_INSTALLED
+//     ),
+//     '3': new Application(
+//         '3',
+//         'LeadMe VR',
+//         'http://localhost:8082/program-leadmevr',
+//         '',
+//         false,
+//         CONSTANTS.STATUS_NOT_INSTALLED
+//     )
+// }
+
+// This is for production
 const values = {
     '1': new Application(
         '1',
         'Station',
-        'https://learninglablauncherdevelopment.herokuapp.com/program-station',
+        'https://learninglablauncher.herokuapp.com/program-station',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
@@ -16,23 +44,7 @@ const values = {
     '2': new Application(
         '2',
         'NUC',
-        'https://learninglablauncherdevelopment.herokuapp.com/program-nuc',
-        '',
-        false,
-        CONSTANTS.STATUS_NOT_INSTALLED
-    ),
-    '3': new Application(
-        '3',
-        'ActualGame',
-        'http://localhost:8082/program-actualgame',
-        '',
-        false,
-        CONSTANTS.STATUS_NOT_INSTALLED
-    ),
-    '4': new Application(
-        '4',
-        'PluginTest',
-        'http://localhost:8082/program-plugintest',
+        'https://learninglablauncher.herokuapp.com/program-nuc',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED

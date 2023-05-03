@@ -4,6 +4,7 @@ import * as CONSTANT from "../../assets/constants/_application"
 import ApplicationBar from "./ApplicationBar.vue";
 import ApplicationImage from "./ApplicationImage.vue";
 import { useLibraryStore } from '../../store/libraryStore'
+import UploadLogFile from "../../modals/UploadLogFile.vue";
 const libraryStore = useLibraryStore();
 
 //Track if the application has auto enabled in the manifest
@@ -49,7 +50,9 @@ const setAutostart = (): void => {
 
       <div v-if="[CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)" class="text-sm">
         <p>Auto Start</p>
-        <input class="h-5 w-5 ml-2" type="checkbox" v-model="checked" @change="setAutostart()"/>
+        <input class="h-5 w-5 ml-2 mr-2" type="checkbox" v-model="checked" @change="setAutostart()"/>
+
+        <UploadLogFile v-if="['Station', 'NUC'].includes(applicationName)" :software-name="applicationName" />
       </div>
     </div>
 

@@ -3,7 +3,7 @@ import {computed, reactive, ref} from "vue";
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
 import * as CONSTANT from "../assets/constants/_application"
-import LaunchParamInput from "../components/forms/LaunchParamInput.vue";
+import LaunchParamInput from "../components/inputs/LaunchParamInput.vue";
 import { useLibraryStore } from '../store/libraryStore'
 
 const libraryStore = useLibraryStore()

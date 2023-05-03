@@ -22,6 +22,10 @@ api.ipcRenderer.on('backend_message', (event, info) => {
       installedApplications(info.directory, info.content);
       break;
 
+    case "autostart_active":
+      autoStateApplications();
+      break;
+
     case "app_manifest_query":
       manifestParams(info);
       break;
@@ -73,9 +77,17 @@ function installedApplications(directoryPath: string, appArray: Array<AppEntry>)
       libraryStore.updateApplicationStatusByName(application.name, CONSTANT.STATUS_INSTALLED);
       libraryStore.updateApplicationAutoStartByName(application.name, application.autostart);
     }
+  });
+}
 
+/**
+ * A command sent from the backend stating there are no updates available at this time or any update has been installed,
+ * and it is now safe to auto start any applications that are required.
+ */
+function autoStateApplications() {
+  libraryStore.applications.forEach((application: Application) => {
     //Open the application if required by autostart flag
-    if (application.autostart) {
+    if (application.autoStart) {
       // @ts-ignore
       api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
         channelType: CONSTANT.APPLICATION_LAUNCH,
