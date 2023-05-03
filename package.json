@@ -60,7 +60,7 @@
     "fs-extra": "^11.1.1",
     "path-browserify": "^1.0.1",
     "pinia": "^2.0.34",
-    "semver": "^7.3.8",
+    "semver": "^7.4.0",
     "vue-router": "^4.1.6",
     "winreg": "^1.2.4",
     "xml2js": "^0.5.0"
