@@ -29,7 +29,7 @@ export default class Helpers {
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
     //host: string = 'http://localhost:8082';
-    host: string = 'https://learninglablauncherdevelopment.herokuapp.com'; //TODO repoint to the hosting server when testing the application
+    host: string = 'https://learninglablauncher.herokuapp.com'; //TODO repoint to the hosting server when testing the application CHANGE THIS FOR PRODUCTION?
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -1058,6 +1058,13 @@ export default class Helpers {
         const killCommand = isWindows ? 'taskkill /F /FI' : 'pkill';
 
         //TODO finish the import stop via the filePath name later
+
+        if(filePath != null) {
+            const nameArray = filePath.split('\\');
+            appName = nameArray[nameArray.length - 1].replace(".exe","");
+
+            console.log("Imported app name: " + appName);
+        }
 
         try {
             //Execute the command to find and kill the process by its name - it will not remove the directory

@@ -20,32 +20,23 @@ import * as CONSTANTS from '../assets/constants/_application';
 //         '',
 //         false,
 //         CONSTANTS.STATUS_NOT_INSTALLED
-//     )
-//     ,
+//     ),
 //     '3': new Application(
 //         '3',
-//         'ActualGame',
-//         'http://localhost:8082/program-actualgame',
-//         '',
-//         false,
-//         CONSTANTS.STATUS_NOT_INSTALLED
-//     ),
-//     '4': new Application(
-//         '4',
-//         'PluginTest',
-//         'http://localhost:8082/program-plugintest',
+//         'LeadMe VR',
+//         'http://localhost:8082/program-leadmevr',
 //         '',
 //         false,
 //         CONSTANTS.STATUS_NOT_INSTALLED
 //     )
 // }
 
-//This is for production
+// This is for production
 const values = {
     '1': new Application(
         '1',
         'Station',
-        'https://learninglablauncherdevelopment.herokuapp.com/program-station',
+        'https://learninglablauncher.herokuapp.com/program-station',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
@@ -53,7 +44,7 @@ const values = {
     '2': new Application(
         '2',
         'NUC',
-        'https://learninglablauncherdevelopment.herokuapp.com/program-nuc',
+        'https://learninglablauncher.herokuapp.com/program-nuc',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
