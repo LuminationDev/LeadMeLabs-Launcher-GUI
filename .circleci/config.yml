@@ -8,7 +8,7 @@ commands:
     steps:
       - add_ssh_keys:
           fingerprints:
-            - "bd:dc:58:24:df:b4:3f:8e:66:69:b9:9c:3b:73:2e:3e"
+            - "12:41:3e:8a:8f:e0:54:05:f1:4c:a3:85:0b:49:1b:c8"
       - run:
           name: Setup git config
           command: git config --global user.name "CircleCI" && git config --global user.email "CircleCI@lumination.com.au"
@@ -20,7 +20,7 @@ commands:
           command: dir /home/circleci/.ssh
       - run:
           name: Write ssh config file
-          command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_bddc5824dfb43f8e6669b99c3b732e3e" >> ~/.ssh/config
+          command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_	12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
       - run:
           name: Clone hosting server
           command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
