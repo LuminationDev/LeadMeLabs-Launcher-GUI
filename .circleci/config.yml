@@ -20,7 +20,7 @@ commands:
           command: dir /home/circleci/.ssh
       - run:
           name: Write ssh config file
-          command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_	12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
+          command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
       - run:
           name: Clone hosting server
           command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
