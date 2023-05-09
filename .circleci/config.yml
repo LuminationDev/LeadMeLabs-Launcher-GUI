@@ -39,7 +39,7 @@ commands:
       - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
       - run:
           name: Copy built files to git repository
-          command: cp -r ./project/dist ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
+          command: cp -r ./project/dist/. ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
       - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
       - run: ls
       - run: ls ./project/dist
