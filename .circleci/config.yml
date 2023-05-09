@@ -36,18 +36,22 @@ commands:
       - run:
           name: Delete old files
           command: rm -rf ~/LeadMeLabs-Launcher-Hosting/applications/config-tool
+      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
       - run:
           name: Copy built files to git repository
           command: cp -r ./project/dist ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
+      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
       - run: ls
       - run: ls ./project/dist
       - run: ls ~/
       - run:
           name: Add built files to git
           command: cd ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher && git add --all
+      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
       - run:
           name: Commit
           command: cd ~/LeadMeLabs-Launcher-Hosting && git commit -m "Update launcher"
+      - run: ls ~/LeadMeLabs-Launcher-Hosting
       - run:
           name: Push
           command: cd ~/LeadMeLabs-Launcher-Hosting && git push
