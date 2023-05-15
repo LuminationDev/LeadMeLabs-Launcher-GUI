@@ -183,6 +183,11 @@ function setupTrayIcon(): void {
   })
 }
 
+/**
+ * Ignore certificate errors.
+ */
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 app.whenReady().then(async () => {
   protocol.interceptFileProtocol('media-loader', (request, callback) => {
     const url = request.url.replace("media-loader://", "");
