@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {computed, ref, watch} from "vue";
+import GenericButton from "../../components/buttons/GenericButton.vue";
 import * as CONSTANT from "../../assets/constants/_application"
 import ApplicationScheduler from "./ApplicationScheduler.vue";
 
@@ -16,6 +17,13 @@ const applicationStatus = computed(() => {
   const app = libraryStore.getSelectedApplication
   return app !== undefined ? app.status : 'Unselected'
 });
+
+const rewriteManifest = () => {
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+    channelType: CONSTANT.SCAN_MANIFEST
+  });
+}
 
 const selectedImagePath = ref("");
 const imageInput = ref<HTMLInputElement | null>(null);
@@ -102,7 +110,18 @@ watch(imagePath, (newVal) => {
     </div>
 
     <div v-else class="w-full flex flex-col items-center justify-center">
-      <div v-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED" class="text-black">NOT INSTALLED</div>
+      <!--Perform an auto scan to see if anything is in the leadme_apps folder, rewriting the manifest if required-->
+      <div v-if="libraryStore.checkIfApplicationInstalled('NUC') && libraryStore.checkIfApplicationInstalled('Station')" class="w-full flex justify-center items-center">
+        <GenericButton
+            id="share_button"
+            class="h-10 w-48 -mt-0.5"
+            :type="'primary'"
+            :callback="rewriteManifest"
+            :spinnerColor="'#000000'"
+        >Scan manifest</GenericButton>
+      </div>
+
+      <div v-else-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED" class="text-black">NOT INSTALLED</div>
 
       <div v-else-if="imageSource === null" class="text-black flex flex-col items-center">
         Image Not Found

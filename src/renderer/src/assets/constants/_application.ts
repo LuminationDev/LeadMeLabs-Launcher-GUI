@@ -8,6 +8,7 @@ export const STATUS_RUNNING = 'application_running'
 
 export const QUERY_INSTALLED = 'query_installed_applications'
 export const QUERY_MANIFEST_APP = 'query_manifest_app'
+export const SCAN_MANIFEST = 'scan_manifest'
 
 export const APPLICATION_IMPORT = 'import_application'
 export const APPLICATION_IMAGE_SET = 'set_application_image'

@@ -2,10 +2,11 @@
 import { RouterView } from 'vue-router';
 import Header from './layout/Header.vue';
 import { AppEntry } from "./interfaces/appIntefaces";
-import UpdateNotification from "./modals/UpdateNotification.vue";
+import Notification from "./modals/Notification.vue";
 import { Application } from "./models";
 import * as CONSTANT from "./assets/constants/_application";
 import { useLibraryStore } from './store/libraryStore';
+import { ref } from "vue";
 const libraryStore = useLibraryStore();
 
 //First this to do is check if any applications are installed - only register and trigger it on start up.
@@ -40,6 +41,10 @@ api.ipcRenderer.on('backend_message', (event, info) => {
 
     case "application_imported":
       applicationImported(info);
+      break;
+
+    case "manifest_scanned":
+      manifestScanned(info);
       break;
 
     default:
@@ -146,6 +151,28 @@ function applicationImported(info: any) {
     libraryStore.removeImportedApplication(info.name);
   }
 }
+
+const title = ref("");
+const message = ref("");
+
+const notificationRef = ref<InstanceType<typeof Notification> | null>(null)
+function openNotificationModal() {
+  notificationRef.value?.openModal();
+}
+
+/**
+ * The leadme_apps directory has been scanned, inform the user of the outcome of te prcoess and what might need to
+ * occur next.
+ * @param info
+ */
+function manifestScanned(info: any) {
+  console.log(info);
+
+  title.value = info.title;
+  message.value = info.message;
+
+  openNotificationModal();
+}
 </script>
 
 <template>
@@ -157,7 +184,7 @@ function applicationImported(info: any) {
   </div>
 
   <!--Modal to handle entire application updates-->
-  <UpdateNotification />
+  <Notification ref="notificationRef" :title="title" :message="message"/>
 </template>
 
 <style lang="less">

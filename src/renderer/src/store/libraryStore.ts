@@ -31,6 +31,26 @@ import * as CONSTANTS from '../assets/constants/_application';
 //     )
 // }
 
+// This is for development
+// const values = {
+//     '1': new Application(
+//         '1',
+//         'Station',
+//         'https://learninglablauncherdevelopment.herokuapp.com/program-station',
+//         '',
+//         false,
+//         CONSTANTS.STATUS_NOT_INSTALLED
+//     ),
+//     '2': new Application(
+//         '2',
+//         'NUC',
+//         'https://learninglablauncherdevelopment.herokuapp.com/program-nuc',
+//         '',
+//         false,
+//         CONSTANTS.STATUS_NOT_INSTALLED
+//     )
+// }
+
 // This is for production
 const values = {
     '1': new Application(
@@ -127,6 +147,23 @@ export const useLibraryStore = defineStore({
             if(app != undefined) {
                 app.autoStart = autoStart
             }
+        },
+
+        /**
+         * Check if an application is installed.
+         * @param appName A string representing the name of an application.
+         */
+        checkIfApplicationInstalled(appName: string): boolean {
+            const key = this.getKeyFromValue(appName)
+            if(key == undefined) { return false; }
+
+            const app = this.applications.get(key)
+            if(app != undefined) {
+                if(app.status )
+                return true;
+            }
+
+            return false;
         },
 
         /**

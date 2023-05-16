@@ -29,7 +29,8 @@ export default class Helpers {
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
     //host: string = 'http://localhost:8082';
-    host: string = 'https://learninglablauncher.herokuapp.com'; //TODO repoint to the hosting server when testing the application CHANGE THIS FOR PRODUCTION?
+    //host: string = 'https://learninglablauncherdevelopment.herokuapp.com'; //Development server
+    host: string = 'https://learninglablauncher.herokuapp.com'; //Production server
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -71,7 +72,10 @@ export default class Helpers {
                     void this.setManifestAutoStart(_event, info);
                     break;
                 case "query_installed_applications":
-                    void this.installedApplications(_event, info);
+                    void this.installedApplications();
+                    break;
+                case "scan_manifest":
+                    void this.scanForManifestApps(_event, info);
                     break;
                 case "query_manifest_app":
                     void this.getLaunchParameters(_event, info);
@@ -396,7 +400,7 @@ export default class Helpers {
             try {
                 const objects: Array<AppEntry> = await this.readObjects(filePath);
 
-                appJSON.id = this.generateUniqueId(appName, objects);
+                appJSON.id = this.generateUniqueId(appName);
 
                 objects.push(appJSON);
 
@@ -414,7 +418,7 @@ export default class Helpers {
         console.log("Manifest does not exist");
 
         const objects: Array<AppEntry> = [];
-        appJSON.id = this.generateUniqueId(appName, objects);
+        appJSON.id = this.generateUniqueId(appName);
 
         objects.push(appJSON);
         await this.writeObjects(filePath, objects);
@@ -425,9 +429,8 @@ export default class Helpers {
     /**
      * Function to generate a unique ID for each object.
      * @param name
-     * @param objects An array of JSON objects that conform to the AppEntry interface.
      */
-    generateUniqueId = (name: string, objects: Array<AppEntry>) => {
+    generateUniqueId = (name: string) => {
         const allowedChars = 'abcdefghijklmnopqrstuvwxyz0123456789 ~`!@#$%^&*()-_=+[{]}\\|;:\'",<.>/?';
 
         let id = name
@@ -608,6 +611,101 @@ export default class Helpers {
     }
 
     /**
+     * Scan the local leadme_apps directory for either the NUC or Station folder. If present, either write or re-write
+     * the manifest as per the local encryption key.
+     * @param _event
+     * @param info
+     */
+    async scanForManifestApps(_event: IpcMainEvent, info: any): Promise<void> {
+        //Check if the leadme_apps folder exists, if not create it
+        const manifestExists = fs.existsSync(this.appDirectory);
+
+        console.log(manifestExists);
+
+        //Create the main directory to hold the application
+        if(!manifestExists) {
+            fs.mkdirSync(this.appDirectory, {recursive: true})
+
+            //No folders found, send back the file path and alert the user
+            this.mainWindow.webContents.send('backend_message', {
+                channelType: "manifest_scanned",
+                title: "Scan failure",
+                message: `leadme_apps not found but created, no sub-folders exist. Please move the Station or NUC 
+                folder into the following location ${process.env.APPDATA}\\leadme_apps\\[SOFTWARE NAME]`
+            });
+            return;
+        }
+
+        //Check if the nuc or station exist with an exe in them
+        const nucExists = fs.existsSync(join(this.appDirectory, 'NUC', 'NUC.exe'));
+        const stationExists = fs.existsSync(join(this.appDirectory, 'Station', 'Station.exe'));
+
+        const objects: Array<AppEntry> = [];
+
+        const appEntries = [
+            { exists: nucExists, name: "NUC" },
+            { exists: stationExists, name: "Station" }
+        ];
+
+        appEntries.forEach(entry => {
+            entry.exists ? this.createAppEntry(entry.name, objects) : null;
+        });
+
+        if (objects.length === 0) {
+            //No folders found, send back the file path and alert the user
+            this.mainWindow.webContents.send('backend_message', {
+                channelType: "manifest_scanned",
+                title: "Scan failure",
+                message: `No sub folders found in leadme_apps. Please move the Station or NUC folder into the 
+                following location ${process.env.APPDATA}\\leadme_apps\\[SOFTWARE NAME]`,
+            });
+            return;
+        }
+
+        //Check if there is a manifest, re-write what is there
+        const filePath = join(this.appDirectory, 'manifest.json');
+
+        //Write the objects array for the manifest
+        await this.writeObjects(filePath, objects);
+
+        this.mainWindow.webContents.send('backend_message',
+            {
+                channelType: "applications_installed",
+                directory: this.appDirectory,
+                content: objects
+            }
+        );
+
+        //Send back confirmation to the user
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "manifest_scanned",
+            title: "Scan successful",
+            message: `Scanned for files. NUC added: ${nucExists}, Station added: ${stationExists}.`,
+        });
+    }
+
+    /**
+     * Create an App entry object with an assigned unique ID.
+     * @param name
+     * @param objects
+     */
+    createAppEntry(name: string, objects: AppEntry[]) {
+        //Create the application entry for the json
+        const appJSON: AppEntry = {
+            type: "LeadMe",
+            id: "",
+            name: name,
+            autostart: false, //default on installation
+            altPath: "",
+            parameters: {},
+        }
+
+        appJSON.id = this.generateUniqueId(name);
+
+        objects.push(appJSON);
+    }
+
+    /**
      * Get the launch parameters that may be assigned to an application from the manifest file. Sending the information
      * back to the front end for a live update.
      */
@@ -643,7 +741,7 @@ export default class Helpers {
     /**
      * On start up detect what Applications are currently installed on the local machine.
      */
-    async installedApplications(_event: IpcMainEvent, _: any): Promise<void> {
+    async installedApplications(): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Check if the file exists

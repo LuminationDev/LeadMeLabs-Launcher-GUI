@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { useLibraryStore } from '../../store/libraryStore'
-import ApplicationPanel from './ApplicationPanel.vue'
-import Sidebar from '../../layout/Sidebar.vue'
-import LibraryMenu from './LibraryMenu.vue'
+import { useLibraryStore } from '../../store/libraryStore';
+import ApplicationPanel from './ApplicationPanel.vue';
+import Sidebar from '../../layout/Sidebar.vue';
+import LibraryMenu from './LibraryMenu.vue';
 
-const libraryStore = useLibraryStore()
+const libraryStore = useLibraryStore();
 </script>
 
 <template>
@@ -18,9 +18,12 @@ const libraryStore = useLibraryStore()
     </div>
     <!--Selected Application details-->
     <div class="content w-full bg-white ml-2 rounded-3xl w-full px-6 pt-2">
-        <div v-if="libraryStore.selectedApplication === ''" class="w-full"></div>
-        <div v-else class="w-full">
-            <ApplicationPanel />
-        </div>
+      <!--Display nothing if nothing is selected-->
+      <div v-if="libraryStore.selectedApplication === ''" class="w-full"></div>
+
+      <!--Display the application details and options-->
+      <div v-else class="w-full">
+          <ApplicationPanel />
+      </div>
     </div>
 </template>

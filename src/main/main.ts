@@ -108,7 +108,13 @@ function createWindow () {
 
     if (process.env.NODE_ENV !== 'development') {
       autoUpdater.checkForUpdates().then((result: UpdateCheckResult|null) => {
-        if (result === null) return;
+        if (result === null) {
+          mainWindow.webContents.send('backend_message', {
+            channelType: "autostart_active"
+          });
+
+          return;
+        }
 
         mainWindow.webContents.send('backend_message', {
           channelType: "update_check",
@@ -125,6 +131,10 @@ function createWindow () {
           });
         }
       })
+    } else {
+      mainWindow.webContents.send('backend_message', {
+        channelType: "autostart_active"
+      });
     }
   });
 
@@ -182,6 +192,11 @@ function setupTrayIcon(): void {
     mainWindow.hide()
   })
 }
+
+/**
+ * Ignore certificate errors.
+ */
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 app.whenReady().then(async () => {
   protocol.interceptFileProtocol('media-loader', (request, callback) => {
