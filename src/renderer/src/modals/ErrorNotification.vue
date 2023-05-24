@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Modal from "./Modal.vue";
-import { ref, defineEmits } from "vue";
+import { defineEmits } from "vue";
 
 defineProps({
   showError: {
