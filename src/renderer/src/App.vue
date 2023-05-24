@@ -60,7 +60,7 @@ api.ipcRenderer.on('backend_message', (event, info) => {
  */
 function installedApplications(directoryPath: string, appArray: Array<AppEntry>) {
   console.log(appArray);
-
+  libraryStore.resetApplications();
   libraryStore.appDirectory = directoryPath;
 
   appArray.forEach(application => {

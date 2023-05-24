@@ -82,6 +82,13 @@ export const useLibraryStore = defineStore({
     }),
     actions: {
         /**
+         * After performing a manifest scan or reset, reload the applications.
+         */
+        resetApplications() {
+            this.applications = new Map<string, Application>(Object.entries(values))
+        },
+
+        /**
          * Add a new application to the applications Map. This will have come from an imported source.
          * @param application An application instance that contains the necessary information for a new entry.
          */

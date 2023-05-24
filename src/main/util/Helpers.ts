@@ -629,7 +629,7 @@ export default class Helpers {
             //No folders found, send back the file path and alert the user
             this.mainWindow.webContents.send('backend_message', {
                 channelType: "manifest_scanned",
-                title: "Scan failure",
+                title: "Operation failure",
                 message: `leadme_apps not found but created, no sub-folders exist. Please move the Station or NUC 
                 folder into the following location ${process.env.APPDATA}\\leadme_apps\\[SOFTWARE NAME]`
             });
@@ -655,7 +655,7 @@ export default class Helpers {
             //No folders found, send back the file path and alert the user
             this.mainWindow.webContents.send('backend_message', {
                 channelType: "manifest_scanned",
-                title: "Scan failure",
+                title: "Operation failure",
                 message: `No sub folders found in leadme_apps. Please move the Station or NUC folder into the 
                 following location ${process.env.APPDATA}\\leadme_apps\\[SOFTWARE NAME]`,
             });
@@ -679,7 +679,7 @@ export default class Helpers {
         //Send back confirmation to the user
         this.mainWindow.webContents.send('backend_message', {
             channelType: "manifest_scanned",
-            title: "Scan successful",
+            title: "Operation successful",
             message: `Scanned for files. NUC added: ${nucExists}, Station added: ${stationExists}.`,
         });
     }

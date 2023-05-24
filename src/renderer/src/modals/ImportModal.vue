@@ -10,6 +10,7 @@ import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
 
 const libraryStore = useLibraryStore()
 const showImportModal = ref(false);
+const error = ref();
 const name = ref("");
 const filePath = ref("");
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -27,9 +28,17 @@ const selectApplication = (): void => {
   filePath.value = fileInput.value.files[0]["path"];
 }
 
+/**
+ * Make sure a file is selected, the path is at least 4 characters (C:/x) and that it is an executable.
+ */
 const importApplication = (): void => {
-  //Make sure a file is selected and that it is an executable
-  if(filePath.value != null && checkFileExtension(filePath.value)) {
+  if(filePath.value == "" || filePath.value == null) {
+    error.value = "A file must be selected.";
+    fileInput.value.value = "";
+  } else if (!checkFileExtension(filePath.value)) {
+    error.value = "File must be an executable (.exe)";
+    fileInput.value.value = "";
+  } else {
     //@ts-ignore
     api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
       channelType: CONSTANT.APPLICATION_IMPORT,
@@ -40,9 +49,6 @@ const importApplication = (): void => {
     //Reset the file input
     fileInput.value.value = "";
     closeModal();
-  } else {
-    //TODO alert the user that the file path cannot be handled.
-    fileInput.value.value = "";
   }
 }
 
@@ -50,10 +56,13 @@ const importApplication = (): void => {
  * Check against the approved file extensions to see if we can properly manage the supplied file path.
  */
 function checkFileExtension(filePath: String): boolean {
-  let accepted: String[] = [".exe", ".lnk"];
-
-  //TODO finish this
-  return true;
+  let accepted: string[] = [".exe", ".lnk"];
+  for (let extension of accepted) {
+    if (filePath.endsWith(extension)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function openModal() {
@@ -106,6 +115,9 @@ function closeModal() {
             </label>
 
             <div class="w-full ml-10 text-xs overflow-y-auto items-center">{{filePath}}</div>
+          </div>
+          <div class="flex flex-col items-end mr-2" v-if="error">
+            <div class="text-red-800 text-xs" >{{ error }}</div>
           </div>
         </div>
       </template>
