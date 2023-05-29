@@ -66,8 +66,8 @@ function installedApplications(directoryPath: string, appArray: Array<AppEntry>)
   appArray.forEach(application => {
     //Check if is the launcher config
     if(application.name === CONSTANT.LAUNCHER_NAME) {
-      if(application.development != null) {
-        libraryStore.development = application.development;
+      if(application.mode != null) {
+        libraryStore.mode = application.mode;
       }
     }
     //Detect if the application is an import

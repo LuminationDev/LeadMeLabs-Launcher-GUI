@@ -19,7 +19,7 @@ interface AppEntry {
     autostart: boolean
     altPath: string|null
     parameters: {}
-    development: boolean|null
+    mode: string|null
 }
 
 /**
@@ -31,7 +31,6 @@ export default class Helpers {
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
     host: string = "";
-    //host: string = 'http://localhost:8082';
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -114,7 +113,8 @@ export default class Helpers {
      * setting is for development mode but can be expanded on in the future with user configurations.
      */
     async configLauncher(_event: IpcMainEvent, info: any): Promise<void> {
-        await this.updateAppManifest(info.name, "Launcher", null, info.development);
+        console.log(info);
+        await this.updateAppManifest(info.name, "Launcher", null, info.mode);
     }
 
     /**
@@ -395,9 +395,9 @@ export default class Helpers {
      * @param appName A string of the experience name being added.
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
-     * @param development A boolean of whether the application is in development mode or not.
+     * @param mode A boolean of whether the application is in development mode or not.
      */
-    async updateAppManifest(appName: string, type: string, altPath: string|null, development: boolean|null): Promise<string> {
+    async updateAppManifest(appName: string, type: string, altPath: string|null, mode: string|null): Promise<string> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
@@ -408,7 +408,7 @@ export default class Helpers {
             autostart: false, //default on installation
             altPath: altPath,
             parameters: {},
-            development: development
+            mode: mode
         }
 
         //Check if the file exists
@@ -668,7 +668,7 @@ export default class Helpers {
         ];
 
         appEntries.forEach(entry => {
-            entry.exists ? this.createAppEntry(entry.name, objects) : null;
+            entry.exists ? this.createAppEntry(entry.name, objects, info.mode) : null;
         });
 
         if (objects.length === 0) {
@@ -708,8 +708,9 @@ export default class Helpers {
      * Create an App entry object with an assigned unique ID.
      * @param name
      * @param objects
+     * @param mode
      */
-    createAppEntry(name: string, objects: AppEntry[]) {
+    createAppEntry(name: string, objects: AppEntry[], mode: string|null) {
         //Create the application entry for the json
         const appJSON: AppEntry = {
             type: "LeadMe",
@@ -718,7 +719,7 @@ export default class Helpers {
             autostart: false, //default on installation
             altPath: "",
             parameters: {},
-            development: false
+            mode: mode
         }
 
         appJSON.id = this.generateUniqueId(name);
@@ -914,24 +915,32 @@ export default class Helpers {
         if(!await this.checkFileAvailability(path)) return;
 
         const request_call = new Promise((resolve, reject) => {
-            https.get(path, (response) => {
-                let chunks_of_data = "";
+            const protocol = path.startsWith('https') ? https : http;
+
+            const request = protocol.get(path, (response) => {
+                let chunks_of_data = '';
 
                 response.on('data', (chunk) => {
                     chunks_of_data += chunk;
                 });
 
                 response.on('end', () => {
-                    let response_body = chunks_of_data.split(" ")[0];
-                    // promise resolved on success
+                    let response_body = chunks_of_data.split(' ')[0];
+                    // Promise resolved on success
                     resolve(response_body.toString());
                 });
 
                 response.on('error', (error) => {
                     console.log(error);
-                    // promise rejected on error
+                    // Promise rejected on error
                     reject(error);
                 });
+            });
+
+            request.on('error', (error) => {
+                console.log(error);
+                // Promise rejected on error
+                reject(error);
             });
         });
 

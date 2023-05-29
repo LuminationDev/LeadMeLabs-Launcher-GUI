@@ -5,22 +5,6 @@ import * as CONSTANTS from '../assets/constants/_application';
 
 //Preset applications - Use this as an example of the LeadMe ID Library?
 // const values = {
-//     '1': new Application(
-//         '1',
-//         'Station',
-//         'http://localhost:8082/program-station',
-//         '',
-//         false,
-//         CONSTANTS.STATUS_NOT_INSTALLED
-//     ),
-//     '2': new Application(
-//         '2',
-//         'NUC',
-//         'http://localhost:8082/program-nuc',
-//         '',
-//         false,
-//         CONSTANTS.STATUS_NOT_INSTALLED
-//     ),
 //     '3': new Application(
 //         '3',
 //         'LeadMe VR',
@@ -54,7 +38,7 @@ const values = {
 export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
-        development: false,
+        mode: "production",
         appDirectory: '',
         selectedApplication: '',
         applicationParameters: {},
@@ -164,7 +148,13 @@ export const useLibraryStore = defineStore({
     },
     getters: {
         getHostURL(): string {
-            return this.development ? "https://learninglablauncherdevelopment.herokuapp.com" : "https://learninglablauncher.herokuapp.com";
+            const modeUrls = {
+                production: "https://learninglablauncher.herokuapp.com",
+                development: "https://learninglablauncherdevelopment.herokuapp.com",
+                local: "http://localhost:8082"
+            };
+
+            return modeUrls[this.mode] || modeUrls.production;
         },
 
         getSelectedApplication(): Application | undefined {

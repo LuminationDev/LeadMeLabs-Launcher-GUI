@@ -21,7 +21,8 @@ const applicationStatus = computed(() => {
 const rewriteManifest = () => {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.SCAN_MANIFEST
+    channelType: CONSTANT.SCAN_MANIFEST,
+    mode: libraryStore.mode
   });
 }
 
