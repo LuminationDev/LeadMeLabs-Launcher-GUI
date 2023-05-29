@@ -54,7 +54,7 @@ api.ipcRenderer.on('backend_message', (event, info) => {
 });
 
 /**
- * Cycle through the supplied manifest list and update the individual entries within the library store.
+ * Cycle through the supplied manifest list and update the individual entries within the library settings.
  * @param directoryPath
  * @param appArray
  */
@@ -64,8 +64,14 @@ function installedApplications(directoryPath: string, appArray: Array<AppEntry>)
   libraryStore.appDirectory = directoryPath;
 
   appArray.forEach(application => {
+    //Check if is the launcher config
+    if(application.name === CONSTANT.LAUNCHER_NAME) {
+      if(application.development != null) {
+        libraryStore.development = application.development;
+      }
+    }
     //Detect if the application is an import
-    if(application.altPath != '' && application.altPath != null) {
+    else if(application.altPath != '' && application.altPath != null) {
       let importedApp: Application = new Application(
           application.id,
           application.name,
@@ -122,7 +128,7 @@ function configParams(info: any) {
 }
 
 /**
- * Notify the store that an application has stopped
+ * Notify the settings that an application has stopped
  * @param info
  */
 function applicationStopped(info: any) {
@@ -130,7 +136,7 @@ function applicationStopped(info: any) {
 }
 
 /**
- * Confirmation that an application has been imported or removed correctly. This updates the library store with the
+ * Confirmation that an application has been imported or removed correctly. This updates the library settings with the
  * appropriate information.
  * @param info
  */

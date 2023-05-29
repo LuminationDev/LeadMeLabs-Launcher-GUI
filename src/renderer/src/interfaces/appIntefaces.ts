@@ -5,4 +5,5 @@ export interface AppEntry {
     autostart: boolean
     altPath: string|null
     parameters: {}
+    development: boolean|null
 }

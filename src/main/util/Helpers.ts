@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import xml2js from "xml2js";
 import Encryption from "./Encryption";
 import { join, resolve } from "path";
@@ -18,6 +19,7 @@ interface AppEntry {
     autostart: boolean
     altPath: string|null
     parameters: {}
+    development: boolean|null
 }
 
 /**
@@ -28,9 +30,8 @@ export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
+    host: string = "";
     //host: string = 'http://localhost:8082';
-    //host: string = 'https://learninglablauncherdevelopment.herokuapp.com'; //Development server
-    host: string = 'https://learninglablauncher.herokuapp.com'; //Production server
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -53,6 +54,9 @@ export default class Helpers {
     helperListenerDelegate(): void {
         this.ipcMain.on('helper_function', (_event, info) => {
             switch(info.channelType) {
+                case "configure_launcher":
+                    void this.configLauncher(_event, info);
+                    break;
                 case "import_application":
                     void this.importApplication(_event, info);
                     break;
@@ -106,12 +110,20 @@ export default class Helpers {
     }
 
     /**
+     * This function allows the Launcher configuration and settings to be saved on the local device. Currently, the only
+     * setting is for development mode but can be expanded on in the future with user configurations.
+     */
+    async configLauncher(_event: IpcMainEvent, info: any): Promise<void> {
+        await this.updateAppManifest(info.name, "Launcher", null, info.development);
+    }
+
+    /**
      * This function allows a user to import an executable into the launcher library, the executable path is recorded
      * along with the name within the local manifest but the original files are not moved at all. The idea is to simple
      * point to the file wherever that may be on the hard drive.
      */
     async importApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        let AppId = await this.updateAppManifest(info.name, "Custom", info.altPath);
+        let AppId = await this.updateAppManifest(info.name, "Custom", info.altPath, null);
 
         //Send back the new application and its assigned ID
         this.mainWindow.webContents.send('backend_message', {
@@ -150,6 +162,10 @@ export default class Helpers {
      * send the progress information back to the renderer for user feedback.
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        this.host = info.host;
+
+        console.log(this.host);
+
         //Need to back up from the main file that is being run
         const directoryPath = join(this.appDirectory, info.name)
         this.mainWindow.webContents.send('status_update', {
@@ -201,10 +217,10 @@ export default class Helpers {
 
                 //Update the config.env file or the app manifest depending on the application
                 if (info.name === 'Station' || info.name === 'NUC') {
-                    this.updateAppManifest(info.name, "LeadMe", null);
+                    this.updateAppManifest(info.name, "LeadMe", null, null);
                     this.extraDownloadCriteria(info.name, directoryPath);
                 } else {
-                    this.updateAppManifest(info.name, "Custom", null);
+                    this.updateAppManifest(info.name, "Custom", null, null);
                 }
             });
         });
@@ -379,8 +395,9 @@ export default class Helpers {
      * @param appName A string of the experience name being added.
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
+     * @param development A boolean of whether the application is in development mode or not.
      */
-    async updateAppManifest(appName: string, type: string, altPath: string|null): Promise<string> {
+    async updateAppManifest(appName: string, type: string, altPath: string|null, development: boolean|null): Promise<string> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
@@ -391,6 +408,7 @@ export default class Helpers {
             autostart: false, //default on installation
             altPath: altPath,
             parameters: {},
+            development: development
         }
 
         //Check if the file exists
@@ -398,9 +416,11 @@ export default class Helpers {
 
         if (exists) {
             try {
-                const objects: Array<AppEntry> = await this.readObjects(filePath);
-
+                let objects: Array<AppEntry> = await this.readObjects(filePath);
                 appJSON.id = this.generateUniqueId(appName);
+
+                //Remove an old entry if there is one present.
+                objects = objects.filter((obj) => obj.id !== appJSON.id);
 
                 objects.push(appJSON);
 
@@ -698,6 +718,7 @@ export default class Helpers {
             autostart: false, //default on installation
             altPath: "",
             parameters: {},
+            development: false
         }
 
         appJSON.id = this.generateUniqueId(name);
@@ -785,7 +806,7 @@ export default class Helpers {
     async deleteApplication(_event: IpcMainEvent, info: any): Promise<void> {
         const directoryPath = join(this.appDirectory, info.name)
 
-        this.killAProcess(info.name, info.altPath, true);
+        await this.killAProcess(info.name, info.altPath, true);
 
         //Remove the app's directory, this may be a custom folder with a header image as well
         if(fs.existsSync(directoryPath)) {
@@ -848,9 +869,10 @@ export default class Helpers {
      * Launch a requested application.
      */
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        this.host = info.host;
         console.log(info);
 
-        this.killAProcess(info.name, info.path, true);
+        await this.killAProcess(info.name, info.path, true);
 
         if(info.name == "Station" || info.name == "NUC") {
             await this.updateLeadMeApplication(info.name);
@@ -860,7 +882,7 @@ export default class Helpers {
         let exePath = info.path == '' ? join(this.appDirectory, `${info.name}/${info.name}.exe`) : info.path;
 
         //Read any launch parameters that the manifest may have
-        const params = this.getLaunchParameterValues(info.name);
+        const params = await this.getLaunchParameterValues(info.name);
 
         //Add the launch params and the required basic commands together
         const basic = ['/c', 'start', exePath];
@@ -1149,26 +1171,29 @@ export default class Helpers {
      * @param filePath A string of the alternate file path, this is to stop imported applications.
      * @param backend A boolean for if this was triggered from the frontend of backend.
      */
-    killAProcess(appName: string, filePath: string, backend: boolean): void {
-        const isWindows = process.platform === 'win32';
-
-        // Use `taskkill` on Windows, `pkill` otherwise
-        const killCommand = isWindows ? 'taskkill /F /FI' : 'pkill';
-
-        //TODO finish the import stop via the filePath name later
-
-        if(filePath != null) {
-            const nameArray = filePath.split('\\');
-            appName = nameArray[nameArray.length - 1].replace(".exe","");
-
-            console.log("Imported app name: " + appName);
-        }
-
+    async killAProcess(appName: string, filePath: string, backend: boolean): Promise<void> {
         try {
-            //Execute the command to find and kill the process by its name - it will not remove the directory
-            //if the process is still running.
-            const result = execSync(`${killCommand} "imagename eq ${appName}*"`).toString();
-            console.log(result);
+            if(filePath != null && filePath !== "") {
+                const parentPath = path.dirname(filePath);
+
+                // Usage
+                const powershellCmd = `Get-Process | Where-Object {$_.Path -Like "${parentPath}*"} | Select-Object -ExpandProperty ID | ForEach-Object { Stop-Process -Id $_ }`;
+                try {
+                    await spawnSync('powershell.exe', ['-command', powershellCmd]);
+                } catch (error) {
+                    console.error(`Error executing command: ${error}`);
+                }
+            } else {
+                const isWindows = process.platform === 'win32';
+
+                // Use `taskkill` on Windows, `pkill` otherwise
+                const killCommand = isWindows ? 'taskkill /F /FI' : 'pkill';
+
+                //Execute the command to find and kill the process by its name - it will not remove the directory
+                //if the process is still running.
+                const result = execSync(`${killCommand} "imagename eq ${appName}*"`).toString();
+                console.log(result);
+            }
         }
         catch (error) {
             // @ts-ignore

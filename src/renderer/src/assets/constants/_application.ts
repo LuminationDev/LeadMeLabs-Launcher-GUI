@@ -1,3 +1,6 @@
+export const LAUNCHER_NAME = 'leadme_launcher'
+export const LAUNCHER_CONFIG = 'configure_launcher'
+
 export const HELPER_CHANNEL = 'helper_function'
 
 export const STATUS_INSTALLED = 'installed'

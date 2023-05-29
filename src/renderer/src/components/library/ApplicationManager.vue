@@ -41,6 +41,7 @@ const launchApplication = (): void => {
     channelType: CONSTANT.APPLICATION_LAUNCH,
     id: selectedApplication.value.id,
     name: selectedApplication.value.name,
+    host: libraryStore.getHostURL,
     path: selectedApplication.value.altPath
   })
 }
@@ -59,7 +60,7 @@ const stopApplication = (): void => {
     channelType: CONSTANT.APPLICATION_STOP,
     id: selectedApplication.value.id,
     name: selectedApplication.value.name,
-    path: selectedApplication.value.altPath
+    altPath: selectedApplication.value.altPath
   });
 }
 
@@ -78,7 +79,8 @@ const downloadApplication = (): void => {
   api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
     channelType: CONSTANT.APPLICATION_DOWNLOAD,
     name: selectedApplication.value.name,
-    url: selectedApplication.value.url,
+    host: libraryStore.getHostURL,
+    url: libraryStore.getHostURL + selectedApplication.value.url,
     properties: { directory: `leadme_apps/${selectedApplication.value.name}` }
   })
 }

@@ -93,7 +93,7 @@ function updateParamInput(newValue, index, id) {
 }
 
 function removeInput(id) {
-  //Remove from the library store if needed
+  //Remove from the library settings if needed
   for(const key in libraryStore.applicationParameters) {
     if(key === form[`paramInput${id}`].key) {
       delete libraryStore.applicationParameters[key];

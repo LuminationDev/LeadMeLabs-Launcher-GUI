@@ -31,32 +31,12 @@ import * as CONSTANTS from '../assets/constants/_application';
 //     )
 // }
 
-// This is for development
-// const values = {
-//     '1': new Application(
-//         '1',
-//         'Station',
-//         'https://learninglablauncherdevelopment.herokuapp.com/program-station',
-//         '',
-//         false,
-//         CONSTANTS.STATUS_NOT_INSTALLED
-//     ),
-//     '2': new Application(
-//         '2',
-//         'NUC',
-//         'https://learninglablauncherdevelopment.herokuapp.com/program-nuc',
-//         '',
-//         false,
-//         CONSTANTS.STATUS_NOT_INSTALLED
-//     )
-// }
-
-// This is for production
+//This is for production
 const values = {
     '1': new Application(
         '1',
         'Station',
-        'https://learninglablauncher.herokuapp.com/program-station',
+        '/program-station',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
@@ -64,7 +44,7 @@ const values = {
     '2': new Application(
         '2',
         'NUC',
-        'https://learninglablauncher.herokuapp.com/program-nuc',
+        '/program-nuc',
         '',
         false,
         CONSTANTS.STATUS_NOT_INSTALLED
@@ -74,6 +54,7 @@ const values = {
 export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
+        development: false,
         appDirectory: '',
         selectedApplication: '',
         applicationParameters: {},
@@ -115,7 +96,7 @@ export const useLibraryStore = defineStore({
         },
 
         /**
-         * Update the status of a store application using its unique ID.
+         * Update the status of a settings application using its unique ID.
          * @param appID A string representing the unique id of an application.
          * @param status A string of the new status to be saved.
          */
@@ -127,7 +108,7 @@ export const useLibraryStore = defineStore({
         },
 
         /**
-         * Update the status of a store application using its name.
+         * Update the status of a settings application using its name.
          * @param appName A string representing the name of an application.
          * @param status A string of the new status to be saved.
          */
@@ -142,7 +123,7 @@ export const useLibraryStore = defineStore({
         },
 
         /**
-         * Update the status of a store application using its name.
+         * Update the status of a settings application using its name.
          * @param appName A string representing the name of an application.
          * @param autoStart A boolean of the new autoStart value to be saved.
          */
@@ -182,6 +163,10 @@ export const useLibraryStore = defineStore({
         }
     },
     getters: {
+        getHostURL(): string {
+            return this.development ? "https://learninglablauncherdevelopment.herokuapp.com" : "https://learninglablauncher.herokuapp.com";
+        },
+
         getSelectedApplication(): Application | undefined {
             return this.applications.get(this.selectedApplication)
         },
