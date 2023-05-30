@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// import { useLauncherStore } from '../../store/launcherStore'
+// import { useLauncherStore } from '../../settings/launcherStore'
 //
 // const launcherStore = useLauncherStore()
 </script>

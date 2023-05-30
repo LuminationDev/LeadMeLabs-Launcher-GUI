@@ -11,7 +11,7 @@ import NavItems from './NavItems.vue'
             <NavItems target="/">Library</NavItems>
             <NavItems target="/dashboard">Dashboard</NavItems>
             <NavItems target="/home">Home</NavItems>
-            <NavItems target="/store">Store</NavItems>
+            <NavItems target="/settings">Settings</NavItems>
         </nav>
     </header>
 </template>
