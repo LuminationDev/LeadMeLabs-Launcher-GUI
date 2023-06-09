@@ -102,6 +102,7 @@ function autoStateApplications() {
       // @ts-ignore
       api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
         channelType: CONSTANT.APPLICATION_LAUNCH,
+        host: libraryStore.getHostURL,
         id: application.id,
         name: application.name,
         path: application.altPath === null ? "" : application.altPath
