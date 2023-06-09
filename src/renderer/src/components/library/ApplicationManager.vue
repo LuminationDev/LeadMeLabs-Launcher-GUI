@@ -80,7 +80,7 @@ const downloadApplication = (): void => {
     channelType: CONSTANT.APPLICATION_DOWNLOAD,
     name: selectedApplication.value.name,
     host: libraryStore.getHostURL,
-    url: libraryStore.getHostURL + selectedApplication.value.url,
+    url: selectedApplication.value.url,
     properties: { directory: `leadme_apps/${selectedApplication.value.name}` }
   })
 }
@@ -100,7 +100,7 @@ onMounted(() => {
       libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_INSTALLED);
     }
 
-    if(status.message === 'Server offline') {
+    if(status.message === 'Server offline' && libraryStore.getApplicationByName(status.name).status != CONSTANT.STATUS_RUNNING) {
       libraryStore.updateApplicationStatusByName(status.name, CONSTANT.STATUS_NOT_INSTALLED);
 
       //Show warning message?

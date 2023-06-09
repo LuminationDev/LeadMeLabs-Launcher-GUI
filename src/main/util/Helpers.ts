@@ -31,6 +31,7 @@ export default class Helpers {
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
     host: string = "";
+    offlineHost: string = "http://localhost:8088";
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -163,6 +164,7 @@ export default class Helpers {
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
         this.host = info.host;
+        let url = this.host + info.url;
 
         console.log(this.host);
 
@@ -185,17 +187,28 @@ export default class Helpers {
         }
 
         //Check if the server is online
-        if(!await this.checkFileAvailability(info.url)) {
+        if(!await this.checkFileAvailability(url)) {
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
-                message: 'Server offline'
+                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
             });
 
-            return;
+            //Check if offline line mode is available
+            url = this.offlineHost + info.url;
+            if(!await this.checkFileAvailability(url)) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: info.name,
+                    message: 'Server offline'
+                });
+
+                return;
+            } else {
+                url = "";
+            }
         }
 
         // @ts-ignore
-        download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
+        download(BrowserWindow.fromId(this.mainWindow.id), url, info.properties).then((dl) => {
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -901,23 +914,49 @@ export default class Helpers {
     async updateLeadMeApplication(appName: string): Promise<void> {
         const directoryPath = join(this.appDirectory, appName);
 
-        let path;
+        const stationUrl = '/program-nuc-version';
+        const nucUrl = '/program-station-version';
+
+        let url;
 
         if(appName === "NUC") {
-            path = `${this.host}/program-nuc-version`;
+            url = this.host + nucUrl;
         } else if(appName === "Station") {
-            path = `${this.host}/program-station-version`;
+            url = this.host + stationUrl;
         } else {
             return;
         }
 
         //Check if the server is online
-        if(!await this.checkFileAvailability(path)) return;
+        if(!await this.checkFileAvailability(url)) {
+            this.mainWindow.webContents.send('status_update', {
+                name: appName,
+                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
+            });
+
+            //Check if offline line mode is available
+            if(appName === "NUC") {
+                url = this.offlineHost + nucUrl;
+            } else if(appName === "Station") {
+                url = this.offlineHost + stationUrl;
+            } else {
+                return;
+            }
+
+            if(!await this.checkFileAvailability(url)) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: appName,
+                    message: 'Server offline'
+                });
+
+                return;
+            }
+        }
 
         const request_call = new Promise((resolve, reject) => {
-            const protocol = path.startsWith('https') ? https : http;
+            const protocol = url.startsWith('https') ? https : http;
 
-            const request = protocol.get(path, (response) => {
+            const request = protocol.get(url, (response) => {
                 let chunks_of_data = '';
 
                 response.on('data', (chunk) => {
@@ -986,7 +1025,7 @@ export default class Helpers {
         });
 
         //Create the url path
-        let baseUrl = path.replace("-version", "");
+        let baseUrl = url.replace("-version", "");
 
         //Create the new info packet for the download function
         let info = {

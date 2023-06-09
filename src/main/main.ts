@@ -13,6 +13,15 @@ autoUpdater.setFeedURL({
   url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 })
 
+// Offline
+// url: 'http://localhost:8088/static/electron-launcher'
+// Redirection
+// url: 'https://leadmelabs-redirect-server.herokuapp.com/electron-launcher'
+// Local
+// url: 'http://localhost:8082/electron-launcher'
+// Production
+// url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+
 // Listen for update download progress events
 autoUpdater.on('update-downloaded', () => {
   if(mainWindow) {
@@ -102,13 +111,19 @@ function createWindow () {
 
   // Show the main window and check for application updates
   mainWindow.on('ready-to-show', () => {
-    if (process.env.NODE_ENV === 'development') {
+    //if (process.env.NODE_ENV === 'development') {
       mainWindow.webContents.openDevTools();
-    }
+    //}
 
     if (process.env.NODE_ENV !== 'development') {
       autoUpdater.checkForUpdates().then((result: UpdateCheckResult|null) => {
         if (result === null) {
+          mainWindow.webContents.send('backend_message', {
+            channelType: "update_check",
+            name: "UPDATE",
+            data: "RESULT NULL"
+          });
+
           mainWindow.webContents.send('backend_message', {
             channelType: "autostart_active"
           });
@@ -130,6 +145,12 @@ function createWindow () {
             channelType: "autostart_active"
           });
         }
+      }).catch(error => {
+        mainWindow.webContents.send('backend_message', {
+          channelType: "update_check",
+          name: "UPDATE",
+          data: error
+        });
       })
     } else {
       mainWindow.webContents.send('backend_message', {

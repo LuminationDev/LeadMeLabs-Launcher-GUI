@@ -144,6 +144,15 @@ export const useLibraryStore = defineStore({
          */
         getKeyFromValue(val: string): string | undefined {
             return [...this.applications.keys()].find(key => this.applications.get(key)?.name === val)
+        },
+
+        /**
+         * Get an application entry that is has the supplied name.
+         * @param name A string that is the name to be searched for.
+         */
+        getApplicationByName(name: string): Application | undefined {
+            const entries = Object.values(this.applications);
+            return entries.find(entry => entry.name === name);
         }
     },
     getters: {
@@ -151,6 +160,7 @@ export const useLibraryStore = defineStore({
             const modeUrls = {
                 production: "https://learninglablauncher.herokuapp.com",
                 development: "https://learninglablauncherdevelopment.herokuapp.com",
+                offline: "http://localhost:8088",
                 local: "http://localhost:8082"
             };
 
