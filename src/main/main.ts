@@ -1,11 +1,12 @@
 import semver from "semver/preload";
-
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers from "./util/Helpers";
 import Migrator from "./util/Migrator";
+import Encryption from "./util/Encryption";
+
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 
 autoUpdater.autoDownload = true;
 autoUpdater.setFeedURL({
@@ -110,48 +111,15 @@ function createWindow () {
   });
 
   // Show the main window and check for application updates
-  mainWindow.on('ready-to-show', () => {
+  mainWindow.on('ready-to-show', async () => {
     if (process.env.NODE_ENV === 'development') {
       mainWindow.webContents.openDevTools();
     }
 
     if (process.env.NODE_ENV !== 'development') {
-      autoUpdater.checkForUpdates().then((result: UpdateCheckResult|null) => {
-        if (result === null) {
-          mainWindow.webContents.send('backend_message', {
-            channelType: "update_check",
-            name: "UPDATE",
-            data: "RESULT NULL"
-          });
-
-          mainWindow.webContents.send('backend_message', {
-            channelType: "autostart_active"
-          });
-
-          return;
-        }
-
-        mainWindow.webContents.send('backend_message', {
-          channelType: "update_check",
-          name: "UPDATE",
-          data: result,
-          hosting: "Hosting version: " + result.updateInfo.version,
-          version: "Current version: " + app.getVersion()
-        });
-
-        //Detect if there is an update, if not send the auto start command
-        if(!semver.gt(result.updateInfo.version, app.getVersion())) {
-          mainWindow.webContents.send('backend_message', {
-            channelType: "autostart_active"
-          });
-        }
-      }).catch(error => {
-        mainWindow.webContents.send('backend_message', {
-          channelType: "update_check",
-          name: "UPDATE",
-          data: error
-        });
-      })
+      autoUpdater.checkForUpdates().then((result) => {
+        updateCheck(result);
+      }).catch(handleUpdateCheckError);
     } else {
       mainWindow.webContents.send('backend_message', {
         channelType: "autostart_active"
@@ -172,6 +140,114 @@ function createWindow () {
   else {
     mainWindow.loadFile(join(app.getAppPath(), 'renderer', 'index.html'));
   }
+}
+
+/**
+ * If retrieving the Live update does not work attempt to contact the offline installer
+ * server.
+ * @param error An object that details what has gone wrong in the connection process.
+ */
+function handleUpdateCheckError(error) {
+  mainWindow.webContents.send('backend_message', {
+    channelType: "update_check",
+    name: "LIVE UPDATE",
+    data: error
+  });
+
+  const feedUrl = collectFeedURL();
+
+  if(feedUrl == null) {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "autostart_active"
+    });
+
+    return;
+  }
+
+  // Set a new FeedURL as the offline backup
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: `http://${feedUrl}:8088/static/electron-launcher`
+  });
+
+  autoUpdater.checkForUpdates().then((result) => {
+    updateCheck(result);
+  }).catch((error) => {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "update_check",
+      name: "OFFLINE UPDATE",
+      data: error
+    });
+
+    mainWindow.webContents.send('backend_message', {
+      channelType: "autostart_active"
+    });
+  });
+}
+
+/**
+ * Check the result of the autoUpdate feed and fall back to the offline one if the
+ * original FeedUrl does not work.
+ * @param result
+ */
+function updateCheck(result: UpdateCheckResult|null) {
+  if (result === null) {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "update_check",
+      name: "UPDATE",
+      data: "RESULT NULL"
+    });
+
+    mainWindow.webContents.send('backend_message', {
+      channelType: "autostart_active"
+    });
+
+    return;
+  }
+
+  mainWindow.webContents.send('backend_message', {
+    channelType: "update_check",
+    name: "UPDATE",
+    data: result,
+    hosting: "Hosting version: " + result.updateInfo.version,
+    version: "Current version: " + app.getVersion()
+  });
+
+  //Detect if there is an update, if not send the auto start command
+  if(!semver.gt(result.updateInfo.version, app.getVersion())) {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "autostart_active"
+    });
+  }
+}
+
+/**
+ * Check if just the Station is locally installed, if so get the NUC address that is set within
+ * the config file, otherwise return localhost.
+ */
+async function collectFeedURL(): Promise<string | null> {
+  const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
+  const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
+
+  // We are updating the NUC software, bail out here
+  if(!fs.existsSync(stationConfig) || fs.existsSync(NUCConfig)) {
+    return "localhost";
+  }
+
+  try {
+    const data = fs.readFileSync(stationConfig, { encoding: 'utf-8' });
+    const decryptedData = await Encryption.decryptData(data);
+
+    let dataArray = decryptedData.split('\n'); // convert file data into an array
+    const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
+    if (nucAddress) {
+      return nucAddress.split('=')[1];
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
+  return null;
 }
 
 /**
