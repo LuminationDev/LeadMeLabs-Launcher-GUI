@@ -1002,7 +1002,7 @@ export default class Helpers {
         const versionPath = join(this.appDirectory, `${appName}/_logs/version.txt`);
 
         if(!fs.existsSync(versionPath)) {
-            console.log("Cannot find file path.");
+            console.log("Cannot find version file path.");
             return;
         }
         const localVersion = fs.readFileSync(versionPath, 'utf8')
@@ -1010,13 +1010,17 @@ export default class Helpers {
         //Compare the versions
         console.log("Online version: " + onlineVersion);
         console.log("Local version: " + localVersion);
-        const difference = semver.diff(localVersion, onlineVersion)
+        const newVersionAvailable = semver.gte(onlineVersion, localVersion)
 
-        console.log("Difference: " + difference);
+        console.log("Difference: " + newVersionAvailable);
 
-        if(difference == null) {
+        if(newVersionAvailable == null || !newVersionAvailable) {
             return;
         }
+
+        //Check what type of update is required (I.e. patch, minor, major) can
+        //handle these differently in the future.
+        const difference = semver.diff(onlineVersion, localVersion);
 
         //Tell the user there is an update
         this.mainWindow.webContents.send('status_update', {
