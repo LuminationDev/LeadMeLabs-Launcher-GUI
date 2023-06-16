@@ -914,8 +914,8 @@ export default class Helpers {
     async updateLeadMeApplication(appName: string): Promise<void> {
         const directoryPath = join(this.appDirectory, appName);
 
-        const stationUrl = '/program-nuc-version';
-        const nucUrl = '/program-station-version';
+        const stationUrl = '/program-station-version';
+        const nucUrl = '/program-nuc-version';
 
         let url;
 
