@@ -157,6 +157,9 @@ export const useLibraryStore = defineStore({
     },
     getters: {
         getHostURL(): string {
+            // Redirection
+            //production: "https://leadmelabs-redirect-server.herokuapp.com",
+            //development: "https://leadmelabs-redirect-server.herokuapp.com/development",
             const modeUrls = {
                 production: "https://learninglablauncher.herokuapp.com",
                 development: "https://learninglablauncherdevelopment.herokuapp.com",
