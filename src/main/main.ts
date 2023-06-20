@@ -111,9 +111,9 @@ function createWindow () {
 
   // Show the main window and check for application updates
   mainWindow.on('ready-to-show', () => {
-    //if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development') {
       mainWindow.webContents.openDevTools();
-    //}
+    }
 
     if (process.env.NODE_ENV !== 'development') {
       autoUpdater.checkForUpdates().then((result) => {
