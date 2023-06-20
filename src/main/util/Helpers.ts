@@ -31,7 +31,7 @@ export default class Helpers {
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
     host: string = "";
-    offlineHost: string = "http://localhost:8088";
+    offlineHost: string = "http://localhost:8088"; //Changes if on NUC (localhost) or Station (NUC IP address)
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -188,6 +188,12 @@ export default class Helpers {
 
         //Check if the server is online
         if(!await this.checkFileAvailability(url)) {
+            const feedUrl = await collectFeedURL();
+            if(feedUrl == null) {
+                return;
+            }
+            this.offlineHost = `http://${feedUrl}:8088`;
+
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
@@ -914,8 +920,8 @@ export default class Helpers {
     async updateLeadMeApplication(appName: string): Promise<void> {
         const directoryPath = join(this.appDirectory, appName);
 
-        const stationUrl = '/program-station-version';
         const nucUrl = '/program-nuc-version';
+        const stationUrl = '/program-station-version';
 
         let url;
 
@@ -929,6 +935,12 @@ export default class Helpers {
 
         //Check if the server is online
         if(!await this.checkFileAvailability(url)) {
+            const feedUrl = await collectFeedURL();
+            if(feedUrl == null) {
+                return;
+            }
+            this.offlineHost = `http://${feedUrl}:8088`;
+
             this.mainWindow.webContents.send('status_update', {
                 name: appName,
                 message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
@@ -1260,4 +1272,33 @@ export default class Helpers {
             }
         }
     }
+}
+
+/**
+ * Check if just the Station is locally installed, if so get the NUC address that is set within
+ * the config file, otherwise return localhost.
+ */
+export async function collectFeedURL(): Promise<string | null> {
+    const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
+    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
+
+    // We are updating the NUC software, bail out here
+    if(!fs.existsSync(stationConfig) || fs.existsSync(NUCConfig)) {
+        return "localhost";
+    }
+
+    try {
+        const data = fs.readFileSync(stationConfig, { encoding: 'utf-8' });
+        const decryptedData = await Encryption.decryptData(data);
+
+        let dataArray = decryptedData.split('\n'); // convert file data into an array
+        const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
+        if (nucAddress) {
+            return nucAddress.split('=')[1];
+        }
+    } catch (err) {
+        console.error(err);
+    }
+
+    return null;
 }
