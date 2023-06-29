@@ -5,6 +5,7 @@ import ApplicationBar from "./ApplicationBar.vue";
 import ApplicationImage from "./ApplicationImage.vue";
 import { useLibraryStore } from '../../store/libraryStore'
 import UploadLogFile from "../../modals/UploadLogFile.vue";
+import EnableRemoteConfig from "../../modals/EnableRemoteConfig.vue";
 const libraryStore = useLibraryStore();
 
 //Track if the application has auto enabled in the manifest
@@ -53,6 +54,7 @@ const setAutostart = (): void => {
         <input class="h-5 w-5 ml-2 mr-2" type="checkbox" v-model="checked" @change="setAutostart()"/>
 
         <UploadLogFile v-if="['Station', 'NUC'].includes(applicationName)" :software-name="applicationName" />
+        <EnableRemoteConfig v-if="['Station', 'NUC'].includes(applicationName)" />
       </div>
     </div>
 

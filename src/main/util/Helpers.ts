@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import fetch from 'node-fetch'
 import xml2js from "xml2js";
 import Encryption from "./Encryption";
 import { join, resolve } from "path";
@@ -11,6 +12,7 @@ import * as http from "http";
 import * as https from "https"; //Use for production hosting server
 import { app, BrowserWindow, net } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
+import * as fspromises from 'fs/promises'
 
 interface AppEntry {
     type: string
@@ -20,6 +22,11 @@ interface AppEntry {
     altPath: string|null
     parameters: {}
     mode: string|null
+}
+
+type IdTokenResponse = {
+    idToken: string
+    uid: string
 }
 
 /**
@@ -95,11 +102,17 @@ export default class Helpers {
                 case "set_config_application":
                     void this.configApplication(_event, info);
                     break;
+                case "set_remote_config":
+                    void this.setRemoteConfig(_event, info);
+                    break;
                 case "get_config_application":
                     this.getApplicationConfig(_event, info);
                     break;
                 case "schedule_application":
                     this.createTaskSchedulerItem(_event, info);
+                    break;
+                case "check_remote_config":
+                    this.checkIfRemoteConfigIsEnabled(_event, info);
                     break;
 
                 default:
@@ -870,8 +883,11 @@ export default class Helpers {
      * Launch a requested application.
      */
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        const remote = this.checkIfRemoteConfigIsEnabled(_event, { applicationType: info.name })
         this.host = info.host;
-        console.log(info);
+        if (remote) {
+            await this.downloadAndUpdateLocalConfig(info.name)
+        }
 
         await this.killAProcess(info.name, info.path, true);
 
@@ -1052,16 +1068,139 @@ export default class Helpers {
 
         const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
 
-        fs.writeFile(config, encryptedData, (err) => {
+        await fs.writeFile(config, encryptedData, (err) => {
             if (err) throw err;
-            console.log ('Successfully updated the file data');
+            this.uploadExistingConfig(info.name)
         });
+    }
+
+    /**
+     * Update an env file that is associated with the Station or NUC applications. If there is a previous entry for a value
+     * with the same key override that key/value pair.
+     */
+    async setRemoteConfig(_event: IpcMainEvent, info: any): Promise<void> {
+        const config = join(this.appDirectory, `${info.value.name}/_config/remote-config.env`)
+        const data = info.value;
+
+        const newDataArray: string[] = [];
+
+        for(const key in data) {
+            newDataArray.push(`${key}=${data[key]}`)
+        }
+
+        const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
+
+        await fs.writeFile(config, encryptedData, (err) => {
+            if (err) throw err;
+            this.uploadExistingConfig(info.value.name)
+        });
+    }
+
+    async uploadExistingConfig(name: string): Promise<void> {
+        const config = join(this.appDirectory, `${name}/_config/config.env`);
+        let dataArray: Array<string> = []
+
+        await fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
+            const decryptedData = await Encryption.decryptData(data);
+
+            dataArray = decryptedData.split('\n'); // convert file data in an array
+        });
+
+        try {
+            const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
+            await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
+                method: "PUT",
+                body: JSON.stringify(dataArray)
+            })
+        } catch (e) {
+            console.log(e)
+            return
+        }
+    }
+
+    async downloadAndUpdateLocalConfig(name: string): Promise<void> {
+        try {
+            const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
+            const result = await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
+                method: "GET"
+            })
+            if (result.status !== 200) {
+                return
+            }
+            const config = join(this.appDirectory, `${name}/_config/config.env`)
+
+            const newDataArray: string[] = [];
+            const body = await result.json()
+
+            for(const key in body) {
+                newDataArray.push(`${body[key]}`)
+            }
+
+            const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
+
+            await fs.writeFile(config, encryptedData, (err) => {
+                if (err) throw err;
+            });
+        } catch (e) {
+            console.log(e)
+            return
+        }
+    }
+
+    checkIfRemoteConfigIsEnabled(_event: IpcMainEvent, info: any): boolean {
+        const remoteConfig = join(this.appDirectory, `${info.applicationType}/_config/remote-config.env`);
+        let result = false
+        try {
+            if (fs.existsSync(remoteConfig)) {
+                result = true
+            }
+        } catch (error) {
+            result = false
+        }
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "remote_config",
+            name: info.applicationType,
+            message: 'RemoteConfig' + (result ? 'Enabled' : 'Disabled')
+        });
+        return result
+    }
+
+    async generateIdTokenFromRemoteConfigFile(applicationType: string): Promise<IdTokenResponse> {
+        const remoteConfig = join(this.appDirectory, `${applicationType}/_config/remote-config.env`);
+        let remoteConfigArray: Array<string> = []
+        let idToken = ''
+        let uid = ''
+        let refreshToken = ''
+        const data = await fspromises.readFile(remoteConfig, {encoding: 'utf-8'});
+        const decryptedData = await Encryption.decryptData(data);
+
+        remoteConfigArray = decryptedData.split('\n'); // convert file data in an array
+        if (remoteConfigArray.length < 2) {
+            // todo - throw failure
+        }
+        uid = remoteConfigArray[0].split("=", 2)[1]
+        refreshToken = remoteConfigArray[1].split("=", 2)[1]
+        idToken = await this.generateIdTokenFromRefreshToken(refreshToken)
+        return Promise.resolve({ idToken, uid })
+    }
+
+    async generateIdTokenFromRefreshToken(refreshToken: string): Promise<string> {
+        const response = await fetch("https://securetoken.googleapis.com/v1/token?key=AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc", {
+            method: "POST",
+            body: JSON.stringify({
+                grant_type: 'refresh_token',
+                refresh_token: refreshToken
+            })
+        })
+        const responseData = await response.json() as any
+        return responseData.id_token
     }
 
     /**
      * Gets the application configuration details.
      */
-    getApplicationConfig(_event: IpcMainEvent, info: any): void {
+    async getApplicationConfig(_event: IpcMainEvent, info: any): Promise<void> {
+        await this.downloadAndUpdateLocalConfig(info.name)
         const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
         //Read the file and remove any previous entries for the same item

@@ -107,6 +107,21 @@ export const useLibraryStore = defineStore({
         },
 
         /**
+         * Update the remote config status of a settings application using its name.
+         * @param appName A string representing the name of an application.
+         * @param remoteConfigStatus A boolean of the new status to be saved.
+         */
+        updateApplicationRemoteConfigStatusByName(appName: string, remoteConfigStatus: boolean) {
+            const key = this.getKeyFromValue(appName)
+            if(key == undefined) { return; }
+
+            const app = this.applications.get(key)
+            if(app != undefined) {
+                app.remoteConfigStatus = remoteConfigStatus
+            }
+        },
+
+        /**
          * Update the status of a settings application using its name.
          * @param appName A string representing the name of an application.
          * @param autoStart A boolean of the new autoStart value to be saved.

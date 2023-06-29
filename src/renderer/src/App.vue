@@ -7,6 +7,7 @@ import { Application } from "./models";
 import * as CONSTANT from "./assets/constants/_application";
 import { useLibraryStore } from './store/libraryStore';
 import { ref } from "vue";
+import {CHECK_REMOTE_CONFIG} from "./assets/constants/_application";
 const libraryStore = useLibraryStore();
 
 //First this to do is check if any applications are installed - only register and trigger it on start up.
@@ -21,6 +22,9 @@ api.ipcRenderer.on('backend_message', (event, info) => {
   switch(info.channelType) {
     case "applications_installed":
       installedApplications(info.directory, info.content);
+      break;
+    case "remote_config":
+      remoteConfig(info.name, info.message);
       break;
 
     case "autostart_active":
@@ -52,6 +56,10 @@ api.ipcRenderer.on('backend_message', (event, info) => {
       break;
   }
 });
+
+function remoteConfig(applicationName: string, message: string) {
+  libraryStore.updateApplicationRemoteConfigStatusByName(applicationName, message.includes('Enabled') ? true : false);
+}
 
 /**
  * Cycle through the supplied manifest list and update the individual entries within the library settings.
@@ -87,6 +95,18 @@ function installedApplications(directoryPath: string, appArray: Array<AppEntry>)
     else {
       libraryStore.updateApplicationStatusByName(application.name, CONSTANT.STATUS_INSTALLED);
       libraryStore.updateApplicationAutoStartByName(application.name, application.autostart);
+    }
+    if (application.name === "NUC") {
+      api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+        channelType: CONSTANT.CHECK_REMOTE_CONFIG,
+        applicationType: "NUC"
+      });
+    }
+    if (application.name === "Station") {
+      api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
+        channelType: CONSTANT.CHECK_REMOTE_CONFIG,
+        applicationType: "Station"
+      });
     }
   });
 }
