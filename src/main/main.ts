@@ -95,6 +95,58 @@ function createDownloadWindow() {
   downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
 }
 
+//TODO THE FOLLOWING NEEDS TESTING
+
+// const timeout = 5000; // Timeout in milliseconds
+// function checkForUpdatesWithTimeout(timeout) {
+//   return new Promise((resolve, reject) => {
+//     let updateChecked = false;
+//
+//     // Listen for update events
+//     autoUpdater.on('checking-for-update', () => {
+//       // The check for updates has started
+//       updateChecked = true;
+//     });
+//
+//     autoUpdater.on('update-available', (info) => {
+//       // An update is available
+//       if (updateChecked) {
+//         resolve(info);
+//       }
+//     });
+//
+//     autoUpdater.on('update-not-available', (info) => {
+//       // No update is available
+//       if (updateChecked) {
+//         resolve(info);
+//       }
+//     });
+//
+//     autoUpdater.on('error', (error) => {
+//       // An error occurred during update check
+//       if (updateChecked) {
+//         reject(error);
+//       }
+//     });
+//
+//     // Start the update check
+//     void autoUpdater.checkForUpdates();
+//
+//     // Set a timeout
+//     const timeoutId = setTimeout(() => {
+//       if (!updateChecked) {
+//         // If update check hasn't completed within the timeout, reject the promise
+//         reject(new Error('Update check timed out'));
+//       }
+//     }, timeout);
+//
+//     // Clear the timeout when the update check completes
+//     autoUpdater.on('update-downloaded', () => {
+//       clearTimeout(timeoutId);
+//     });
+//   });
+// }
+
 //Maintain a reference to the window
 let mainWindow
 function createWindow () {
@@ -115,6 +167,7 @@ function createWindow () {
       mainWindow.webContents.openDevTools();
     }
 
+    //TODO ADD A TIMEOUT FOR THE UPDATE CHECK
     if (process.env.NODE_ENV !== 'development') {
       autoUpdater.checkForUpdates().then((result) => {
         updateCheck(result);

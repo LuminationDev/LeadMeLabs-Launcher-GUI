@@ -159,12 +159,12 @@ export default class Migrator {
      */
     readObjects = async (filename: string): Promise<Array<AppEntry>> => {
         if (fs.existsSync(filename)) {
-            const data = fs.readFileSync(filename, 'utf-8');
+            const data = fs.readFileSync(filename, 'utf16le');
             if(data.length === 0) {
                 return [];
             }
 
-            const decryptedData = await Encryption.decryptData(data);
+            const decryptedData = await Encryption.decryptDataUTF16(data);
             return JSON.parse(decryptedData);
         }
         return [];
@@ -174,10 +174,10 @@ export default class Migrator {
      * Function to write the objects to a JSON file
      */
     writeObjects = async (filename: string, jsonArray: Array<AppEntry>) => {
-        const encryptedData = await Encryption.encryptData(JSON.stringify(jsonArray));
-
+        const encryptedData = await Encryption.encryptDataUTF16(JSON.stringify(jsonArray));
+        const buffer = Buffer.from(encryptedData, 'utf16le');
         //Create the file and write the new application entry in
-        fs.writeFile(filename, encryptedData, (err) => {
+        fs.writeFile(filename, buffer, (err) => {
             if (err) throw err;
         });
     }

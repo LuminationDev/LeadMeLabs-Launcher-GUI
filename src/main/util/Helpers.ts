@@ -5,7 +5,7 @@ import Encryption from "./Encryption";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
-import {exec, execSync, spawn, spawnSync} from "child_process";
+import { exec, execSync, spawn, spawnSync } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //Use for production hosting server
@@ -253,7 +253,14 @@ export default class Helpers {
         const request_call = new Promise((resolve, reject) => {
             const request = net.request(url);
 
+            const timeoutId = setTimeout(() => {
+                request.abort(); // Abort the request if it takes too long
+                reject(new Error('Request timed out'));
+            }, 5000);
+
+
             request.on('response', (response) => {
+                clearTimeout(timeoutId);
                 if (response.statusCode === 200) {
                     resolve(true);
                 } else {
@@ -264,6 +271,7 @@ export default class Helpers {
 
             request.on('error', (error) => {
                 console.log(`Failed to fetch ${url}: ${error}`);
+                clearTimeout(timeoutId);
                 reject(false);
             });
 
@@ -280,10 +288,11 @@ export default class Helpers {
      * and folder creation required for installation.
      */
     async extraDownloadCriteria(appName: string, directoryPath: string): Promise<void> {
-        const encryptedData = await Encryption.encryptData(`TIME_CREATED=${new Date()}`);
+        const encryptedData = await Encryption.encryptDataUTF16(`TIME_CREATED=${new Date()}`);
+        const buffer = Buffer.from(encryptedData, 'utf16le');
 
         //If installing the Station or NUC software edit the .env file with the time created
-        fs.writeFile(join(directoryPath, '_config/config.env'), encryptedData, function (err) {
+        fs.writeFile(join(directoryPath, '_config/config.env'), buffer, function (err) {
             if (err) throw err;
             console.log('Config file is updated successfully.');
         });
@@ -382,8 +391,14 @@ export default class Helpers {
             //Find the local steam variables
             const config = join(this.appDirectory, 'Station/_config/config.env');
 
-            const data = fs.readFileSync(config, {encoding: 'utf-8'});
-            const decryptedData = await Encryption.decryptData(data);
+            const decryptedData = await Encryption.detectFileEncryption(config);
+            if(decryptedData == null) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'SteamCMD',
+                    message: 'Steam password or Login not found in Station config.env'
+                });
+                return;
+            }
             let dataArray = decryptedData.split('\n'); // convert file data in an array
 
             // looking for a line that contains the Steam username and password, split the line to get the value.
@@ -495,13 +510,14 @@ export default class Helpers {
      */
     readObjects = async (filename: string): Promise<Array<AppEntry>> => {
         if (fs.existsSync(filename)) {
-            const data = fs.readFileSync(filename, 'utf-8');
-            if(data.length === 0) {
+
+            //Attempt to read in utf16le - if this is not correct it will throw an exception in the decryption method.
+            const data = await Encryption.detectFileEncryption(filename);
+            if(data === null || data.length === 0) {
                 return [];
             }
 
-            const decryptedData = await Encryption.decryptData(data);
-            return JSON.parse(decryptedData);
+            return JSON.parse(data);
         }
         return [];
     }
@@ -510,11 +526,12 @@ export default class Helpers {
      * Function to write the objects to a JSON file
      */
     writeObjects = async (filename: string, jsonArray: Array<AppEntry>) => {
-        const encryptedData = await Encryption.encryptData(JSON.stringify(jsonArray));
+        const encryptedData = await Encryption.encryptDataUTF16(JSON.stringify(jsonArray));
+        const buffer = Buffer.from(encryptedData, 'utf16le');
 
         //Create the file and write the new application entry in
-        fs.writeFile(filename, encryptedData, (err) => {
-            if (err) throw err;
+        fs.writeFile(filename, buffer, (err) => {
+            if (err) console.log(err);
 
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -792,7 +809,6 @@ export default class Helpers {
         if(exists) {
             try {
                 const installed: Array<AppEntry> = await this.readObjects(filePath);
-
                 this.mainWindow.webContents.send('backend_message',
                 {
                         channelType: "applications_installed",
@@ -802,6 +818,7 @@ export default class Helpers {
                 );
                 return;
             } catch (err) {
+                console.log(err);
                 this.mainWindow.webContents.send('status_update', {
                     name: 'Manifest',
                     message: 'Manifest file read failed.'
@@ -933,6 +950,7 @@ export default class Helpers {
             return;
         }
 
+        //TODO ADD A TIMEOUT FOR THE UPDATE CHECK
         //Check if the server is online
         if(!await this.checkFileAvailability(url)) {
             const feedUrl = await collectFeedURL();
@@ -1105,9 +1123,9 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
-
-        fs.writeFile(config, encryptedData, (err) => {
+        const encryptedData = await Encryption.encryptDataUTF16(newDataArray.join('\n'));
+        const buffer = Buffer.from(encryptedData, 'utf16le');
+        fs.writeFile(config, buffer, (err) => {
             if (err) throw err;
             console.log ('Successfully updated the file data');
         });
@@ -1116,21 +1134,22 @@ export default class Helpers {
     /**
      * Gets the application configuration details.
      */
-    getApplicationConfig(_event: IpcMainEvent, info: any): void {
+    async getApplicationConfig(_event: IpcMainEvent, info: any): Promise<void> {
         const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
         //Read the file and remove any previous entries for the same item
-        fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
-            const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(config);
+        if(decryptedData == null) {
+            return;
+        }
 
-            let dataArray = decryptedData.split('\n'); // convert file data in an array
+        let dataArray = decryptedData.split('\n'); // convert file data in an array
 
-            //Send the data array back to the front end.
-            this.mainWindow.webContents.send('backend_message', {
-                channelType: "application_config",
-                name: info.name,
-                data: dataArray
-            });
+        //Send the data array back to the front end.
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "application_config",
+            name: info.name,
+            data: dataArray
         });
     }
 
@@ -1288,8 +1307,10 @@ export async function collectFeedURL(): Promise<string | null> {
     }
 
     try {
-        const data = fs.readFileSync(stationConfig, { encoding: 'utf-8' });
-        const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(stationConfig);
+        if (decryptedData == null) {
+            return null;
+        }
 
         let dataArray = decryptedData.split('\n'); // convert file data into an array
         const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
