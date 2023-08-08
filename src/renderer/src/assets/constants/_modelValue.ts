@@ -1,0 +1,5 @@
+export const STATUS_INSTALLED = 'installed'
+export const STATUS_NOT_INSTALLED = 'not_installed'
+export const STATUS_DOWNLOADING = 'downloading'
+export const STATUS_PAUSED_DOWNLOADING = 'paused_downloading'
+export const STATUS_RUNNING = 'application_running'

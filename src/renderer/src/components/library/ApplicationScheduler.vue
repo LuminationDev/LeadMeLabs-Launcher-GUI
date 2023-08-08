@@ -1,17 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import GenericButton from "../buttons/GenericButton.vue"
-import * as CONSTANT from "../../assets/constants/_application"
-import { useLibraryStore } from '../../store/libraryStore'
-const libraryStore = useLibraryStore()
+import { computed, onMounted } from 'vue';
+import GenericButton from '../buttons/GenericButton.vue';
+import * as CONSTANT from '../../assets/constants/index';
+import { useLibraryStore } from '../../store/libraryStore';
 
-const applicationName = computed(() => {
-  const app = libraryStore.getSelectedApplication
-  return app !== undefined ? app.name : 'Unselected'
-})
-
-const enabled = ref();
-const status = ref("Unknown");
+const libraryStore = useLibraryStore();
+const enabled = computed(() => { return libraryStore.schedulerTask.enabled });
+const status = computed(() => { return libraryStore.schedulerTask.status });
 
 /**
  * Create the Scheduler Task associated with the currently selected application. NOTE: A command window will be opened
@@ -19,10 +14,10 @@ const status = ref("Unknown");
  */
 const createSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_SCHEDULER,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
     type: "create",
-    name: applicationName.value
+    name: libraryStore.getSelectedApplicationName.value
   });
 }
 
@@ -31,10 +26,10 @@ const createSchedulerTask = (): void => {
  */
 const changeSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_SCHEDULER,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
     type: enabled.value ? "disable" : "enable",
-    name: applicationName.value
+    name: libraryStore.getSelectedApplicationName.value
   });
 }
 
@@ -44,39 +39,15 @@ const changeSchedulerTask = (): void => {
  */
 const deleteSchedulerTask = (): void => {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_SCHEDULER,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
     type: "delete",
-    name: applicationName.value
-  });
-}
-
-/**
- * Query the system to see if the currently selected application has a scheduler task assoicated with it.
- */
-const listSchedulerTask = (): void => {
-  // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_SCHEDULER,
-    type: "list",
-    name: applicationName.value
+    name: libraryStore.getSelectedApplicationName.value
   });
 }
 
 onMounted(() => {
-  listSchedulerTask();
-
-  // @ts-ignore
-  api.ipcRenderer.on('scheduler_update', (event, data) => {
-    if(data.type !== "list") {
-      setTimeout(() => {
-        listSchedulerTask();
-      }, 1000)
-    } else {
-      enabled.value = data.message.includes("Ready") || data.message.includes("Running") ;
-      status.value = data.message;
-    }
-  });
+  libraryStore.listSchedulerTask();
 });
 </script>
 

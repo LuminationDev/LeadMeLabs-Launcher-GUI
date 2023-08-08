@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from "../assets/constants/index";
 import { ref } from "vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
@@ -40,8 +40,8 @@ const importApplication = (): void => {
     fileInput.value.value = "";
   } else {
     //@ts-ignore
-    api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-      channelType: CONSTANT.APPLICATION_IMPORT,
+    api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+      channelType: CONSTANT.MESSAGE.APPLICATION_IMPORT,
       name: name.value,
       altPath: filePath.value
     });

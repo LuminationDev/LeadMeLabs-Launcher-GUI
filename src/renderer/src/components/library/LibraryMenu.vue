@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useLibraryStore } from '../../store/libraryStore'
 import { computed } from "vue";
-import * as CONSTANT from '../../assets/constants/_application';
+import * as CONSTANT from '../../assets/constants/index';
 import ApplicationImport from "../../modals/ImportModal.vue";
 import ResetManifest from "../../modals/ResetManifest.vue";
 
@@ -31,12 +31,13 @@ const applicationList = computed(() => {
             @click="libraryStore.changeApplication(application.id)">
 
           <div class="flex flex-col">
-            <div :class="{'text-gray-400': ![CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(application.status)}">
+            <div :class="{'text-gray-400': ![CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(application.status)}">
               {{ application.name }}
             </div>
 
-            <div class="text-blue-400 text-xs items-center" v-if="[CONSTANT.STATUS_DOWNLOADING, CONSTANT.STATUS_RUNNING].includes(application.status)">
-              {{application.status === CONSTANT.STATUS_DOWNLOADING ? '(Installing...)' : '(Running...)'}}
+            <div class="text-blue-400 text-xs items-center"
+                 v-if="[CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(application.status)">
+              {{application.status === CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING ? '(Installing...)' : '(Running...)'}}
             </div>
           </div>
         </div>
