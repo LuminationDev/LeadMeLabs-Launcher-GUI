@@ -4,6 +4,7 @@ import Modal from "./Modal.vue";
 import { ref } from "vue";
 import * as CONSTANT from "../assets/constants/index";
 import {useLibraryStore} from "../store/libraryStore";
+import PinPrompt from "./PinPrompt.vue";
 
 const libraryStore = useLibraryStore();
 
@@ -31,14 +32,25 @@ function reset() {
   libraryStore.mode = 'production';
   closeModal();
 }
+
+const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
+const openPinPromptModal = () => {
+  if(libraryStore.pin !== '') {
+    pinRef.value?.openModal();
+  } else {
+    openModal()
+  }
+}
 </script>
 
 <template>
+  <PinPrompt ref="pinRef" :callback="openModal"/>
+
   <!--Anchor button used to control the modal-->
   <GenericButton
       class="w-full h-6 mt-2 bg-red-800 text-xs"
       :type="'primary'"
-      :callback="openModal"
+      :callback="openPinPromptModal"
       :spinnerColor="'#000000'"
   >Reset Manifest</GenericButton>
 
