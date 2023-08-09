@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import {computed, reactive, ref} from "vue";
 import Modal from "./Modal.vue";
-import GenericButton from "../components/buttons/GenericButton.vue"
-import * as CONSTANT from "../assets/constants/_application"
+import GenericButton from "../components/buttons/GenericButton.vue";
+import * as CONSTANT from "../assets/constants/index";
 import LaunchParamInput from "../components/inputs/LaunchParamInput.vue";
-import { useLibraryStore } from '../store/libraryStore'
+import { useLibraryStore } from '../store/libraryStore';
 
 const libraryStore = useLibraryStore()
 const showCustomModal = ref(false);
 const pageNum = ref(0);
 const paramID = ref(0);
-const back = ref(false);
 
 //Empty form for parameters
 const form = reactive({});
@@ -117,8 +116,8 @@ const handleSubmit = () => {
 
   // handle form submission here
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_PARAMETERS,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_PARAMETERS,
     name: libraryStore.getSelectedApplication.name,
     action: "add",
     value: JSON.stringify(paramInputsDict)
@@ -137,8 +136,8 @@ const handleSubmit = () => {
  */
 function clearENV() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_PARAMETERS,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_PARAMETERS,
     name: libraryStore.getSelectedApplication.name,
     action: "clear",
   });
@@ -173,8 +172,8 @@ function openModal() {
 
   // See if there is any saved parameters
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.QUERY_MANIFEST_APP,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.QUERY_MANIFEST_APP,
     applicationName: libraryStore.getSelectedApplication.name
   });
 }

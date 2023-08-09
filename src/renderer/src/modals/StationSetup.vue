@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {computed, reactive, ref, watch} from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue";
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from "../assets/constants/index";
 import ManualProgress from "../components/loading/ManualProgress.vue";
 import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
 import SetupDoubleInput from "../components/inputs/SetupDoubleInput.vue";
@@ -10,12 +10,14 @@ import SetupChoiceSelection from "../components/inputs/SetupChoiceSelection.vue"
 import SetupNavigation from "../components/inputs/SetupNavigation.vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
+import PinPrompt from "@renderer/modals/PinPrompt.vue";
 import { useLibraryStore } from '../store/libraryStore';
+import { useSetupStore } from "../store/setupStore";
 
-const libraryStore = useLibraryStore()
+const libraryStore = useLibraryStore();
+const setupStore = useSetupStore();
 const showStationModal = ref(false);
 const pageNum = ref(0);
-const back = ref(false);
 const saved = ref(false);
 const steamCMD = ref(false);
 
@@ -60,17 +62,8 @@ const rules = {
   }
 }
 
-let form = reactive({
-  AppKey: '',
-  LabLocation: '',
-  StationId: '',
-  room: '',
-  NucAddress: '',
-  SteamUserName: '',
-  SteamPassword: '',
-  StationMode: '',
-  HeadsetType: '',
-});
+//This is overridden if there are saved values from the config on first open
+let form = setupStore.stationForm;
 
 //Keep track of any previously saved values for this experience.
 const setupParams = computed(() => libraryStore.applicationSetup);
@@ -94,8 +87,8 @@ const v$ = useVuelidate(rules, { form });
 
 function configureSteamCMD() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_STEAMCMD,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_STEAMCMD,
     username: form.SteamUserName,
     password: form.SteamPassword
   });
@@ -122,8 +115,8 @@ const handleSubmit = async () => {
 
   // handle form submission here
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_SET,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_SET,
     name: libraryStore.getSelectedApplication.name,
     value: JSON.stringify(data)
   });
@@ -132,7 +125,7 @@ const handleSubmit = async () => {
 };
 
 /**
- * Calculate the amount of nuc inputs to track progress.
+ * Calculate the amount of station inputs to track progress.
  */
 // @ts-ignore
 const keys = reactive(Object.keys(form));
@@ -202,8 +195,8 @@ async function changePage(forward: boolean) {
 
 function openModal() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_GET,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
     name: libraryStore.getSelectedApplication.name
   });
 
@@ -215,14 +208,25 @@ function closeModal() {
   showStationModal.value = false;
   saved.value = false;
 }
+
+const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
+const openPinPromptModal = () => {
+  if(libraryStore.pin !== '') {
+    pinRef.value?.openModal();
+  } else {
+    openModal()
+  }
+}
 </script>
 
 <template>
+  <PinPrompt ref="pinRef" :callback="openModal"/>
+
   <!--Anchor button used to control the modal-->
   <GenericButton
       id="share_button"
       :type="'primary'"
-      :callback="openModal"
+      :callback="openPinPromptModal"
       :spinnerColor="'#000000'"
   >Setup</GenericButton>
 

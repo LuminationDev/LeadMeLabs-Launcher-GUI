@@ -9,7 +9,7 @@ import { computed, reactive, ref as vueRef, watch } from "vue";
 import useVuelidate from "@vuelidate/core";
 import TextInput from "../components/inputs/TextInput.vue";
 import { useLibraryStore } from "../store/libraryStore";
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from "../assets/constants/index";
 const libraryStore = useLibraryStore();
 
 const props = defineProps({
@@ -129,8 +129,8 @@ watch(setupParams, (newValue) => {
 
 function openModal() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_GET,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
     name: props.softwareName
   });
 

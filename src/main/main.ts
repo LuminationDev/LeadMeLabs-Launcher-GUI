@@ -2,10 +2,15 @@ import semver from "semver/preload";
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
-import Helpers, { collectFeedURL } from "./util/Helpers";
+import Helpers, {collectFeedURL, collectLocation} from "./util/Helpers";
 import Migrator from "./util/Migrator";
+import * as Sentry from '@sentry/electron'
 
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
+
+Sentry.init({
+  dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
+});
 
 autoUpdater.autoDownload = true;
 autoUpdater.setFeedURL({
@@ -115,14 +120,15 @@ function createWindow () {
       mainWindow.webContents.openDevTools();
     }
 
+    // Send through the current version number
+    void sendLauncherDetails();
+
     if (process.env.NODE_ENV !== 'development') {
       autoUpdater.checkForUpdates().then((result) => {
         updateCheck(result);
       }).catch(handleUpdateCheckError);
     } else {
-      mainWindow.webContents.send('backend_message', {
-        channelType: "autostart_active"
-      });
+      sendAutoStart();
     }
   });
 
@@ -156,9 +162,7 @@ async function handleUpdateCheckError(error) {
   const feedUrl = await collectFeedURL();
 
   if(feedUrl == null) {
-    mainWindow.webContents.send('backend_message', {
-      channelType: "autostart_active"
-    });
+    sendAutoStart();
 
     return;
   }
@@ -178,9 +182,7 @@ async function handleUpdateCheckError(error) {
       data: error
     });
 
-    mainWindow.webContents.send('backend_message', {
-      channelType: "autostart_active"
-    });
+    sendAutoStart();
   });
 }
 
@@ -197,9 +199,7 @@ function updateCheck(result: UpdateCheckResult|null) {
       data: "RESULT NULL"
     });
 
-    mainWindow.webContents.send('backend_message', {
-      channelType: "autostart_active"
-    });
+    sendAutoStart();
 
     return;
   }
@@ -214,10 +214,31 @@ function updateCheck(result: UpdateCheckResult|null) {
 
   //Detect if there is an update, if not send the auto start command
   if(!semver.gt(result.updateInfo.version, app.getVersion())) {
-    mainWindow.webContents.send('backend_message', {
-      channelType: "autostart_active"
-    });
+    sendAutoStart();
   }
+}
+
+/**
+ * Send the auto start command after a set delay to ensure that the application list has already been loaded.
+ */
+function sendAutoStart(): void {
+  setTimeout(() =>
+          mainWindow.webContents.send('backend_message', {
+            channelType: "autostart_active"
+          }),
+      3000)
+}
+
+/**
+ * Collect details about the launcher to display on the frontend.
+ */
+async function sendLauncherDetails(): Promise<void> {
+  // Send through the current version number
+  mainWindow.webContents.send('backend_message', {
+    channelType: "launcher_settings",
+    version: app.getVersion(),
+    location: await collectLocation()
+  });
 }
 
 /**

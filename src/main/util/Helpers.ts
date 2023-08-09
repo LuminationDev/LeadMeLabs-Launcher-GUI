@@ -22,6 +22,23 @@ interface AppEntry {
     mode: string|null
 }
 
+interface VREntry {
+    app_key: string
+    launch_type: string
+    binary_path_windows: string
+    is_dashboard_overlay: boolean
+    strings: {
+        [language: string]: {
+            name: string
+        }
+    }
+}
+
+interface ConfigFile {
+    source: string;
+    applications: VREntry[];
+}
+
 /**
  * A class that initiates electron IPC controls that handle application downloads, extractions, configurations
  * and launching.
@@ -54,9 +71,6 @@ export default class Helpers {
     helperListenerDelegate(): void {
         this.ipcMain.on('helper_function', (_event, info) => {
             switch(info.channelType) {
-                case "configure_launcher":
-                    void this.configLauncher(_event, info);
-                    break;
                 case "import_application":
                     void this.importApplication(_event, info);
                     break;
@@ -72,8 +86,8 @@ export default class Helpers {
                 case "launch_parameters":
                     void this.setManifestAppParameters(_event, info);
                     break;
-                case "autostart_application":
-                    void this.setManifestAutoStart(_event, info);
+                case "parameter_application":
+                    void this.setManifestParameter(info);
                     break;
                 case "query_installed_applications":
                     void this.installedApplications();
@@ -100,22 +114,17 @@ export default class Helpers {
                     this.getApplicationConfig(_event, info);
                     break;
                 case "schedule_application":
-                    this.createTaskSchedulerItem(_event, info);
+                    this.taskSchedulerItem(_event, info);
+                    break;
+                case "edit_vr_manifest":
+                    void this.updateVRManifest(info.name, info.id, info.path, info.add);
+                    void this.setManifestAppParameters(_event, info);
                     break;
 
                 default:
                     break;
             }
         });
-    }
-
-    /**
-     * This function allows the Launcher configuration and settings to be saved on the local device. Currently, the only
-     * setting is for development mode but can be expanded on in the future with user configurations.
-     */
-    async configLauncher(_event: IpcMainEvent, info: any): Promise<void> {
-        console.log(info);
-        await this.updateAppManifest(info.name, "Launcher", null, info.mode);
     }
 
     /**
@@ -414,7 +423,7 @@ export default class Helpers {
      * @param appName A string of the experience name being added.
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
-     * @param mode A boolean of whether the application is in development mode or not.
+     * @param mode A string of what environment mode the application is in.
      */
     async updateAppManifest(appName: string, type: string, altPath: string|null, mode: string|null): Promise<string> {
         const filePath = join(this.appDirectory, 'manifest.json');
@@ -447,7 +456,7 @@ export default class Helpers {
             } catch (err) {
                 this.mainWindow.webContents.send('status_update', {
                     name: 'Manifest',
-                    message: 'Manifest file is updated failed.'
+                    message: 'Manifest file updated failed.'
                 });
             }
 
@@ -566,6 +575,26 @@ export default class Helpers {
         return [jsonArray, entry] as const;
     }
 
+    async checkLauncherManifestEntry(info: any, filePath): Promise<readonly [Array<AppEntry> | undefined, AppEntry | undefined]> {
+        let [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+        if ((jsonArray === undefined || entry === undefined) && info.name !== "leadme_launcher") {
+            return [jsonArray, entry] as const;
+        } else if (entry === undefined && info.name === "leadme_launcher") {
+            await this.createConfigLauncher(info);
+            await new Promise(resolve => setTimeout(resolve, 1000)); //Wait for the file to finish writing
+        }
+
+        [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+        return [jsonArray, entry] as const;
+    }
+
+    /**
+     * This function creates the Launcher configuration on the local device.
+     */
+    async createConfigLauncher(info: any): Promise<void> {
+        await this.updateAppManifest(info.name, "Launcher", null, "production"); //Default mode is production
+    }
+
     /**
      * Update an applications entry in the manifest file with the supplied launch parameters, these can be login
      * credentials or start up parameters etc.
@@ -575,7 +604,7 @@ export default class Helpers {
         if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+            const [jsonArray, entry] = await this.checkLauncherManifestEntry(info, filePath);
             if(jsonArray === undefined || entry === undefined) return;
 
             //Update the entry or remove them
@@ -590,8 +619,10 @@ export default class Helpers {
             } else {
                 const data = JSON.parse(info.value);
 
-                //Overwrite the saved information
-                entry.parameters = {};
+                //Copy the saved information or create a new object.
+                if (entry.parameters === null) {
+                    entry.parameters = {};
+                }
 
                 for(const key in data) {
                     entry.parameters[key] = data[key];
@@ -600,6 +631,7 @@ export default class Helpers {
 
             await this.writeObjects(filePath, jsonArray);
         } catch (err) {
+            console.log(err);
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
                 message: 'Manifest file is updated failed.'
@@ -611,16 +643,16 @@ export default class Helpers {
      * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
      * opened.
      */
-    async setManifestAutoStart(_event: IpcMainEvent, info: any): Promise<void> {
+    async setManifestParameter(info: any): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
         if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+            const [jsonArray, entry] = await this.checkLauncherManifestEntry(info, filePath);
             if(jsonArray === undefined || entry === undefined) return;
 
             //Update the entry
-            entry.autostart = info.autostart;
+            entry[info.parameterKey] = info.parameterValue;
 
             await this.writeObjects(filePath, jsonArray);
         } catch (err) {
@@ -794,7 +826,7 @@ export default class Helpers {
                 const installed: Array<AppEntry> = await this.readObjects(filePath);
 
                 this.mainWindow.webContents.send('backend_message',
-                {
+                    {
                         channelType: "applications_installed",
                         directory: this.appDirectory,
                         content: installed
@@ -834,6 +866,7 @@ export default class Helpers {
         }
 
         await this.removeFromAppManifest(info.name);
+        await this.removeVREntry(info.name);
 
         //If true the application is an imported one
         if(info.altPath != '') {
@@ -1139,7 +1172,7 @@ export default class Helpers {
      * supplied application is running. The task runs on start up once a user is logged in and when there is an
      * internet connection and then every 5 minutes onwards.
      */
-    createTaskSchedulerItem(_event: IpcMainEvent, info: any): void {
+    taskSchedulerItem(_event: IpcMainEvent, info: any): void {
         const taskFolder: string = "LeadMe\\Software_Checker";
         let args: string = "";
 
@@ -1149,7 +1182,8 @@ export default class Helpers {
                 args = `SCHTASKS /QUERY /TN ${taskFolder} /fo LIST`;
                 exec(`${args}`, (error, stdout) => {
                     //Send the output back to the user
-                    this.mainWindow.webContents.send('scheduler_update', {
+                    this.mainWindow.webContents.send('backend_message', {
+                        channelType: 'scheduler_update',
                         message: stdout,
                         type: info.type
                     });
@@ -1183,7 +1217,8 @@ export default class Helpers {
         }
 
         exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (error, stdout)=> {
-            this.mainWindow.webContents.send('scheduler_update', {
+            this.mainWindow.webContents.send('backend_message', {
+                channelType: 'scheduler_update',
                 message: stdout,
                 type: info.type
             });
@@ -1229,6 +1264,7 @@ export default class Helpers {
         });
     }
 
+    //TODO make sure this still works
     /**
      * Stop a running process on the local machine.
      * @param appName A string of the process to stop.
@@ -1243,7 +1279,7 @@ export default class Helpers {
                 // Usage
                 const powershellCmd = `Get-Process | Where-Object {$_.Path -Like "${parentPath}*"} | Select-Object -ExpandProperty ID | ForEach-Object { Stop-Process -Id $_ }`;
                 try {
-                    await spawnSync('powershell.exe', ['-command', powershellCmd]);
+                    spawnSync('powershell.exe', ['-command', powershellCmd]);
                 } catch (error) {
                     console.error(`Error executing command: ${error}`);
                 }
@@ -1270,6 +1306,75 @@ export default class Helpers {
                     name: appName
                 });
             }
+        }
+    }
+
+    /**
+     * Update or create the customapps.vrmanifest. This file is used by OpenVR to track VR applications, the application
+     * supplied must be a VR application.
+     * @param appName A string of the application name.
+     * @param appId A string of the application ID.
+     * @param altPath A string of the alternate path to the .exe, if empty the path to the leadme_apps is used
+     * @param add A boolean for if the application should be added to the manifest
+     */
+    async updateVRManifest(appName: string, appId: string, altPath: string|null, add: boolean): Promise<void> {
+        const filePath = join(this.appDirectory, 'customapps.vrmanifest');
+
+        //Create the application entry for the json
+        const newEntry: VREntry = {
+            app_key: `custom.app.${appId}`,
+            launch_type: "binary",
+            binary_path_windows: altPath ?? join(this.appDirectory, appName, `${appName}.exe`),
+            is_dashboard_overlay: true,
+            strings: {
+                en_us: {
+                    name: appName
+                }
+            }
+        }
+
+        try {
+            let config: ConfigFile = { source: 'custom', applications: [] };
+
+            if (fs.existsSync(filePath)) {
+                const configFileContent = fs.readFileSync(filePath, 'utf-8');
+                config = JSON.parse(configFileContent);
+            }
+
+            // Remove existing entry with the same app_key, if any
+            config.applications = config.applications.filter(
+                (entry) => entry.app_key !== newEntry.app_key
+            );
+
+            if(add) {
+                config.applications.push(newEntry);
+            }
+
+            fs.writeFileSync(filePath, JSON.stringify(config, null, 4));
+        } catch (err) {
+            this.mainWindow.webContents.send('status_update', {
+                name: 'Manifest',
+                message: 'customapps.vrmanifest file updated failed.'
+            });
+        }
+    }
+
+    /**
+     * Remove an entry from the customapps.vrmanifest, rewriting the file afterwards.
+     * @param appName A string of the application's name that is to be removed.
+     */
+    async removeVREntry(appName: string) {
+        const filePath = join(this.appDirectory, 'customapps.vrmanifest');
+
+        if (fs.existsSync(filePath)) {
+            const configFileContent = fs.readFileSync(filePath, 'utf-8');
+            const config: ConfigFile = JSON.parse(configFileContent);
+
+            config.applications = config.applications.filter(
+                (entry) => entry.strings.en_us.name !== appName
+            );
+
+            fs.writeFileSync(filePath, JSON.stringify(config, null, 4));
         }
     }
 }
@@ -1301,4 +1406,39 @@ export async function collectFeedURL(): Promise<string | null> {
     }
 
     return null;
+}
+
+/**
+ * Check if the NUC or Station are installed, if so collect the location name from there to send to the front end.
+ */
+export async function collectLocation(): Promise<string | null> {
+    let path = '';
+    const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
+    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
+
+    // We are updating the NUC software, bail out here
+    if(!fs.existsSync(stationConfig) && !fs.existsSync(NUCConfig)) {
+        return "Unknown";
+    }
+
+    if(fs.existsSync(stationConfig)) {
+        path = stationConfig;
+    } else {
+        path = NUCConfig;
+    }
+
+    try {
+        const data = fs.readFileSync(path, { encoding: 'utf-8' });
+        const decryptedData = await Encryption.decryptData(data);
+
+        let dataArray = decryptedData.split('\n'); // convert file data into an array
+        const location = dataArray.find(item => item.startsWith('LabLocation='));
+        if (location) {
+            return location.split('=')[1];
+        }
+    } catch (err) {
+        console.error(err);
+    }
+
+    return "Unknown";
 }

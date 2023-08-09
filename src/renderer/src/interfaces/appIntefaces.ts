@@ -4,6 +4,9 @@ export interface AppEntry {
     name: string
     autostart: boolean
     altPath: string|null
-    parameters: {}
+    parameters: {
+        pin: string|null
+        vrManifest: boolean|null
+    }
     mode: string|null
 }

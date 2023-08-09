@@ -1,27 +1,16 @@
 <script setup lang="ts">
 import {computed, ref, watch} from "vue";
 import GenericButton from "../../components/buttons/GenericButton.vue";
-import * as CONSTANT from "../../assets/constants/_application"
+import * as CONSTANT from "../../assets/constants/index"
 import ApplicationScheduler from "./ApplicationScheduler.vue";
-
-//TODO make the computed variables below generic and reusable
 import { useLibraryStore } from "../../store/libraryStore";
+
 const libraryStore = useLibraryStore();
-
-const applicationName = computed(() => {
-  const app = libraryStore.getSelectedApplication
-  return app !== undefined ? app.name : 'Unselected'
-});
-
-const applicationStatus = computed(() => {
-  const app = libraryStore.getSelectedApplication
-  return app !== undefined ? app.status : 'Unselected'
-});
 
 const rewriteManifest = () => {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.SCAN_MANIFEST,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.SCAN_MANIFEST,
     mode: libraryStore.mode
   });
 }
@@ -32,8 +21,8 @@ const setImage = () => {
   selectedImagePath.value = imageInput.value.files[0]["path"];
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_IMAGE_SET,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_IMAGE_SET,
     name: applicationName.value,
     imagePath: selectedImagePath.value
   });
@@ -106,13 +95,20 @@ watch(imagePath, (newVal) => {
 
 <template>
   <div class="h-44 w-full bg-gray-100 rounded">
-    <div class="w-full" v-if="['Station', 'NUC'].includes(applicationName) && [CONSTANT.STATUS_INSTALLED, CONSTANT.STATUS_RUNNING].includes(applicationStatus)">
+    <div v-if="libraryStore.getSelectedApplicationName === 'Unselected'">
+      <!--TODO maybe put a placeholder here-->
+    </div>
+
+    <div class="w-full" v-else-if="['Station', 'NUC'].includes(libraryStore.getSelectedApplicationName)
+          && [CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(libraryStore.getSelectedApplicationStatus)">
       <ApplicationScheduler />
     </div>
 
     <div v-else class="w-full flex flex-col items-center justify-center">
       <!--Perform an auto scan to see if anything is in the leadme_apps folder, rewriting the manifest if required-->
-      <div v-if="libraryStore.checkIfApplicationInstalled('NUC') && libraryStore.checkIfApplicationInstalled('Station')" class="w-full flex justify-center items-center">
+      <div v-if="['Station', 'NUC'].includes(libraryStore.getSelectedApplicationName)
+           && !libraryStore.checkIfApplicationInstalled(libraryStore.getSelectedApplicationName)"
+           class="w-full flex justify-center items-center">
         <GenericButton
             id="share_button"
             class="h-10 w-48 -mt-0.5"
@@ -122,7 +118,7 @@ watch(imagePath, (newVal) => {
         >Scan manifest</GenericButton>
       </div>
 
-      <div v-else-if="applicationStatus === CONSTANT.STATUS_NOT_INSTALLED" class="text-black">NOT INSTALLED</div>
+      <div v-else-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED" class="text-black">NOT INSTALLED</div>
 
       <div v-else-if="imageSource === null" class="text-black flex flex-col items-center">
         Image Not Found
@@ -143,7 +139,7 @@ watch(imagePath, (newVal) => {
         >
           <input class="hidden" id="files" ref="imageInput" type="file" @change="setImage">
         </label>
-        <img class="w-full h-full" :src="imageSource" :alt="`${applicationName} Header image`"/>
+        <img class="w-full h-full" :src="imageSource" :alt="`${libraryStore.getSelectedApplicationName} Header image`"/>
       </div>
     </div>
   </div>
