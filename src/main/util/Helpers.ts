@@ -923,8 +923,6 @@ export default class Helpers {
      */
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
         this.host = info.host;
-        console.log(info);
-
         await this.killAProcess(info.name, info.path, true);
 
         if(info.name == "Station" || info.name == "NUC") {
@@ -936,12 +934,7 @@ export default class Helpers {
 
         //Read any launch parameters that the manifest may have
         const params = await this.getLaunchParameterValues(info.name);
-
-        //Add the launch params and the required basic commands together
-        const basic = ['/c', 'start', exePath];
-        const args = basic.concat(params);
-
-        spawn('cmd.exe', args, {
+        spawn(exePath, params, {
             detached: true
         });
     }
