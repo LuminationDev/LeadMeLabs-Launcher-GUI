@@ -3,7 +3,7 @@ import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers, {collectFeedURL, collectLocation} from "./util/Helpers";
-import Migrator from "./util/Migrator";
+import { SoftwareMigrator, ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
 
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
@@ -298,9 +298,12 @@ app.whenReady().then(async () => {
 
   //If the Station or NUC is passed as the command line argument then attempt to perform the migration
   if (["Station", "NUC"].includes(software)) {
-    const migrate = new Migrator(software, directory);
+    const migrate = new SoftwareMigrator(software, directory);
     await migrate.RunMigration();
   }
+
+  //Check if the customapps.vrmanifest has been created.
+  await new ManifestMigrator().RunMigration();
 
   createWindow();
   setupTrayIcon();
