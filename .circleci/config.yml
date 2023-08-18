@@ -186,7 +186,7 @@ workflows:
           requires:
             - hold
       - commit-and-push:
-          branch: ${CIRCLE_BRANCH}
+          branch: "main"
           buildType: "Development"
           repository: "LeadMeLabs-Launcher-Hosting-Development"
           requires:
