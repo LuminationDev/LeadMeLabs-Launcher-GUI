@@ -2,7 +2,7 @@ import semver from "semver/preload";
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
-import Helpers, {collectFeedURL, collectLocation} from "./util/Helpers";
+import Helpers, {collectFeedURL, collectLocation, getLauncherManifestParameter} from "./util/Helpers";
 import { SoftwareMigrator, ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
 
@@ -123,13 +123,21 @@ function createWindow () {
     // Send through the current version number
     void sendLauncherDetails();
 
-    if (process.env.NODE_ENV !== 'development') {
-      autoUpdater.checkForUpdates().then((result) => {
-        updateCheck(result);
-      }).catch(handleUpdateCheckError);
-    } else {
-      sendAutoStart();
-    }
+    getLauncherManifestParameter('mode').then(mode => {
+      if (mode === 'development') {
+        autoUpdater.setFeedURL({
+          provider: 'generic',
+          url: 'https://leadme-launcher-development.herokuapp.com/static/electron-launcher'
+        })
+      }
+      if (process.env.NODE_ENV !== 'development') {
+        autoUpdater.checkForUpdates().then((result) => {
+          updateCheck(result);
+        }).catch(handleUpdateCheckError);
+      } else {
+        sendAutoStart();
+      }
+    })
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

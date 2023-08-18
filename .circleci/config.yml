@@ -5,10 +5,14 @@ orbs:
 
 commands:
   clone_hosting:
+    parameters:
+      buildType:
+        type: string
     steps:
       - add_ssh_keys:
           fingerprints:
             - "12:41:3e:8a:8f:e0:54:05:f1:4c:a3:85:0b:49:1b:c8"
+            - "56:0c:4f:e9:f6:44:2d:cc:ea:78:cb:bf:fe:56:be:b5"
       - run:
           name: Setup git config
           command: git config --global user.name "CircleCI" && git config --global user.email "CircleCI@lumination.com.au"
@@ -18,44 +22,58 @@ commands:
       - run:
           name: Add github to known hosts
           command: dir /home/circleci/.ssh
-      - run:
-          name: Write ssh config file
-          command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
-      - run:
-          name: Clone hosting server
-          command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
+      - when:
+          condition:
+            and:
+              - equal: [Development, <<parameters.buildType>>]
+          steps:
+            - run:
+                name: Write ssh config file
+                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_560c4fe9f6442dccea78cbbffe56beb5" >> ~/.ssh/config
+            - run:
+                name: Clone hosting server
+                command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting-Development.git
+      - when:
+          condition:
+            and:
+              - equal: [Release, <<parameters.buildType>> ]
+          steps:
+            - run:
+                name: Write ssh config file
+                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
+            - run:
+                name: Clone hosting server
+                command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
 
   copy_and_push:
     parameters:
       branch:
         type: string
+      repository:
+        type: string
     steps:
       - run:
           name: Checkout <<parameters.branch>>
-          command: cd ~/LeadMeLabs-Launcher-Hosting && git checkout <<parameters.branch>>
-      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
+          command: cd ~/<<parameters.repository>> && git checkout <<parameters.branch>>
+      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Delete old files
           command: rm -rf ~/LeadMeLabs-Launcher-Hosting/applications/config-tool
-      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
+      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Copy built files to git repository
-          command: cp -r ./project/dist/. ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
-      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
-      - run: ls
-      - run: ls ./project/dist
-      - run: ls ~/
+          command: cp -r ./project/dist/. ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Add built files to git
-          command: cd ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher && git add --all
-      - run: ls ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
+          command: cd ~/<<parameters.repository>>/applications/electron-launcher && git add --all
+      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Commit
-          command: cd ~/LeadMeLabs-Launcher-Hosting && git commit -m "Update launcher"
-      - run: ls ~/LeadMeLabs-Launcher-Hosting
+          command: cd ~/<<parameters.repository>> && git commit -m "Update launcher"
+      - run: ls ~/<<parameters.repository>>
       - run:
           name: Push
-          command: cd ~/LeadMeLabs-Launcher-Hosting && git push
+          command: cd ~/<<parameters.repository>> && git push
 
   windows-npm:
     steps:
@@ -72,8 +90,6 @@ commands:
 
   build:
     parameters:
-      buildType:
-        type: string
       command:
         type: string
     steps:
@@ -118,27 +134,29 @@ jobs:
   build-windows:
     executor:
       name: windows/default
-    parameters:
-      buildType:
-        type: string
     steps:
       - windows-npm
       - build:
-          buildType: <<parameters.buildType>>
           command: w
 
   commit-and-push:
     parameters:
       branch:
         type: string
+      repository:
+        type: string
+      buildType:
+        type: string
     docker:
       - image: cimg/node:current
     steps:
-      - clone_hosting
+      - clone_hosting:
+          buildType: <<parameters.buildType>>
       - attach_workspace:
           at: ./
       - copy_and_push:
           branch: <<parameters.branch>>
+          repository: <<parameters.repository>>
 
 workflows:
   build_release:
@@ -151,10 +169,25 @@ workflows:
               only:
                 - main
       - build-windows:
-          buildType: "Release"
           requires:
             - hold
       - commit-and-push:
           branch: "main"
+          buildType: "Release"
+          repository: "LeadMeLabs-Launcher-Hosting"
+          requires:
+            - build-windows
+  build_development:
+    jobs:
+      - hold:
+          context: LeadMeDeployers
+          type: approval
+      - build-windows:
+          requires:
+            - hold
+      - commit-and-push:
+          branch: ${CIRCLE_BRANCH}
+          buildType: "Development"
+          repository: "LeadMeLabs-Launcher-Hosting-Development"
           requires:
             - build-windows
