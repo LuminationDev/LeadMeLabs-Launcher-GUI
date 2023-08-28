@@ -127,7 +127,7 @@ function createWindow () {
       if (mode === 'development') {
         autoUpdater.setFeedURL({
           provider: 'generic',
-          url: 'https://leadme-launcher-development.herokuapp.com/static/electron-launcher'
+          url: 'https://leadme-launcher-development-92514d5e709f.herokuapp.com/static/electron-launcher'
         })
       }
       if (process.env.NODE_ENV !== 'development') {
