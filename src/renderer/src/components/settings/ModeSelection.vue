@@ -6,6 +6,7 @@ const emit = defineEmits();
 const libraryStore = useLibraryStore();
 const selectedMode = ref();
 const handleModeChange = () => {
+  libraryStore.mode = selectedMode.value;
   emit('config-change', {key: 'mode', value: selectedMode.value});
 }
 
