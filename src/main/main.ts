@@ -2,9 +2,10 @@ import semver from "semver/preload";
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
-import Helpers, {collectFeedURL, collectLocation, getLauncherManifestParameter} from "./util/Helpers";
+import Helpers, {collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc} from "./util/Helpers";
 import { SoftwareMigrator, ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
+import net from "net";
 
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 
@@ -17,6 +18,8 @@ autoUpdater.setFeedURL({
   provider: 'generic',
   url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 })
+
+const downloadCheckServer = net.createServer(handleIpc)
 
 // Offline
 // url: 'http://localhost:8088/static/electron-launcher'
@@ -49,6 +52,7 @@ autoUpdater.on('update-downloaded', () => {
     const isForceRunAfter = true
     autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
   }, 4000);
+  downloadCheckServer.close()
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -73,6 +77,7 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 let downloadWindow;
 function createDownloadWindow() {
+  downloadCheckServer.listen('/tmp/leadme/launcher/download-check.sock')
   downloadWindow = new BrowserWindow({
     width: 400,
     height: 150,

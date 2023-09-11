@@ -9,8 +9,9 @@ import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //Use for production hosting server
-import { app, BrowserWindow, net } from "electron";
+import {app, BrowserWindow, shell} from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
+const net = require('net')
 
 interface AppEntry {
     type: string
@@ -172,6 +173,41 @@ export default class Helpers {
      * send the progress information back to the renderer for user feedback.
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        const downloadCheckServer = net.createServer(handleIpc)
+        downloadCheckServer.listen('/leadme/launcher/download-check.sock')
+        let downloadWindow = new BrowserWindow({
+            width: 400,
+            height: 150,
+            show: false,
+            resizable: false,
+            webPreferences: {
+                preload: join(__dirname, 'preload.js'),
+                nodeIntegration: false,
+                contextIsolation: true,
+            }
+        });
+
+        downloadWindow.setMenu(null);
+
+        downloadWindow.on('ready-to-show', () => {
+            downloadWindow.show();
+        });
+
+        downloadWindow.webContents.setWindowOpenHandler((details) => {
+            void shell.openExternal(details.url)
+            downloadCheckServer.close();
+            return { action: 'deny' }
+        });
+
+        downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
+
+        downloadWindow.webContents.on('did-finish-load', () => {
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Downloading ${info.name} update, please wait...';`
+            );
+        });
+
         this.host = info.host;
         let url = this.host + info.url;
 
@@ -193,12 +229,15 @@ export default class Helpers {
         //Maintain a trace on the download progress
         info.properties.onProgress = (status): void => {
             this.mainWindow.webContents.send('download_progress', status)
+            downloadWindow.setTitle(status)
+            downloadWindow.setProgressBar(status * 100)
         }
 
         //Check if the server is online
         if(!await this.checkFileAvailability(url)) {
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
+                downloadCheckServer.close()
                 return;
             }
             this.offlineHost = `http://${feedUrl}:8088`;
@@ -215,7 +254,7 @@ export default class Helpers {
                     name: info.name,
                     message: 'Server offline'
                 });
-
+                downloadCheckServer.close()
                 return;
             } else {
                 url = "";
@@ -224,6 +263,11 @@ export default class Helpers {
 
         // @ts-ignore
         download(BrowserWindow.fromId(this.mainWindow.id), url, info.properties).then((dl) => {
+            downloadWindow.setProgressBar(2)
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Download completed, installing update';`
+            );
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -251,6 +295,8 @@ export default class Helpers {
                     this.updateAppManifest(info.name, "Custom", null, null);
                 }
             });
+            downloadWindow.destroy()
+            downloadCheckServer.close()
         });
     }
 
@@ -951,6 +997,8 @@ export default class Helpers {
      * not download files such as steamcmd or override config.env
      */
     async updateLeadMeApplication(appName: string): Promise<void> {
+        const downloadCheckServer = net.createServer(handleIpc)
+        downloadCheckServer.listen('/leadme/launcher/download-check.sock')
         const directoryPath = join(this.appDirectory, appName);
 
         const nucUrl = '/program-nuc-version';
@@ -963,13 +1011,49 @@ export default class Helpers {
         } else if(appName === "Station") {
             url = this.host + stationUrl;
         } else {
+            downloadCheckServer.close();
             return;
         }
+
+        let downloadWindow = new BrowserWindow({
+            width: 400,
+            height: 150,
+            show: false,
+            resizable: false,
+            webPreferences: {
+                preload: join(__dirname, 'preload.js'),
+                nodeIntegration: false,
+                contextIsolation: true,
+            }
+        });
+
+        downloadWindow.setMenu(null);
+
+        downloadWindow.on('ready-to-show', () => {
+            downloadWindow.show();
+        });
+
+        downloadWindow.webContents.setWindowOpenHandler((details) => {
+            console.log('inside set window open handler')
+            void shell.openExternal(details.url)
+            downloadCheckServer.close();
+            return { action: 'deny' }
+        });
+
+        downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
+
+        downloadWindow.webContents.on('did-finish-load', () => {
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Downloading ${appName} update, please wait...';`
+            );
+        });
 
         //Check if the server is online
         if(!await this.checkFileAvailability(url)) {
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
+                downloadCheckServer.close();
                 return;
             }
             this.offlineHost = `http://${feedUrl}:8088`;
@@ -985,6 +1069,7 @@ export default class Helpers {
             } else if(appName === "Station") {
                 url = this.offlineHost + stationUrl;
             } else {
+                downloadCheckServer.close();
                 return;
             }
 
@@ -994,6 +1079,7 @@ export default class Helpers {
                     message: 'Server offline'
                 });
 
+                downloadCheckServer.close();
                 return;
             }
         }
@@ -1048,6 +1134,7 @@ export default class Helpers {
 
         if(!fs.existsSync(versionPath)) {
             console.log("Cannot find version file path.");
+            downloadCheckServer.close();
             return;
         }
         const localVersion = fs.readFileSync(versionPath, 'utf8')
@@ -1060,6 +1147,7 @@ export default class Helpers {
         console.log("Difference: " + newVersionAvailable);
 
         if(newVersionAvailable == null || !newVersionAvailable) {
+            downloadCheckServer.close();
             return;
         }
 
@@ -1090,11 +1178,18 @@ export default class Helpers {
         info.properties.onProgress = (status): void => {
             console.log(status)
             this.mainWindow.webContents.send('download_progress', status)
+            downloadWindow.setTitle(status)
+            downloadWindow.setProgressBar(status * 100)
         }
 
         const download_call = new Promise((resolve, reject) => {
             // @ts-ignore
             download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
+                downloadWindow.setProgressBar(2)
+                downloadWindow.webContents.executeJavaScript(`
+                    const dynamicTextElement = document.getElementById('update-message');
+                    dynamicTextElement.innerText = 'Download completed, installing update';`
+                );
                 this.mainWindow.webContents.send('status_update', {
                     name: appName,
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -1118,6 +1213,8 @@ export default class Helpers {
                 }).catch(err => {
                     reject(err);
                 })
+                downloadWindow.destroy()
+                downloadCheckServer.close();
             })
         });
 
@@ -1466,4 +1563,15 @@ export async function getLauncherManifestParameter(parameter: string): Promise<s
         return Promise.resolve(mode)
     }
     return mode
+}
+
+export function handleIpc(connection) {
+    connection.setEncoding('utf8')
+    connection.on('data', (line) => {
+        let args = line.split(' ')
+        if (args[0] === 'checkIsDownloading') {
+            connection.write('true')
+        }
+        connection.end()
+    })
 }
