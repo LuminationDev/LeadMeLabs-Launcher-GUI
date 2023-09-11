@@ -27,18 +27,22 @@ export default class Encryption {
      * Decrypt the supplied data with the AES algorithm.
      */
     static async decryptData(dataToDecrypt: string): Promise<string> {
-        const iv = Buffer.from(dataToDecrypt.slice(0, 32), 'hex');
-        const encrypted = dataToDecrypt.slice(32);
+        try {
+            const iv = Buffer.from(dataToDecrypt.slice(0, 32), 'hex');
+            const encrypted = dataToDecrypt.slice(32);
 
-        if (this.key === null || this.key === undefined) {
-            await this._collectSecret();
+            if (this.key === null || this.key === undefined) {
+                await this._collectSecret();
+            }
+
+            const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
+            let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+
+            return decrypted;
+        } catch {
+            return "";
         }
-
-        const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
-        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-
-        return decrypted;
     }
 
     /**

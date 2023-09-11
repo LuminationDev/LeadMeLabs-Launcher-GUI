@@ -248,6 +248,8 @@ export class ManifestMigrator {
             }
 
             const decryptedData = await Encryption.decryptData(data);
+
+            if(decryptedData.length === 0 ) return [];
             return JSON.parse(decryptedData);
         }
         return [];
