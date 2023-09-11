@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import * as Sentry from '@sentry/electron'
 
 const Registry = require('winreg');
 
@@ -40,7 +41,8 @@ export default class Encryption {
             decrypted += decipher.final('utf8');
 
             return decrypted;
-        } catch {
+        } catch (e: any) {
+            Sentry.captureMessage("Encryption key changed. " + e.toString());
             return "";
         }
     }
