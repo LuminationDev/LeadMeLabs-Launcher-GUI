@@ -1442,3 +1442,28 @@ export async function collectLocation(): Promise<string | null> {
 
     return "Unknown";
 }
+
+/**
+ * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
+ * opened.
+ */
+export async function getLauncherManifestParameter(parameter: string): Promise<string> {
+    const filePath = join(process.env.APPDATA + '/leadme_apps', 'manifest.json');
+    let mode = "Unknown"
+    if(!fs.existsSync(filePath) && !fs.existsSync(filePath)) {
+        return Promise.resolve(mode)
+    }
+    try {
+        const data = fs.readFileSync(filePath, { encoding: 'utf-8' });
+        const decryptedData = await Encryption.decryptData(data);
+        JSON.parse(decryptedData).forEach(element => {
+            if (element.type === 'Launcher') {
+                mode = element[parameter]
+                return Promise.resolve(element[parameter])
+            }
+        })
+    } catch (error) {
+        return Promise.resolve(mode)
+    }
+    return mode
+}
