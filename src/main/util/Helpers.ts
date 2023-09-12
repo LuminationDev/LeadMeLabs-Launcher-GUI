@@ -1022,7 +1022,13 @@ export default class Helpers {
         });
 
         //Online version number
-        let onlineVersion: string = <string>await request_call;
+        let onlineVersion: string;
+        try {
+            onlineVersion = <string>await request_call;
+        } catch {
+            console.log("Unable to establish connection to server.");
+            return;
+        }
 
         //Write out and then get the local version
         const args = `writeversion`;
@@ -1114,7 +1120,11 @@ export default class Helpers {
             })
         });
 
-        await download_call;
+        try {
+            await download_call;
+        } catch {
+            console.log("Download failed.");
+        }
     }
 
     /**
