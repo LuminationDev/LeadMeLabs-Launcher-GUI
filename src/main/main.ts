@@ -19,7 +19,7 @@ autoUpdater.setFeedURL({
   url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 })
 
-const downloadCheckServer = net.createServer(handleIpc)
+var server;
 
 // Offline
 // url: 'http://localhost:8088/static/electron-launcher'
@@ -52,7 +52,9 @@ autoUpdater.on('update-downloaded', () => {
     const isForceRunAfter = true
     autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
   }, 4000);
-  downloadCheckServer.close()
+  if (server) {
+    server.close()
+  }
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -77,7 +79,16 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 let downloadWindow;
 function createDownloadWindow() {
-  downloadCheckServer.listen('/tmp/leadme/launcher/download-check.sock')
+  var PIPE_NAME = "LeadMeLauncher";
+  var PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
+  server = net.createServer((stream) => {
+    stream.on('data', (c) => {
+      if (c.toString().includes("checkIfDownloading")) {
+        stream.write("true")
+      }
+    });
+  });
+  server.listen(PIPE_PATH)
   downloadWindow = new BrowserWindow({
     width: 400,
     height: 150,

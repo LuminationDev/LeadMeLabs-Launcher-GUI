@@ -9,7 +9,7 @@ import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //Use for production hosting server
-import {app, BrowserWindow, shell} from "electron";
+import {app, BrowserWindow, shell, net as electronNet} from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 const net = require('net')
 
@@ -47,6 +47,7 @@ interface ConfigFile {
 export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
+    downloading: boolean = false;
     appDirectory: string;
     host: string = "";
     offlineHost: string = "http://localhost:8088"; //Changes if on NUC (localhost) or Station (NUC IP address)
@@ -55,6 +56,17 @@ export default class Helpers {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
         this.appDirectory = process.env.APPDATA + '/leadme_apps';
+
+        var PIPE_NAME = "LeadMeLauncher";
+        var PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
+        var server = net.createServer((stream) => {
+            stream.on('data', (c) => {
+                if (c.toString().includes("checkIfDownloading")) {
+                    stream.write("" + this.downloading)
+                }
+            });
+        });
+        server.listen(PIPE_PATH)
     }
 
     /**
@@ -173,8 +185,7 @@ export default class Helpers {
      * send the progress information back to the renderer for user feedback.
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        const downloadCheckServer = net.createServer(handleIpc)
-        downloadCheckServer.listen('/leadme/launcher/download-check.sock')
+        this.downloading = true;
         let downloadWindow = new BrowserWindow({
             width: 400,
             height: 150,
@@ -195,7 +206,7 @@ export default class Helpers {
 
         downloadWindow.webContents.setWindowOpenHandler((details) => {
             void shell.openExternal(details.url)
-            downloadCheckServer.close();
+            this.downloading = false;
             return { action: 'deny' }
         });
 
@@ -237,7 +248,7 @@ export default class Helpers {
         if(!await this.checkFileAvailability(url)) {
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
-                downloadCheckServer.close()
+                this.downloading = false;
                 return;
             }
             this.offlineHost = `http://${feedUrl}:8088`;
@@ -254,7 +265,7 @@ export default class Helpers {
                     name: info.name,
                     message: 'Server offline'
                 });
-                downloadCheckServer.close()
+                this.downloading = false;
                 return;
             } else {
                 url = "";
@@ -296,7 +307,7 @@ export default class Helpers {
                 }
             });
             downloadWindow.destroy()
-            downloadCheckServer.close()
+            this.downloading = false;
         });
     }
 
@@ -306,7 +317,7 @@ export default class Helpers {
      */
     async checkFileAvailability(url): Promise<boolean> {
         const request_call = new Promise((resolve, reject) => {
-            const request = net.request(url);
+            const request = electronNet.request(url);
 
             request.on('response', (response) => {
                 if (response.statusCode === 200) {
@@ -997,8 +1008,7 @@ export default class Helpers {
      * not download files such as steamcmd or override config.env
      */
     async updateLeadMeApplication(appName: string): Promise<void> {
-        const downloadCheckServer = net.createServer(handleIpc)
-        downloadCheckServer.listen('/leadme/launcher/download-check.sock')
+        this.downloading = true;
         const directoryPath = join(this.appDirectory, appName);
 
         const nucUrl = '/program-nuc-version';
@@ -1011,7 +1021,7 @@ export default class Helpers {
         } else if(appName === "Station") {
             url = this.host + stationUrl;
         } else {
-            downloadCheckServer.close();
+            this.downloading = false;
             return;
         }
 
@@ -1036,7 +1046,7 @@ export default class Helpers {
         downloadWindow.webContents.setWindowOpenHandler((details) => {
             console.log('inside set window open handler')
             void shell.openExternal(details.url)
-            downloadCheckServer.close();
+            this.downloading = false;
             return { action: 'deny' }
         });
 
@@ -1053,7 +1063,7 @@ export default class Helpers {
         if(!await this.checkFileAvailability(url)) {
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
-                downloadCheckServer.close();
+                this.downloading = false;
                 return;
             }
             this.offlineHost = `http://${feedUrl}:8088`;
@@ -1069,7 +1079,7 @@ export default class Helpers {
             } else if(appName === "Station") {
                 url = this.offlineHost + stationUrl;
             } else {
-                downloadCheckServer.close();
+                this.downloading = false;
                 return;
             }
 
@@ -1079,7 +1089,7 @@ export default class Helpers {
                     message: 'Server offline'
                 });
 
-                downloadCheckServer.close();
+                this.downloading = false;
                 return;
             }
         }
@@ -1134,7 +1144,7 @@ export default class Helpers {
 
         if(!fs.existsSync(versionPath)) {
             console.log("Cannot find version file path.");
-            downloadCheckServer.close();
+            this.downloading = false;
             return;
         }
         const localVersion = fs.readFileSync(versionPath, 'utf8')
@@ -1147,7 +1157,7 @@ export default class Helpers {
         console.log("Difference: " + newVersionAvailable);
 
         if(newVersionAvailable == null || !newVersionAvailable) {
-            downloadCheckServer.close();
+            this.downloading = false;
             return;
         }
 
@@ -1214,7 +1224,7 @@ export default class Helpers {
                     reject(err);
                 })
                 downloadWindow.destroy()
-                downloadCheckServer.close();
+                this.downloading = false;
             })
         });
 
