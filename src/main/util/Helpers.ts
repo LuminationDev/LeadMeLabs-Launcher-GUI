@@ -11,6 +11,7 @@ import * as http from "http";
 import * as https from "https"; //Use for production hosting server
 import { app, BrowserWindow, net } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
+import * as Sentry from '@sentry/electron'
 
 interface AppEntry {
     type: string
@@ -281,7 +282,12 @@ export default class Helpers {
             console.log(error);
         });
 
-        return <boolean>await request_call;
+        try {
+            return <boolean>await request_call;
+        } catch (e: any) {
+            Sentry.captureMessage(`Unable to contact server at ${await collectLocation()}.` + e.toString());
+            return false;
+        }
     }
 
     /**
