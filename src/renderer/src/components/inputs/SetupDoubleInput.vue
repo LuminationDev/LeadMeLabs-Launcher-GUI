@@ -90,6 +90,7 @@ const showPassword = ref(false)
           @input="$emit('update:inputTwo', $event.target.value)"/>
 
       <button
+          v-if="visible"
           type="button"
           class="absolute right-0 w-6 h-5 mt-3.5 mr-3 rounded-br-lg rounded-tr-lg bg-white"
           @click="showPassword = !showPassword">
