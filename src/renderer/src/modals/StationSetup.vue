@@ -13,6 +13,7 @@ import { required, helpers } from "@vuelidate/validators";
 import PinPrompt from "@renderer/modals/PinPrompt.vue";
 import { useLibraryStore } from '../store/libraryStore';
 import { useSetupStore } from "../store/setupStore";
+import { StationForm } from "@renderer/interfaces/forms";
 
 const libraryStore = useLibraryStore();
 const setupStore = useSetupStore();
@@ -99,7 +100,14 @@ function configureSteamCMD() {
  * Transform the reactive form into the necessary format to satisfy the JSON string the backend requires.
  */
 const transformForm = () => {
-  const data = { ...form };
+  const trimmedForm = {} as StationForm;
+  //Remove any whitespaces from the original form
+  for (const key in form) {
+    if (form.hasOwnProperty(key)) {
+      trimmedForm[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+    }
+  }
+  const data = { ...trimmedForm };
 
   if(!steamCMD.value) {
     delete data.SteamUserName;
