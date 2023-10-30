@@ -1049,7 +1049,7 @@ export default class Helpers {
         downloadWindow.webContents.on('did-finish-load', () => {
             downloadWindow.webContents.executeJavaScript(`
                 const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Downloading ${appName} update, please wait...';`
+                dynamicTextElement.innerText = 'Checking for ${appName} update, please wait...';`
             );
         });
 
@@ -1181,6 +1181,10 @@ export default class Helpers {
             }
         }
 
+        downloadWindow.webContents.executeJavaScript(`
+            const dynamicTextElement = document.getElementById('update-message');
+            dynamicTextElement.innerText = 'Downloading ${appName} update, please wait...';`
+        );
         //Maintain a trace on the download progress
         // @ts-ignore
         info.properties.onProgress = (status): void => {
