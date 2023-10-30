@@ -1149,7 +1149,7 @@ export default class Helpers {
         //Compare the versions
         console.log("Online version: " + onlineVersion);
         console.log("Local version: " + localVersion);
-        const newVersionAvailable = semver.gte(onlineVersion, localVersion)
+        const newVersionAvailable = semver.gt(onlineVersion, localVersion)
 
         console.log("Difference: " + newVersionAvailable);
 
@@ -1181,14 +1181,14 @@ export default class Helpers {
             }
         }
 
-        downloadWindow.webContents.executeJavaScript(`
-            const dynamicTextElement = document.getElementById('update-message');
-            dynamicTextElement.innerText = 'Downloading ${appName} update, please wait...';`
-        );
         //Maintain a trace on the download progress
         // @ts-ignore
         info.properties.onProgress = (status): void => {
             console.log(status)
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Downloading ${appName} update, ${status * 100}%';`
+            );
             this.mainWindow.webContents.send('download_progress', status)
             downloadWindow.setTitle(status)
             downloadWindow.setProgressBar(status * 100)
