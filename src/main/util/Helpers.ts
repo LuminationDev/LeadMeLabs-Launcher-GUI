@@ -1040,6 +1040,7 @@ export default class Helpers {
             console.log('inside set window open handler')
             void shell.openExternal(details.url)
             this.downloading = false;
+            downloadWindow.destroy();
             return { action: 'deny' }
         });
 
@@ -1057,6 +1058,7 @@ export default class Helpers {
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
                 this.downloading = false;
+                downloadWindow.destroy();
                 return;
             }
             this.offlineHost = `http://${feedUrl}:8088`;
@@ -1073,6 +1075,7 @@ export default class Helpers {
                 url = this.offlineHost + stationUrl;
             } else {
                 this.downloading = false;
+                downloadWindow.destroy();
                 return;
             }
 
@@ -1083,6 +1086,7 @@ export default class Helpers {
                 });
 
                 this.downloading = false;
+                downloadWindow.destroy();
                 return;
             }
         }
@@ -1151,6 +1155,7 @@ export default class Helpers {
 
         if(newVersionAvailable == null || !newVersionAvailable) {
             this.downloading = false;
+            downloadWindow.destroy();
             return;
         }
 
