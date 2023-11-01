@@ -288,7 +288,7 @@ const openPinPromptModal = () => {
             <SetupChoiceSelection
                 v-if="steamCMD"
                 :title="'Headset Type'"
-                :choices="['Vive Pro 1', 'Vive Pro 2']"
+                :choices="['Vive Pro 1', 'Vive Pro 2', 'Vive Focus 3']"
                 v-model="form.HeadsetType"
                 :v$="v$.form.HeadsetType" />
 
