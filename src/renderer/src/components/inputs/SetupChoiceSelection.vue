@@ -30,7 +30,7 @@ defineProps({
 
       <div
           @click="$emit('update:modelValue', type.split(' ').join(''))"
-          class="w-24 mr-4 rounded-lg justify-center cursor-pointer"
+          class="w-28 mr-4 rounded-lg justify-center cursor-pointer"
           :class="{
                     'bg-gray-300 hover:bg-gray-200': type.split(' ').join('') !== modelValue,
                     'bg-green-300 hover:bg-green-200': type.split(' ').join('') === modelValue
