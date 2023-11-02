@@ -6,7 +6,7 @@ defineProps({
     required: true
   },
   choices: {
-    type: Array,
+    type: Array<string>,
     required: true
   },
   modelValue: {

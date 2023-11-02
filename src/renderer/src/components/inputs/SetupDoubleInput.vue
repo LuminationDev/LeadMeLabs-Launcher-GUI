@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref} from "vue";
+import { ref } from "vue";
 
 defineProps({
   title: {
@@ -42,7 +42,24 @@ defineProps({
   }
 });
 
-const showPassword = ref(false)
+const emit = defineEmits<{
+  (e: string, value: string | boolean)
+}>();
+const showPassword = ref(false);
+
+const handleInput = (emitType: string, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target) {
+    emit(emitType, target.value)
+  }
+};
+
+const handleCheckInput = (emitType: string, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target) {
+    emit(emitType, target.checked)
+  }
+};
 </script>
 
 <template>
@@ -57,7 +74,7 @@ const showPassword = ref(false)
           type="checkbox"
           id="optional"
           :checked="visible"
-          @input="$emit('update:visible', $event.target.checked)" >
+          @input="handleCheckInput('update:visible', $event)" >
     </div>
   </div>
 
@@ -71,7 +88,7 @@ const showPassword = ref(false)
       class="mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
       :class="{'border-red-800 focus:border-red-900': v$One.$error}"
       :placeholder="placeholderOne"
-      @input="$emit('update:inputOne', $event.target.value)" />
+      @input="handleInput('update:inputOne', $event)" />
 
   <div class="flex flex-col items-end mr-2" v-if="v$One && v$One.$error && visible">
     <div class="text-red-800 text-xs" v-for="error in v$One.$errors">{{ error.$message }}</div>
@@ -87,7 +104,7 @@ const showPassword = ref(false)
           :class="{'border-red-800 focus:border-red-900': v$Two.$error}"
           :type="showPassword ? 'text' : 'password'"
           :placeholder="placeholderTwo"
-          @input="$emit('update:inputTwo', $event.target.value)"/>
+          @input="handleInput('update:inputTwo', $event)"/>
 
       <button
           v-if="visible"

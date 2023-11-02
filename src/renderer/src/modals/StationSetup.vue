@@ -73,7 +73,7 @@ watch(setupParams, (newValue) => {
     return;
   }
 
-  newValue.forEach(value => {
+  newValue.forEach((value: string) => {
     let values = value.split("=");
 
     form[values[0]] = values[1];
@@ -125,7 +125,7 @@ const handleSubmit = async () => {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_SET,
-    name: libraryStore.getSelectedApplication.name,
+    name: libraryStore.getSelectedApplication?.name,
     value: JSON.stringify(data)
   });
 
@@ -205,7 +205,7 @@ function openModal() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
-    name: libraryStore.getSelectedApplication.name
+    name: libraryStore.getSelectedApplication?.name
   });
 
   showStationModal.value = true;

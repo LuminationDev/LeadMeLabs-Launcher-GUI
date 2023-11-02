@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, watch} from "vue";
+import { computed, ref, watch } from "vue";
 import GenericButton from "../../components/buttons/GenericButton.vue";
 import * as CONSTANT from "../../assets/constants/index"
 import ApplicationScheduler from "./ApplicationScheduler.vue";
@@ -18,12 +18,15 @@ const rewriteManifest = () => {
 const selectedImagePath = ref("");
 const imageInput = ref<HTMLInputElement | null>(null);
 const setImage = () => {
+  if (imageInput.value === null || imageInput.value.files === null) {
+    return;
+  }
   selectedImagePath.value = imageInput.value.files[0]["path"];
 
-  // @ts-ignore
+  //@ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.APPLICATION_IMAGE_SET,
-    name: applicationName.value,
+    name: libraryStore.getSelectedApplicationName,
     imagePath: selectedImagePath.value
   });
 }
@@ -86,6 +89,7 @@ const imagePath = computed(async () => {
   }
 
   imageSource.value = finalUrl;
+  return;
 });
 
 watch(imagePath, (newVal) => {
