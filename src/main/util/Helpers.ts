@@ -136,7 +136,7 @@ export default class Helpers {
                     this.taskSchedulerItem(_event, info);
                     break;
                 case "edit_vr_manifest":
-                    void this.updateVRManifest(info.name, info.id, info.path, info.add);
+                    void this.updateVRManifest(info.name, info.id, info.altPath, info.add);
                     void this.setManifestAppParameters(_event, info);
                     break;
 
