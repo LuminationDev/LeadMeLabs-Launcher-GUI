@@ -12,6 +12,7 @@ import * as https from "https"; //Use for production hosting server
 import {app, BrowserWindow, shell, net as electronNet} from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 const net = require('net')
+import * as Sentry from '@sentry/electron'
 
 interface AppEntry {
     type: string
@@ -338,7 +339,12 @@ export default class Helpers {
             console.log(error);
         });
 
-        return <boolean>await request_call;
+        try {
+            return <boolean>await request_call;
+        } catch (e: any) {
+            Sentry.captureMessage(`Unable to contact server at ${await collectLocation()}.` + e.toString());
+            return false;
+        }
     }
 
     /**
@@ -1122,7 +1128,13 @@ export default class Helpers {
         });
 
         //Online version number
-        let onlineVersion: string = <string>await request_call;
+        let onlineVersion: string;
+        try {
+            onlineVersion = <string>await request_call;
+        } catch {
+            console.log("Unable to establish connection to server.");
+            return;
+        }
 
         //Write out and then get the local version
         const args = `writeversion`;
@@ -1230,7 +1242,11 @@ export default class Helpers {
             })
         });
 
-        await download_call;
+        try {
+            await download_call;
+        } catch {
+            console.log("Download failed.");
+        }
     }
 
     /**
@@ -1263,6 +1279,10 @@ export default class Helpers {
 
         //Read the file and remove any previous entries for the same item
         fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
+            if (err) {
+                console.log(err);
+            }
+
             const decryptedData = await Encryption.decryptData(data);
 
             let dataArray = decryptedData.split('\n'); // convert file data in an array
@@ -1289,7 +1309,11 @@ export default class Helpers {
         switch (info.type) {
             case "list":
                 args = `SCHTASKS /QUERY /TN ${taskFolder} /fo LIST`;
-                exec(`${args}`, (error, stdout) => {
+                exec(`${args}`, (err, stdout) => {
+                    if (err) {
+                        console.log(err);
+                    }
+
                     //Send the output back to the user
                     this.mainWindow.webContents.send('backend_message', {
                         channelType: 'scheduler_update',
@@ -1303,7 +1327,7 @@ export default class Helpers {
                 const outputPath = join(this.appDirectory, 'Software_Checker.xml');
 
                 //Edit the static XML with the necessary details
-                this.modifyDefaultXML(taskFolder, info.name, outputPath)
+                this.modifyDefaultXML(taskFolder, outputPath)
 
                 //Use the supplied XML to create the command
                 args = `SCHTASKS /CREATE /TN ${taskFolder} /XML ${outputPath}`;
@@ -1325,7 +1349,11 @@ export default class Helpers {
                 return;
         }
 
-        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (error, stdout)=> {
+        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (err, stdout)=> {
+            if (err) {
+                console.log(err);
+            }
+
             this.mainWindow.webContents.send('backend_message', {
                 channelType: 'scheduler_update',
                 message: stdout,
@@ -1338,14 +1366,14 @@ export default class Helpers {
      * Modify the default software checker xml with the details necessary for either the NUC or Station software. As an
      * XML we can set far more than a command line interface and add different triggers and conditions.
      */
-    modifyDefaultXML(taskFolder: string, appName: string, outputPath: string): void {
+    modifyDefaultXML(taskFolder: string, outputPath: string): void {
         const exePath = join(__dirname, '../../../../..', '_batch/LeadMeLabs-SoftwareChecker.exe');
 
         const filePath = join(app.getAppPath(), 'static', 'template.xml');
         const data = fs.readFileSync(filePath, "utf16le")
 
         // we then pass the data to our method here
-        xml2js.parseString(data, function(err, result) {
+        xml2js.parseString(data, function(err: string, result: any) {
             if (err) console.log("FILE ERROR: " + err);
 
             let json = result;
@@ -1565,11 +1593,12 @@ export async function getLauncherManifestParameter(parameter: string): Promise<s
     try {
         const data = fs.readFileSync(filePath, { encoding: 'utf-8' });
         const decryptedData = await Encryption.decryptData(data);
-        JSON.parse(decryptedData).forEach(element => {
+        JSON.parse(decryptedData).forEach((element: { [x: string]: any; type: string; }) => {
             if (element.type === 'Launcher') {
                 mode = element[parameter]
                 return Promise.resolve(element[parameter])
             }
+            return Promise.resolve(mode)
         })
     } catch (error) {
         return Promise.resolve(mode)

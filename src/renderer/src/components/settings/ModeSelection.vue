@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { useLibraryStore } from "../../store/libraryStore";
 import { onBeforeMount, ref } from "vue";
+import { basicObject } from "@renderer/interfaces/keyValue";
 
-const emit = defineEmits();
+const emit = defineEmits<{
+  (e: 'config-change', Object: basicObject)
+}>();
 const libraryStore = useLibraryStore();
 const selectedMode = ref();
 const handleModeChange = () => {

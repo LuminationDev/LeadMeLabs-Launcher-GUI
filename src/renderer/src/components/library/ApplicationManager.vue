@@ -103,7 +103,7 @@ onMounted(() => {
           CONSTANT.MODEL_VALUE.STATUS_INSTALLED);
     }
 
-    if(status.message === 'Server offline' && libraryStore.getApplicationByName(status.name).status != CONSTANT.MODEL_VALUE.STATUS_RUNNING) {
+    if(status.message === 'Server offline' && libraryStore.getApplicationByName(status.name)?.status != CONSTANT.MODEL_VALUE.STATUS_RUNNING) {
       libraryStore.updateApplicationByName(
           status.name,
           CONSTANT.MODEL_KEY.KEY_STATUS,

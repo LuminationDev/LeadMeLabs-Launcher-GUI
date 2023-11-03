@@ -293,6 +293,17 @@ function setupTrayIcon(): void {
   appIcon.setToolTip('LeadMe')
   appIcon.setContextMenu(contextMenu)
 
+  // Handle double-click event on the tray icon
+  appIcon.on('double-click', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore(); // If the window is minimized, restore it
+      } else {
+        mainWindow.show(); // If the window is not minimized, just bring it to focus
+      }
+    }
+  });
+
   // Manage window minimising and tray icon
   mainWindow.on('minimize', function (event) {
     event.preventDefault()

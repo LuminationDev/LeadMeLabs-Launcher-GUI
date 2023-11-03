@@ -12,6 +12,7 @@ import { required, helpers } from "@vuelidate/validators";
 import PinPrompt from "@renderer/modals/PinPrompt.vue";
 import { useLibraryStore } from '../store/libraryStore';
 import { useSetupStore } from "../store/setupStore";
+import { NUCForm } from "@renderer/interfaces/forms";
 
 const libraryStore = useLibraryStore();
 const setupStore = useSetupStore();
@@ -67,7 +68,7 @@ watch(setupParams, (newValue) => {
     return;
   }
 
-  newValue.forEach(value => {
+  newValue.forEach((value: string) => {
     let values = value.split("=");
     let details;
 
@@ -97,12 +98,20 @@ const v$ = useVuelidate(rules, { form });
  * Transform the reactive form into the necessary format to satisfy the JSON string the backend requires.
  */
 const transformForm = () => {
-  const data = { ...form };
-  data.CbusLogin = `${form.CbusLogin}:${form.CbusPassword}`;
+  const trimmedForm = {} as NUCForm;
+  //Remove any whitespaces from the original form
+  for (const key in form) {
+    if (form.hasOwnProperty(key)) {
+      trimmedForm[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+    }
+  }
+
+  const data = { ...trimmedForm };
+  data.CbusLogin = `${trimmedForm.CbusLogin}:${trimmedForm.CbusPassword}`;
   delete data.CbusPassword;
 
   if(novaStar.value) {
-    data.NovaStarLogin = `${form.NovaStarLogin}:${form.NovaStarPassword}`;
+    data.NovaStarLogin = `${trimmedForm.NovaStarLogin}:${trimmedForm.NovaStarPassword}`;
     delete data.NovaStarPassword;
   } else {
     delete data.NovaStarLogin;
@@ -118,7 +127,7 @@ const handleSubmit = async () => {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_SET,
-    name: libraryStore.getSelectedApplication.name,
+    name: libraryStore.getSelectedApplication?.name,
     value: JSON.stringify(data),
   });
 
@@ -196,7 +205,7 @@ function openModal() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
-    name: libraryStore.getSelectedApplication.name
+    name: libraryStore.getSelectedApplication?.name
   });
 
   showNucModal.value = true;

@@ -13,6 +13,7 @@ import { required, helpers } from "@vuelidate/validators";
 import PinPrompt from "@renderer/modals/PinPrompt.vue";
 import { useLibraryStore } from '../store/libraryStore';
 import { useSetupStore } from "../store/setupStore";
+import { StationForm } from "@renderer/interfaces/forms";
 
 const libraryStore = useLibraryStore();
 const setupStore = useSetupStore();
@@ -72,7 +73,7 @@ watch(setupParams, (newValue) => {
     return;
   }
 
-  newValue.forEach(value => {
+  newValue.forEach((value: string) => {
     let values = value.split("=");
 
     form[values[0]] = values[1];
@@ -99,7 +100,14 @@ function configureSteamCMD() {
  * Transform the reactive form into the necessary format to satisfy the JSON string the backend requires.
  */
 const transformForm = () => {
-  const data = { ...form };
+  const trimmedForm = {} as StationForm;
+  //Remove any whitespaces from the original form
+  for (const key in form) {
+    if (form.hasOwnProperty(key)) {
+      trimmedForm[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+    }
+  }
+  const data = { ...trimmedForm };
 
   if(!steamCMD.value) {
     delete data.SteamUserName;
@@ -117,7 +125,7 @@ const handleSubmit = async () => {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_SET,
-    name: libraryStore.getSelectedApplication.name,
+    name: libraryStore.getSelectedApplication?.name,
     value: JSON.stringify(data)
   });
 
@@ -197,7 +205,7 @@ function openModal() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
-    name: libraryStore.getSelectedApplication.name
+    name: libraryStore.getSelectedApplication?.name
   });
 
   showStationModal.value = true;
@@ -280,7 +288,7 @@ const openPinPromptModal = () => {
             <SetupChoiceSelection
                 v-if="steamCMD"
                 :title="'Headset Type'"
-                :choices="['Vive Pro 1', 'Vive Pro 2']"
+                :choices="['Vive Pro 1', 'Vive Pro 2', 'Vive Focus 3']"
                 v-model="form.HeadsetType"
                 :v$="v$.form.HeadsetType" />
 

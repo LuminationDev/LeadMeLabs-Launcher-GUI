@@ -1,25 +1,22 @@
-<script>
-export default {
-  inheritAttrs: false,
-  props: {
-    color: {
-      type: String,
-      required: true
-    },
-    percentage: {
-      type: Number,
-      default: 0
-    },
-    rounded: {
-      type: Boolean,
-      default: true
-    },
-    indeterminate: {
-      type: Boolean,
-      default: false
-    },
+<script setup lang="ts">
+defineProps({
+  color: {
+    type: String,
+    required: true
+  },
+  percentage: {
+    type: Number,
+    default: 0
+  },
+  rounded: {
+    type: Boolean,
+    default: true
+  },
+  indeterminate: {
+    type: Boolean,
+    default: false
   }
-};
+});
 </script>
 <template>
   <div

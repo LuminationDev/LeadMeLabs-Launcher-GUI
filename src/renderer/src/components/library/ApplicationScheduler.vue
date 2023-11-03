@@ -17,7 +17,7 @@ const createSchedulerTask = (): void => {
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
     type: "create",
-    name: libraryStore.getSelectedApplicationName.value
+    name: libraryStore.getSelectedApplicationName
   });
 }
 
@@ -29,7 +29,7 @@ const changeSchedulerTask = (): void => {
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
     type: enabled.value ? "disable" : "enable",
-    name: libraryStore.getSelectedApplicationName.value
+    name: libraryStore.getSelectedApplicationName
   });
 }
 
@@ -42,7 +42,7 @@ const deleteSchedulerTask = (): void => {
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
     type: "delete",
-    name: libraryStore.getSelectedApplicationName.value
+    name: libraryStore.getSelectedApplicationName
   });
 }
 
