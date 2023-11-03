@@ -63,7 +63,7 @@ async function uploadFiles(): Promise<void> {
   }
 
   const firebaseConfig = {
-    apiKey: "AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc",
+    apiKey: "AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc", // todo - check
     authDomain: "leadme-labs.firebaseapp.com",
     projectId: "leadme-labs",
     storageBucket: "leadme-labs.appspot.com",
