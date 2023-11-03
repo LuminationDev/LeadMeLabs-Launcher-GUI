@@ -11,6 +11,11 @@ import * as http from "http";
 import * as https from "https"; //Use for production hosting server
 import {app, BrowserWindow, shell, net as electronNet} from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
+import * as Sentry from "@sentry/electron";
+
+Sentry.init({
+    dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
+});
 const net = require('net')
 
 interface AppEntry {
@@ -1179,6 +1184,12 @@ export default class Helpers {
                 directory: directoryPath,
                 onProgress: undefined
             }
+        }
+
+        try {
+            Sentry.captureMessage(`Updating from ${localVersion} to ${onlineVersion} at site ${collectLocation()}`)
+        } catch (e) {
+            Sentry.captureException(e)
         }
 
         //Maintain a trace on the download progress
