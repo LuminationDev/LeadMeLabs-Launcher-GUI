@@ -3,10 +3,10 @@ export interface NUCForm {
     LabLocation: string;
     CbusIP: string;
     CbusNucScriptId: string;
-    CbusLogin: string;
-    CbusPassword: string;
-    NovaStarLogin: string;
-    NovaStarPassword: string;
+    CbusLogin?: string;
+    CbusPassword?: string;
+    NovaStarLogin?: string;
+    NovaStarPassword?: string;
 }
 
 export interface StationForm {
@@ -15,8 +15,8 @@ export interface StationForm {
     StationId: string;
     room: string;
     NucAddress: string;
-    SteamUserName: string;
-    SteamPassword: string;
+    SteamUserName?: string;
+    SteamPassword?: string;
     StationMode: string;
-    HeadsetType: string;
+    HeadsetType?: string;
 }

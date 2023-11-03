@@ -38,12 +38,18 @@ const showUploadModal = vueRef(false);
 const fileInput = vueRef<HTMLInputElement | null>(null);
 
 const selectFiles = (): void => {
-  console.log(fileInput.value.files);
+  if (fileInput.value !== null) {
+    console.log(fileInput.value.files);
+  }
 }
 
 async function uploadFiles(): Promise<void> {
+  if(fileInput.value == null) {
+    errorText.value = "Please select files to upload.";
+    return;
+  }
   const files = fileInput.value.files;
-  if (files.length === 0) {
+  if (files === null || files.length === 0) {
     errorText.value = "Please select files to upload.";
     return;
   }
@@ -71,6 +77,11 @@ async function uploadFiles(): Promise<void> {
   const auth = getAuth();
 
   signInWithEmailAndPassword(auth, state.email, state.password).then(() => {
+    if (files == null) {
+      errorText.value = "No files found"
+      return;
+    }
+
     const storage = getStorage();
 
     errorText.value = "uploading";
@@ -110,7 +121,7 @@ watch(setupParams, (newValue) => {
     return;
   }
 
-  newValue.forEach(value => {
+  newValue.forEach((value: string) => {
     let values = value.split("=");
 
     switch (values[0]) {

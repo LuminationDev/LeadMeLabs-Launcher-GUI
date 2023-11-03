@@ -4,10 +4,14 @@ import { reactive, ref } from "vue";
 import useVuelidate from "@vuelidate/core";
 import NumberInput from "@renderer/components/inputs/NumberInput.vue";
 import GenericButton from "@renderer/components/buttons/GenericButton.vue";
-import {useLibraryStore} from "../../store/libraryStore";
+import { useLibraryStore } from "../../store/libraryStore";
+import { basicObject } from "@renderer/interfaces/keyValue";
 
 const libraryStore = useLibraryStore();
-const emit = defineEmits();
+const emit = defineEmits<{
+  (e: 'config-change', Object: basicObject)
+}>();
+
 const rules = {
   pin: { required },
   confirmPin: { required }

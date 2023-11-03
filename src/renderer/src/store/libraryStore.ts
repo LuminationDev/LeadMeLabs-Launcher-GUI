@@ -43,7 +43,7 @@ export const useLibraryStore = defineStore({
         pin: '',
         mode: 'production',
         appDirectory: '',
-        selectedApplication: '',
+        selectedApplication: <string | undefined> '',
         applicationParameters: {},
         applicationSetup: reactive([]),
         applications: ref(new Map<string, Application>(Object.entries(values))),
@@ -193,6 +193,7 @@ export const useLibraryStore = defineStore({
         },
 
         getSelectedApplication(): Application | undefined {
+            if(this.selectedApplication === undefined) return undefined;
             return this.applications.get(this.selectedApplication)
         },
 

@@ -49,8 +49,8 @@ const setVRManifest = (): void => {
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.VR_MANIFEST,
     name: applicationName.value,
-    id: libraryStore.getSelectedApplication.id,
-    altPath: libraryStore.getSelectedApplication.altPath,
+    id: libraryStore.getSelectedApplication?.id,
+    altPath: libraryStore.getSelectedApplication?.altPath,
     add: vrChecked.value,
     value: JSON.stringify({[CONSTANT.MODEL_KEY.KEY_VR_MANIFEST]: vrChecked.value})
   });
