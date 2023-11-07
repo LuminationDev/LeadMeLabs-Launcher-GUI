@@ -239,6 +239,14 @@ function updateCheck(result: UpdateCheckResult|null) {
   //Detect if there is an update, if not send the auto start command
   if(!semver.gt(result.updateInfo.version, app.getVersion())) {
     sendAutoStart();
+
+    collectLocation().then(location => {
+      try {
+        Sentry.captureMessage(`Updating launcher from ${app.getVersion()} to ${result.updateInfo.version} at site ${location}`)
+      } catch (e) {
+        Sentry.captureException(e)
+      }
+    })
   }
 }
 

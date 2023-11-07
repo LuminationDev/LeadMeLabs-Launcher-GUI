@@ -17,7 +17,6 @@ Sentry.init({
     dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
 });
 const net = require('net')
-import * as Sentry from '@sentry/electron'
 
 interface AppEntry {
     type: string
@@ -1199,7 +1198,7 @@ export default class Helpers {
         }
 
         try {
-            Sentry.captureMessage(`Updating from ${localVersion} to ${onlineVersion} at site ${collectLocation()}`)
+            Sentry.captureMessage(`Updating ${appName} from ${localVersion} to ${onlineVersion} at site ${await collectLocation()}`)
         } catch (e) {
             Sentry.captureException(e)
         }
