@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import {computed, reactive, ref} from "vue";
+import { computed, reactive, ref } from "vue";
 import Modal from "./Modal.vue";
-import GenericButton from "../components/buttons/GenericButton.vue"
-import * as CONSTANT from "../assets/constants/_application"
+import GenericButton from "../components/buttons/GenericButton.vue";
+import * as CONSTANT from "../assets/constants/index";
 import LaunchParamInput from "../components/inputs/LaunchParamInput.vue";
-import { useLibraryStore } from '../store/libraryStore'
+import { useLibraryStore } from '../store/libraryStore';
+import { formInputs, Parameter, Validate } from "@renderer/interfaces/custom";
 
 const libraryStore = useLibraryStore()
 const showCustomModal = ref(false);
 const pageNum = ref(0);
 const paramID = ref(0);
-const back = ref(false);
 
 //Empty form for parameters
-const form = reactive({});
+const form = reactive<formInputs>({});
 //Handle adding extra form inputs
-const paramInputs = ref([])
+const paramInputs = ref<Parameter[]>([])
 
 //Load in any previously saved values
 const params = computed(() => {
@@ -31,14 +31,15 @@ const params = computed(() => {
 /**
  * Change the validation error field on a particular dynamic input. Triggered by a Blur event on a
  * LaunchParamInput component.
- * @param id A number of the id of the input field.
- * @param field A string of the field type, 'key' or 'value'.
- * @param invalid A boolean of if it is invalid.
+ * @param object An object containing
+ *      id: number of the id of the input;
+ *      field: A string of the field type, 'key' or 'value';
+ *      invalid: boolean of if it is invalid;
  */
-function changeValidation(id: number, field: string, invalid: boolean) {
-  const input = paramInputs.value.find((input) => input.id === id);
+function changeValidation(object: Validate) {
+  const input = paramInputs.value.find((input) => input.id === object.id);
   if (input) {
-    input[field + 'Error'] = invalid;
+    input[object.field + 'Error'] = object.invalid;
   }
 }
 
@@ -109,7 +110,6 @@ const handleSubmit = () => {
     return;
   }
 
-  // @ts-ignore
   const paramInputsDict: Record<string, string> = Object.values(form).reduce((dict, { key, value }) => {
     dict[key] = value
     return dict
@@ -117,9 +117,9 @@ const handleSubmit = () => {
 
   // handle form submission here
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_PARAMETERS,
-    name: libraryStore.getSelectedApplication.name,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_PARAMETERS,
+    name: libraryStore.getSelectedApplication?.name,
     action: "add",
     value: JSON.stringify(paramInputsDict)
   });
@@ -137,9 +137,9 @@ const handleSubmit = () => {
  */
 function clearENV() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.APPLICATION_PARAMETERS,
-    name: libraryStore.getSelectedApplication.name,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_PARAMETERS,
+    name: libraryStore.getSelectedApplication?.name,
     action: "clear",
   });
 
@@ -173,9 +173,9 @@ function openModal() {
 
   // See if there is any saved parameters
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.QUERY_MANIFEST_APP,
-    applicationName: libraryStore.getSelectedApplication.name
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.QUERY_MANIFEST_APP,
+    applicationName: libraryStore.getSelectedApplication?.name
   });
 }
 
@@ -258,7 +258,7 @@ function closeModal() {
 
         <div v-if="pageNum === 2" class="flex flex-col mx-5">
           <div class="py-1 px-2 mx-6 mt-10 text-sm bg-white rounded-3xl shadow-md">
-            {{libraryStore.getSelectedApplication.name}}.exe{{ params }}
+            {{libraryStore.getSelectedApplication?.name}}.exe{{ params }}
           </div>
 
           <div class="flex justify-end">

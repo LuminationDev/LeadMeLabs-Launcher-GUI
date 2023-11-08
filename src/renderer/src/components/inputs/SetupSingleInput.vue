@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// @ts-ignore
 defineProps({
   title: {
     type: String,
@@ -17,6 +18,18 @@ defineProps({
     required: true,
   }
 });
+
+// @ts-ignore
+const emit = defineEmits<{
+  (e: string, value: string)
+}>();
+
+const handleInput = (emitType: string, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target) {
+    emit(emitType, target.value)
+  }
+};
 </script>
 
 <template>
@@ -28,7 +41,7 @@ defineProps({
       class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
       :class="{'border-red-800 focus:border-red-900': v$.$error}"
       :placeholder="placeholder"
-      @input="$emit('update:modelValue', $event.target.value)"
+      @input="handleInput('update:modelValue', $event)"
       @blur="v$.$touch()"/>
 
   <div class="flex flex-col items-end mr-2" v-if="v$ && v$.$error">

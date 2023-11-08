@@ -10,9 +10,15 @@ import {exec, execSync, spawn, spawnSync} from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //Use for production hosting server
-import { app, BrowserWindow, net } from "electron";
+import {app, BrowserWindow, shell, net as electronNet} from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 import * as fspromises from 'fs/promises'
+import * as Sentry from "@sentry/electron";
+
+Sentry.init({
+    dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
+});
+const net = require('net')
 
 interface AppEntry {
     type: string
@@ -29,6 +35,23 @@ type IdTokenResponse = {
     uid: string
 }
 
+interface VREntry {
+    app_key: string
+    launch_type: string
+    binary_path_windows: string
+    is_dashboard_overlay: boolean
+    strings: {
+        [language: string]: {
+            name: string
+        }
+    }
+}
+
+interface ConfigFile {
+    source: string;
+    applications: VREntry[];
+}
+
 /**
  * A class that initiates electron IPC controls that handle application downloads, extractions, configurations
  * and launching.
@@ -36,13 +59,26 @@ type IdTokenResponse = {
 export default class Helpers {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
+    downloading: boolean = false;
     appDirectory: string;
     host: string = "";
+    offlineHost: string = "http://localhost:8088"; //Changes if on NUC (localhost) or Station (NUC IP address)
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
         this.appDirectory = process.env.APPDATA + '/leadme_apps';
+
+        var PIPE_NAME = "LeadMeLauncher";
+        var PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
+        var server = net.createServer((stream) => {
+            stream.on('data', (c) => {
+                if (c.toString().includes("checkIfDownloading")) {
+                    stream.write("" + this.downloading)
+                }
+            });
+        });
+        server.listen(PIPE_PATH)
     }
 
     /**
@@ -60,9 +96,6 @@ export default class Helpers {
     helperListenerDelegate(): void {
         this.ipcMain.on('helper_function', (_event, info) => {
             switch(info.channelType) {
-                case "configure_launcher":
-                    void this.configLauncher(_event, info);
-                    break;
                 case "import_application":
                     void this.importApplication(_event, info);
                     break;
@@ -78,8 +111,8 @@ export default class Helpers {
                 case "launch_parameters":
                     void this.setManifestAppParameters(_event, info);
                     break;
-                case "autostart_application":
-                    void this.setManifestAutoStart(_event, info);
+                case "parameter_application":
+                    void this.setManifestParameter(info);
                     break;
                 case "query_installed_applications":
                     void this.installedApplications();
@@ -109,7 +142,11 @@ export default class Helpers {
                     this.getApplicationConfig(_event, info);
                     break;
                 case "schedule_application":
-                    this.createTaskSchedulerItem(_event, info);
+                    this.taskSchedulerItem(_event, info);
+                    break;
+                case "edit_vr_manifest":
+                    void this.updateVRManifest(info.name, info.id, info.altPath, info.add);
+                    void this.setManifestAppParameters(_event, info);
                     break;
                 case "check_remote_config":
                     this.checkIfRemoteConfigIsEnabled(_event, info);
@@ -119,15 +156,6 @@ export default class Helpers {
                     break;
             }
         });
-    }
-
-    /**
-     * This function allows the Launcher configuration and settings to be saved on the local device. Currently, the only
-     * setting is for development mode but can be expanded on in the future with user configurations.
-     */
-    async configLauncher(_event: IpcMainEvent, info: any): Promise<void> {
-        console.log(info);
-        await this.updateAppManifest(info.name, "Launcher", null, info.mode);
     }
 
     /**
@@ -175,7 +203,42 @@ export default class Helpers {
      * send the progress information back to the renderer for user feedback.
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        this.downloading = true;
+        let downloadWindow = new BrowserWindow({
+            width: 400,
+            height: 150,
+            show: false,
+            resizable: false,
+            webPreferences: {
+                preload: join(__dirname, 'preload.js'),
+                nodeIntegration: false,
+                contextIsolation: true,
+            }
+        });
+
+        downloadWindow.setMenu(null);
+
+        downloadWindow.on('ready-to-show', () => {
+            downloadWindow.show();
+        });
+
+        downloadWindow.webContents.setWindowOpenHandler((details) => {
+            void shell.openExternal(details.url)
+            this.downloading = false;
+            return { action: 'deny' }
+        });
+
+        downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
+
+        downloadWindow.webContents.on('did-finish-load', () => {
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Downloading ${info.name} update, please wait...';`
+            );
+        });
+
         this.host = info.host;
+        let url = this.host + info.url;
 
         console.log(this.host);
 
@@ -195,20 +258,45 @@ export default class Helpers {
         //Maintain a trace on the download progress
         info.properties.onProgress = (status): void => {
             this.mainWindow.webContents.send('download_progress', status)
+            downloadWindow.setTitle(status)
+            downloadWindow.setProgressBar(status * 100)
         }
 
         //Check if the server is online
-        if(!await this.checkFileAvailability(info.url)) {
+        if(!await this.checkFileAvailability(url)) {
+            const feedUrl = await collectFeedURL();
+            if(feedUrl == null) {
+                this.downloading = false;
+                return;
+            }
+            this.offlineHost = `http://${feedUrl}:8088`;
+
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
-                message: 'Server offline'
+                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
             });
 
-            return;
+            //Check if offline line mode is available
+            url = this.offlineHost + info.url;
+            if(!await this.checkFileAvailability(url)) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: info.name,
+                    message: 'Server offline'
+                });
+                this.downloading = false;
+                return;
+            } else {
+                url = "";
+            }
         }
 
         // @ts-ignore
-        download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
+        download(BrowserWindow.fromId(this.mainWindow.id), url, info.properties).then((dl) => {
+            downloadWindow.setProgressBar(2)
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Download completed, installing update';`
+            );
             this.mainWindow.webContents.send('status_update', {
                 name: info.name,
                 message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -236,6 +324,8 @@ export default class Helpers {
                     this.updateAppManifest(info.name, "Custom", null, null);
                 }
             });
+            downloadWindow.destroy()
+            this.downloading = false;
         });
     }
 
@@ -245,7 +335,7 @@ export default class Helpers {
      */
     async checkFileAvailability(url): Promise<boolean> {
         const request_call = new Promise((resolve, reject) => {
-            const request = net.request(url);
+            const request = electronNet.request(url);
 
             request.on('response', (response) => {
                 if (response.statusCode === 200) {
@@ -266,7 +356,12 @@ export default class Helpers {
             console.log(error);
         });
 
-        return <boolean>await request_call;
+        try {
+            return <boolean>await request_call;
+        } catch (e: any) {
+            Sentry.captureMessage(`Unable to contact server at ${await collectLocation()}.` + e.toString());
+            return false;
+        }
     }
 
     /**
@@ -408,7 +503,7 @@ export default class Helpers {
      * @param appName A string of the experience name being added.
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
-     * @param mode A boolean of whether the application is in development mode or not.
+     * @param mode A string of what environment mode the application is in.
      */
     async updateAppManifest(appName: string, type: string, altPath: string|null, mode: string|null): Promise<string> {
         const filePath = join(this.appDirectory, 'manifest.json');
@@ -441,7 +536,7 @@ export default class Helpers {
             } catch (err) {
                 this.mainWindow.webContents.send('status_update', {
                     name: 'Manifest',
-                    message: 'Manifest file is updated failed.'
+                    message: 'Manifest file updated failed.'
                 });
             }
 
@@ -560,6 +655,26 @@ export default class Helpers {
         return [jsonArray, entry] as const;
     }
 
+    async checkLauncherManifestEntry(info: any, filePath): Promise<readonly [Array<AppEntry> | undefined, AppEntry | undefined]> {
+        let [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+        if ((jsonArray === undefined || entry === undefined) && info.name !== "leadme_launcher") {
+            return [jsonArray, entry] as const;
+        } else if (entry === undefined && info.name === "leadme_launcher") {
+            await this.createConfigLauncher(info);
+            await new Promise(resolve => setTimeout(resolve, 1000)); //Wait for the file to finish writing
+        }
+
+        [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+        return [jsonArray, entry] as const;
+    }
+
+    /**
+     * This function creates the Launcher configuration on the local device.
+     */
+    async createConfigLauncher(info: any): Promise<void> {
+        await this.updateAppManifest(info.name, "Launcher", null, "production"); //Default mode is production
+    }
+
     /**
      * Update an applications entry in the manifest file with the supplied launch parameters, these can be login
      * credentials or start up parameters etc.
@@ -569,7 +684,7 @@ export default class Helpers {
         if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+            const [jsonArray, entry] = await this.checkLauncherManifestEntry(info, filePath);
             if(jsonArray === undefined || entry === undefined) return;
 
             //Update the entry or remove them
@@ -584,8 +699,10 @@ export default class Helpers {
             } else {
                 const data = JSON.parse(info.value);
 
-                //Overwrite the saved information
-                entry.parameters = {};
+                //Copy the saved information or create a new object.
+                if (entry.parameters === null) {
+                    entry.parameters = {};
+                }
 
                 for(const key in data) {
                     entry.parameters[key] = data[key];
@@ -594,6 +711,7 @@ export default class Helpers {
 
             await this.writeObjects(filePath, jsonArray);
         } catch (err) {
+            console.log(err);
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
                 message: 'Manifest file is updated failed.'
@@ -605,16 +723,16 @@ export default class Helpers {
      * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
      * opened.
      */
-    async setManifestAutoStart(_event: IpcMainEvent, info: any): Promise<void> {
+    async setManifestParameter(info: any): Promise<void> {
         const filePath = join(this.appDirectory, 'manifest.json');
         if(!this.checkFileExists(filePath, 'Manifest')) { return }
 
         try {
-            const [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+            const [jsonArray, entry] = await this.checkLauncherManifestEntry(info, filePath);
             if(jsonArray === undefined || entry === undefined) return;
 
             //Update the entry
-            entry.autostart = info.autostart;
+            entry[info.parameterKey] = info.parameterValue;
 
             await this.writeObjects(filePath, jsonArray);
         } catch (err) {
@@ -788,7 +906,7 @@ export default class Helpers {
                 const installed: Array<AppEntry> = await this.readObjects(filePath);
 
                 this.mainWindow.webContents.send('backend_message',
-                {
+                    {
                         channelType: "applications_installed",
                         directory: this.appDirectory,
                         content: installed
@@ -828,6 +946,7 @@ export default class Helpers {
         }
 
         await this.removeFromAppManifest(info.name);
+        await this.removeVREntry(info.name);
 
         //If true the application is an imported one
         if(info.altPath != '') {
@@ -900,12 +1019,7 @@ export default class Helpers {
 
         //Read any launch parameters that the manifest may have
         const params = await this.getLaunchParameterValues(info.name);
-
-        //Add the launch params and the required basic commands together
-        const basic = ['/c', 'start', exePath];
-        const args = basic.concat(params);
-
-        spawn('cmd.exe', args, {
+        spawn(exePath, params, {
             detached: true
         });
     }
@@ -915,25 +1029,100 @@ export default class Helpers {
      * not download files such as steamcmd or override config.env
      */
     async updateLeadMeApplication(appName: string): Promise<void> {
+        this.downloading = true;
         const directoryPath = join(this.appDirectory, appName);
 
-        let path;
+        const nucUrl = '/program-nuc-version';
+        const stationUrl = '/program-station-version';
+
+        let url;
 
         if(appName === "NUC") {
-            path = `${this.host}/program-nuc-version`;
+            url = this.host + nucUrl;
         } else if(appName === "Station") {
-            path = `${this.host}/program-station-version`;
+            url = this.host + stationUrl;
         } else {
+            this.downloading = false;
             return;
         }
 
+        let downloadWindow = new BrowserWindow({
+            width: 400,
+            height: 150,
+            show: false,
+            resizable: false,
+            webPreferences: {
+                preload: join(__dirname, 'preload.js'),
+                nodeIntegration: false,
+                contextIsolation: true,
+            }
+        });
+
+        downloadWindow.setMenu(null);
+
+        downloadWindow.on('ready-to-show', () => {
+            downloadWindow.show();
+        });
+
+        downloadWindow.webContents.setWindowOpenHandler((details) => {
+            console.log('inside set window open handler')
+            void shell.openExternal(details.url)
+            this.downloading = false;
+            downloadWindow.destroy();
+            return { action: 'deny' }
+        });
+
+        downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
+
+        downloadWindow.webContents.on('did-finish-load', () => {
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Checking for ${appName} update, please wait...';`
+            );
+        });
+
         //Check if the server is online
-        if(!await this.checkFileAvailability(path)) return;
+        if(!await this.checkFileAvailability(url)) {
+            const feedUrl = await collectFeedURL();
+            if(feedUrl == null) {
+                this.downloading = false;
+                downloadWindow.destroy();
+                return;
+            }
+            this.offlineHost = `http://${feedUrl}:8088`;
+
+            this.mainWindow.webContents.send('status_update', {
+                name: appName,
+                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
+            });
+
+            //Check if offline line mode is available
+            if(appName === "NUC") {
+                url = this.offlineHost + nucUrl;
+            } else if(appName === "Station") {
+                url = this.offlineHost + stationUrl;
+            } else {
+                this.downloading = false;
+                downloadWindow.destroy();
+                return;
+            }
+
+            if(!await this.checkFileAvailability(url)) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: appName,
+                    message: 'Server offline'
+                });
+
+                this.downloading = false;
+                downloadWindow.destroy();
+                return;
+            }
+        }
 
         const request_call = new Promise((resolve, reject) => {
-            const protocol = path.startsWith('https') ? https : http;
+            const protocol = url.startsWith('https') ? https : http;
 
-            const request = protocol.get(path, (response) => {
+            const request = protocol.get(url, (response) => {
                 let chunks_of_data = '';
 
                 response.on('data', (chunk) => {
@@ -961,7 +1150,13 @@ export default class Helpers {
         });
 
         //Online version number
-        let onlineVersion: string = <string>await request_call;
+        let onlineVersion: string;
+        try {
+            onlineVersion = <string>await request_call;
+        } catch {
+            console.log("Unable to establish connection to server.");
+            return;
+        }
 
         //Write out and then get the local version
         const args = `writeversion`;
@@ -979,7 +1174,8 @@ export default class Helpers {
         const versionPath = join(this.appDirectory, `${appName}/_logs/version.txt`);
 
         if(!fs.existsSync(versionPath)) {
-            console.log("Cannot find file path.");
+            console.log("Cannot find version file path.");
+            this.downloading = false;
             return;
         }
         const localVersion = fs.readFileSync(versionPath, 'utf8')
@@ -987,13 +1183,19 @@ export default class Helpers {
         //Compare the versions
         console.log("Online version: " + onlineVersion);
         console.log("Local version: " + localVersion);
-        const difference = semver.diff(localVersion, onlineVersion)
+        const newVersionAvailable = semver.gt(onlineVersion, localVersion)
 
-        console.log("Difference: " + difference);
+        console.log("Difference: " + newVersionAvailable);
 
-        if(difference == null) {
+        if(newVersionAvailable == null || !newVersionAvailable) {
+            this.downloading = false;
+            downloadWindow.destroy();
             return;
         }
+
+        //Check what type of update is required (I.e. patch, minor, major) can
+        //handle these differently in the future.
+        const difference = semver.diff(onlineVersion, localVersion);
 
         //Tell the user there is an update
         this.mainWindow.webContents.send('status_update', {
@@ -1002,7 +1204,7 @@ export default class Helpers {
         });
 
         //Create the url path
-        let baseUrl = path.replace("-version", "");
+        let baseUrl = url.replace("-version", "");
 
         //Create the new info packet for the download function
         let info = {
@@ -1013,16 +1215,33 @@ export default class Helpers {
             }
         }
 
+        try {
+            Sentry.captureMessage(`Updating from ${localVersion} to ${onlineVersion} at site ${collectLocation()}`)
+        } catch (e) {
+            Sentry.captureException(e)
+        }
+
         //Maintain a trace on the download progress
         // @ts-ignore
         info.properties.onProgress = (status): void => {
             console.log(status)
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Downloading ${appName} update, ${status * 100}%';`
+            );
             this.mainWindow.webContents.send('download_progress', status)
+            downloadWindow.setTitle(status)
+            downloadWindow.setProgressBar(status * 100)
         }
 
         const download_call = new Promise((resolve, reject) => {
             // @ts-ignore
             download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
+                downloadWindow.setProgressBar(2)
+                downloadWindow.webContents.executeJavaScript(`
+                    const dynamicTextElement = document.getElementById('update-message');
+                    dynamicTextElement.innerText = 'Download completed, installing update';`
+                );
                 this.mainWindow.webContents.send('status_update', {
                     name: appName,
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
@@ -1046,10 +1265,16 @@ export default class Helpers {
                 }).catch(err => {
                     reject(err);
                 })
+                downloadWindow.destroy()
+                this.downloading = false;
             })
         });
 
-        await download_call;
+        try {
+            await download_call;
+        } catch {
+            console.log("Download failed.");
+        }
     }
 
     /**
@@ -1205,6 +1430,10 @@ export default class Helpers {
 
         //Read the file and remove any previous entries for the same item
         fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
+            if (err) {
+                console.log(err);
+            }
+
             const decryptedData = await Encryption.decryptData(data);
 
             let dataArray = decryptedData.split('\n'); // convert file data in an array
@@ -1223,7 +1452,7 @@ export default class Helpers {
      * supplied application is running. The task runs on start up once a user is logged in and when there is an
      * internet connection and then every 5 minutes onwards.
      */
-    createTaskSchedulerItem(_event: IpcMainEvent, info: any): void {
+    taskSchedulerItem(_event: IpcMainEvent, info: any): void {
         const taskFolder: string = "LeadMe\\Software_Checker";
         let args: string = "";
 
@@ -1231,9 +1460,14 @@ export default class Helpers {
         switch (info.type) {
             case "list":
                 args = `SCHTASKS /QUERY /TN ${taskFolder} /fo LIST`;
-                exec(`${args}`, (error, stdout) => {
+                exec(`${args}`, (err, stdout) => {
+                    if (err) {
+                        console.log(err);
+                    }
+
                     //Send the output back to the user
-                    this.mainWindow.webContents.send('scheduler_update', {
+                    this.mainWindow.webContents.send('backend_message', {
+                        channelType: 'scheduler_update',
                         message: stdout,
                         type: info.type
                     });
@@ -1244,7 +1478,7 @@ export default class Helpers {
                 const outputPath = join(this.appDirectory, 'Software_Checker.xml');
 
                 //Edit the static XML with the necessary details
-                this.modifyDefaultXML(taskFolder, info.name, outputPath)
+                this.modifyDefaultXML(taskFolder, outputPath)
 
                 //Use the supplied XML to create the command
                 args = `SCHTASKS /CREATE /TN ${taskFolder} /XML ${outputPath}`;
@@ -1266,8 +1500,13 @@ export default class Helpers {
                 return;
         }
 
-        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (error, stdout)=> {
-            this.mainWindow.webContents.send('scheduler_update', {
+        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (err, stdout)=> {
+            if (err) {
+                console.log(err);
+            }
+
+            this.mainWindow.webContents.send('backend_message', {
+                channelType: 'scheduler_update',
                 message: stdout,
                 type: info.type
             });
@@ -1278,14 +1517,14 @@ export default class Helpers {
      * Modify the default software checker xml with the details necessary for either the NUC or Station software. As an
      * XML we can set far more than a command line interface and add different triggers and conditions.
      */
-    modifyDefaultXML(taskFolder: string, appName: string, outputPath: string): void {
+    modifyDefaultXML(taskFolder: string, outputPath: string): void {
         const exePath = join(__dirname, '../../../../..', '_batch/LeadMeLabs-SoftwareChecker.exe');
 
         const filePath = join(app.getAppPath(), 'static', 'template.xml');
         const data = fs.readFileSync(filePath, "utf16le")
 
         // we then pass the data to our method here
-        xml2js.parseString(data, function(err, result) {
+        xml2js.parseString(data, function(err: string, result: any) {
             if (err) console.log("FILE ERROR: " + err);
 
             let json = result;
@@ -1313,6 +1552,7 @@ export default class Helpers {
         });
     }
 
+    //TODO make sure this still works
     /**
      * Stop a running process on the local machine.
      * @param appName A string of the process to stop.
@@ -1327,7 +1567,7 @@ export default class Helpers {
                 // Usage
                 const powershellCmd = `Get-Process | Where-Object {$_.Path -Like "${parentPath}*"} | Select-Object -ExpandProperty ID | ForEach-Object { Stop-Process -Id $_ }`;
                 try {
-                    await spawnSync('powershell.exe', ['-command', powershellCmd]);
+                    spawnSync('powershell.exe', ['-command', powershellCmd]);
                 } catch (error) {
                     console.error(`Error executing command: ${error}`);
                 }
@@ -1356,4 +1596,174 @@ export default class Helpers {
             }
         }
     }
+
+    /**
+     * Update or create the customapps.vrmanifest. This file is used by OpenVR to track VR applications, the application
+     * supplied must be a VR application.
+     * @param appName A string of the application name.
+     * @param appId A string of the application ID.
+     * @param altPath A string of the alternate path to the .exe, if empty the path to the leadme_apps is used
+     * @param add A boolean for if the application should be added to the manifest
+     */
+    async updateVRManifest(appName: string, appId: string, altPath: string|null, add: boolean): Promise<void> {
+        const filePath = join(this.appDirectory, 'customapps.vrmanifest');
+
+        //Create the application entry for the json
+        const newEntry: VREntry = {
+            app_key: `custom.app.${appId}`,
+            launch_type: "binary",
+            binary_path_windows: altPath ?? join(this.appDirectory, appName, `${appName}.exe`),
+            is_dashboard_overlay: true,
+            strings: {
+                en_us: {
+                    name: appName
+                }
+            }
+        }
+
+        try {
+            let config: ConfigFile = { source: 'custom', applications: [] };
+
+            if (fs.existsSync(filePath)) {
+                const configFileContent = fs.readFileSync(filePath, 'utf-8');
+                config = JSON.parse(configFileContent);
+            }
+
+            // Remove existing entry with the same app_key, if any
+            config.applications = config.applications.filter(
+                (entry) => entry.app_key !== newEntry.app_key
+            );
+
+            if(add) {
+                config.applications.push(newEntry);
+            }
+
+            fs.writeFileSync(filePath, JSON.stringify(config, null, 4));
+        } catch (err) {
+            this.mainWindow.webContents.send('status_update', {
+                name: 'Manifest',
+                message: 'customapps.vrmanifest file updated failed.'
+            });
+        }
+    }
+
+    /**
+     * Remove an entry from the customapps.vrmanifest, rewriting the file afterwards.
+     * @param appName A string of the application's name that is to be removed.
+     */
+    async removeVREntry(appName: string) {
+        const filePath = join(this.appDirectory, 'customapps.vrmanifest');
+
+        if (fs.existsSync(filePath)) {
+            const configFileContent = fs.readFileSync(filePath, 'utf-8');
+            const config: ConfigFile = JSON.parse(configFileContent);
+
+            config.applications = config.applications.filter(
+                (entry) => entry.strings.en_us.name !== appName
+            );
+
+            fs.writeFileSync(filePath, JSON.stringify(config, null, 4));
+        }
+    }
+}
+
+/**
+ * Check if just the Station is locally installed, if so get the NUC address that is set within
+ * the config file, otherwise return localhost.
+ */
+export async function collectFeedURL(): Promise<string | null> {
+    const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
+    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
+
+    // We are updating the NUC software, bail out here
+    if(!fs.existsSync(stationConfig) || fs.existsSync(NUCConfig)) {
+        return "localhost";
+    }
+
+    try {
+        const data = fs.readFileSync(stationConfig, { encoding: 'utf-8' });
+        const decryptedData = await Encryption.decryptData(data);
+
+        let dataArray = decryptedData.split('\n'); // convert file data into an array
+        const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
+        if (nucAddress) {
+            return nucAddress.split('=')[1];
+        }
+    } catch (err) {
+        console.error(err);
+    }
+
+    return null;
+}
+
+/**
+ * Check if the NUC or Station are installed, if so collect the location name from there to send to the front end.
+ */
+export async function collectLocation(): Promise<string | null> {
+    let path = '';
+    const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
+    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
+
+    // We are updating the NUC software, bail out here
+    if(!fs.existsSync(stationConfig) && !fs.existsSync(NUCConfig)) {
+        return "Unknown";
+    }
+
+    if(fs.existsSync(stationConfig)) {
+        path = stationConfig;
+    } else {
+        path = NUCConfig;
+    }
+
+    try {
+        const data = fs.readFileSync(path, { encoding: 'utf-8' });
+        const decryptedData = await Encryption.decryptData(data);
+
+        let dataArray = decryptedData.split('\n'); // convert file data into an array
+        const location = dataArray.find(item => item.startsWith('LabLocation='));
+        if (location) {
+            return location.split('=')[1];
+        }
+    } catch (err) {
+        console.error(err);
+    }
+
+    return "Unknown";
+}
+
+/**
+ * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
+ * opened.
+ */
+export async function getLauncherManifestParameter(parameter: string): Promise<string> {
+    const filePath = join(process.env.APPDATA + '/leadme_apps', 'manifest.json');
+    let mode = "Unknown"
+    if(!fs.existsSync(filePath) && !fs.existsSync(filePath)) {
+        return Promise.resolve(mode)
+    }
+    try {
+        const data = fs.readFileSync(filePath, { encoding: 'utf-8' });
+        const decryptedData = await Encryption.decryptData(data);
+        JSON.parse(decryptedData).forEach((element: { [x: string]: any; type: string; }) => {
+            if (element.type === 'Launcher') {
+                mode = element[parameter]
+                return Promise.resolve(element[parameter])
+            }
+            return Promise.resolve(mode)
+        })
+    } catch (error) {
+        return Promise.resolve(mode)
+    }
+    return mode
+}
+
+export function handleIpc(connection) {
+    connection.setEncoding('utf8')
+    connection.on('data', (line) => {
+        let args = line.split(' ')
+        if (args[0] === 'checkIsDownloading') {
+            connection.write('true')
+        }
+        connection.end()
+    })
 }

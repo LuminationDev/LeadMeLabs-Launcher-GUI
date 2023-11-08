@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, reactive, watch } from "vue";
 import Modal from "./Modal.vue";
-import GenericButton from "../components/buttons/GenericButton.vue"
-import * as CONSTANT from "../assets/constants/_application"
+import GenericButton from "../components/buttons/GenericButton.vue";
+import * as CONSTANT from "../assets/constants/index";
 import ManualProgress from "../components/loading/ManualProgress.vue";
 import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
 import SetupDoubleInput from "../components/inputs/SetupDoubleInput.vue";
 import SetupNavigation from "../components/inputs/SetupNavigation.vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
+import PinPrompt from "@renderer/modals/PinPrompt.vue";
 import { useLibraryStore } from '../store/libraryStore';
+import { useSetupStore } from "../store/setupStore";
+import { NUCForm } from "@renderer/interfaces/forms";
 
-const libraryStore = useLibraryStore()
+const libraryStore = useLibraryStore();
+const setupStore = useSetupStore();
 const showNucModal = ref(false);
 const pageNum = ref(0);
-const back = ref(false);
 const saved = ref(false);
 const novaStar = ref(false);
 
@@ -55,16 +58,8 @@ const rules = {
   }
 }
 
-const form = reactive({
-  AppKey: '',
-  LabLocation: '',
-  CbusIP: '',
-  CbusNucScriptId: '',
-  CbusLogin: '',
-  CbusPassword: '',
-  NovaStarLogin: '',
-  NovaStarPassword: '',
-});
+//This is overridden if there are saved values from the config on first open
+let form = setupStore.nucForm;
 
 //Keep track of any previously saved values for this experience.
 const setupParams = computed(() => libraryStore.applicationSetup);
@@ -73,7 +68,7 @@ watch(setupParams, (newValue) => {
     return;
   }
 
-  newValue.forEach(value => {
+  newValue.forEach((value: string) => {
     let values = value.split("=");
     let details;
 
@@ -103,12 +98,20 @@ const v$ = useVuelidate(rules, { form });
  * Transform the reactive form into the necessary format to satisfy the JSON string the backend requires.
  */
 const transformForm = () => {
-  const data = { ...form };
-  data.CbusLogin = `${form.CbusLogin}:${form.CbusPassword}`;
+  const trimmedForm = {} as NUCForm;
+  //Remove any whitespaces from the original form
+  for (const key in form) {
+    if (form.hasOwnProperty(key)) {
+      trimmedForm[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+    }
+  }
+
+  const data = { ...trimmedForm };
+  data.CbusLogin = `${trimmedForm.CbusLogin}:${trimmedForm.CbusPassword}`;
   delete data.CbusPassword;
 
   if(novaStar.value) {
-    data.NovaStarLogin = `${form.NovaStarLogin}:${form.NovaStarPassword}`;
+    data.NovaStarLogin = `${trimmedForm.NovaStarLogin}:${trimmedForm.NovaStarPassword}`;
     delete data.NovaStarPassword;
   } else {
     delete data.NovaStarLogin;
@@ -122,9 +125,9 @@ const handleSubmit = async () => {
   const data = transformForm();
 
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_SET,
-    name: libraryStore.getSelectedApplication.name,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_SET,
+    name: libraryStore.getSelectedApplication?.name,
     value: JSON.stringify(data),
   });
 
@@ -200,9 +203,9 @@ async function changePage(forward: boolean) {
 
 function openModal() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_GET,
-    name: libraryStore.getSelectedApplication.name
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
+    name: libraryStore.getSelectedApplication?.name
   });
 
   showNucModal.value = true;
@@ -213,14 +216,26 @@ function closeModal() {
   showNucModal.value = false;
   saved.value = false;
 }
+
+
+const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
+const openPinPromptModal = () => {
+  if(libraryStore.pin !== '') {
+    pinRef.value?.openModal();
+  } else {
+    openModal()
+  }
+}
 </script>
 
 <template>
+  <PinPrompt ref="pinRef" :callback="openModal"/>
+
   <!--Anchor button used to control the modal-->
   <GenericButton
       id="share_button"
       :type="'primary'"
-      :callback="openModal"
+      :callback="openPinPromptModal"
       :spinnerColor="'#000000'"
   >Setup</GenericButton>
 

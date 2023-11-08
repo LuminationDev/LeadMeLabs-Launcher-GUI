@@ -9,7 +9,7 @@ import { computed, reactive, ref as vueRef, watch } from "vue";
 import useVuelidate from "@vuelidate/core";
 import TextInput from "../components/inputs/TextInput.vue";
 import { useLibraryStore } from "../store/libraryStore";
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from "../assets/constants/index";
 const libraryStore = useLibraryStore();
 
 const props = defineProps({
@@ -38,12 +38,18 @@ const showUploadModal = vueRef(false);
 const fileInput = vueRef<HTMLInputElement | null>(null);
 
 const selectFiles = (): void => {
-  console.log(fileInput.value.files);
+  if (fileInput.value !== null) {
+    console.log(fileInput.value.files);
+  }
 }
 
 async function uploadFiles(): Promise<void> {
+  if(fileInput.value == null) {
+    errorText.value = "Please select files to upload.";
+    return;
+  }
   const files = fileInput.value.files;
-  if (files.length === 0) {
+  if (files === null || files.length === 0) {
     errorText.value = "Please select files to upload.";
     return;
   }
@@ -57,7 +63,7 @@ async function uploadFiles(): Promise<void> {
   }
 
   const firebaseConfig = {
-    apiKey: "AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc",
+    apiKey: "AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc", // todo - check
     authDomain: "leadme-labs.firebaseapp.com",
     projectId: "leadme-labs",
     storageBucket: "leadme-labs.appspot.com",
@@ -71,6 +77,11 @@ async function uploadFiles(): Promise<void> {
   const auth = getAuth();
 
   signInWithEmailAndPassword(auth, state.email, state.password).then(() => {
+    if (files == null) {
+      errorText.value = "No files found"
+      return;
+    }
+
     const storage = getStorage();
 
     errorText.value = "uploading";
@@ -110,7 +121,7 @@ watch(setupParams, (newValue) => {
     return;
   }
 
-  newValue.forEach(value => {
+  newValue.forEach((value: string) => {
     let values = value.split("=");
 
     switch (values[0]) {
@@ -129,8 +140,8 @@ watch(setupParams, (newValue) => {
 
 function openModal() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_GET,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
     name: props.softwareName
   });
 

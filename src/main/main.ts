@@ -1,17 +1,34 @@
 import semver from "semver/preload";
-
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
-import Helpers from "./util/Helpers";
-import Migrator from "./util/Migrator";
+import Helpers, {collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc} from "./util/Helpers";
+import { SoftwareMigrator, ManifestMigrator } from "./util/SoftwareMigrator";
+import * as Sentry from '@sentry/electron'
+import net from "net";
+
+const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
+
+Sentry.init({
+  dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
+});
 
 autoUpdater.autoDownload = true;
 autoUpdater.setFeedURL({
   provider: 'generic',
   url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 })
+
+var server;
+
+// Offline
+// url: 'http://localhost:8088/static/electron-launcher'
+// Redirection
+// url: 'https://leadmelabs-redirect-server.herokuapp.com/electron-launcher'
+// Local
+// url: 'http://localhost:8082/electron-launcher'
+// Production
+// url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 
 // Listen for update download progress events
 autoUpdater.on('update-downloaded', () => {
@@ -35,6 +52,9 @@ autoUpdater.on('update-downloaded', () => {
     const isForceRunAfter = true
     autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
   }, 4000);
+  if (server) {
+    server.close()
+  }
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -59,6 +79,16 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 let downloadWindow;
 function createDownloadWindow() {
+  var PIPE_NAME = "LeadMeLauncher";
+  var PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
+  server = net.createServer((stream) => {
+    stream.on('data', (c) => {
+      if (c.toString().includes("checkIfDownloading")) {
+        stream.write("true")
+      }
+    });
+  });
+  server.listen(PIPE_PATH)
   downloadWindow = new BrowserWindow({
     width: 400,
     height: 150,
@@ -106,36 +136,24 @@ function createWindow () {
       mainWindow.webContents.openDevTools();
     }
 
-    if (process.env.NODE_ENV !== 'development') {
-      autoUpdater.checkForUpdates().then((result: UpdateCheckResult|null) => {
-        if (result === null) {
-          mainWindow.webContents.send('backend_message', {
-            channelType: "autostart_active"
-          });
+    // Send through the current version number
+    void sendLauncherDetails();
 
-          return;
-        }
-
-        mainWindow.webContents.send('backend_message', {
-          channelType: "update_check",
-          name: "UPDATE",
-          data: result,
-          hosting: "Hosting version: " + result.updateInfo.version,
-          version: "Current version: " + app.getVersion()
-        });
-
-        //Detect if there is an update, if not send the auto start command
-        if(!semver.gt(result.updateInfo.version, app.getVersion())) {
-          mainWindow.webContents.send('backend_message', {
-            channelType: "autostart_active"
-          });
-        }
-      })
-    } else {
-      mainWindow.webContents.send('backend_message', {
-        channelType: "autostart_active"
-      });
-    }
+    getLauncherManifestParameter('mode').then(mode => {
+      if (mode === 'development') {
+        autoUpdater.setFeedURL({
+          provider: 'generic',
+          url: 'https://leadme-launcher-development-92514d5e709f.herokuapp.com/static/electron-launcher'
+        })
+      }
+      if (process.env.NODE_ENV !== 'development') {
+        autoUpdater.checkForUpdates().then((result) => {
+          updateCheck(result);
+        }).catch(handleUpdateCheckError);
+      } else {
+        sendAutoStart();
+      }
+    })
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -151,6 +169,100 @@ function createWindow () {
   else {
     mainWindow.loadFile(join(app.getAppPath(), 'renderer', 'index.html'));
   }
+}
+
+/**
+ * If retrieving the Live update does not work attempt to contact the offline installer
+ * server.
+ * @param error An object that details what has gone wrong in the connection process.
+ */
+async function handleUpdateCheckError(error) {
+  mainWindow.webContents.send('backend_message', {
+    channelType: "update_check",
+    name: "LIVE UPDATE",
+    data: error
+  });
+
+  const feedUrl = await collectFeedURL();
+
+  if(feedUrl == null) {
+    sendAutoStart();
+
+    return;
+  }
+
+  // Set a new FeedURL as the offline backup
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: `http://${feedUrl}:8088/static/electron-launcher`
+  });
+
+  autoUpdater.checkForUpdates().then((result) => {
+    updateCheck(result);
+  }).catch((error) => {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "update_check",
+      name: "OFFLINE UPDATE",
+      data: error
+    });
+
+    sendAutoStart();
+  });
+}
+
+/**
+ * Check the result of the autoUpdate feed and fall back to the offline one if the
+ * original FeedUrl does not work.
+ * @param result
+ */
+function updateCheck(result: UpdateCheckResult|null) {
+  if (result === null) {
+    mainWindow.webContents.send('backend_message', {
+      channelType: "update_check",
+      name: "UPDATE",
+      data: "RESULT NULL"
+    });
+
+    sendAutoStart();
+
+    return;
+  }
+
+  mainWindow.webContents.send('backend_message', {
+    channelType: "update_check",
+    name: "UPDATE",
+    data: result,
+    hosting: "Hosting version: " + result.updateInfo.version,
+    version: "Current version: " + app.getVersion()
+  });
+
+  //Detect if there is an update, if not send the auto start command
+  if(!semver.gt(result.updateInfo.version, app.getVersion())) {
+    sendAutoStart();
+  }
+}
+
+/**
+ * Send the auto start command after a set delay to ensure that the application list has already been loaded.
+ */
+function sendAutoStart(): void {
+  setTimeout(() =>
+          mainWindow.webContents.send('backend_message', {
+            channelType: "autostart_active"
+          }),
+      3000)
+}
+
+/**
+ * Collect details about the launcher to display on the frontend.
+ */
+async function sendLauncherDetails(): Promise<void> {
+  // Send through the current version number
+  mainWindow.webContents.send('backend_message', {
+    channelType: "launcher_settings",
+    version: app.getVersion(),
+    location: await collectLocation()
+  });
 }
 
 /**
@@ -181,6 +293,17 @@ function setupTrayIcon(): void {
   appIcon.setToolTip('LeadMe')
   appIcon.setContextMenu(contextMenu)
 
+  // Handle double-click event on the tray icon
+  appIcon.on('double-click', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore(); // If the window is minimized, restore it
+      } else {
+        mainWindow.show(); // If the window is not minimized, just bring it to focus
+      }
+    }
+  });
+
   // Manage window minimising and tray icon
   mainWindow.on('minimize', function (event) {
     event.preventDefault()
@@ -210,9 +333,12 @@ app.whenReady().then(async () => {
 
   //If the Station or NUC is passed as the command line argument then attempt to perform the migration
   if (["Station", "NUC"].includes(software)) {
-    const migrate = new Migrator(software, directory);
+    const migrate = new SoftwareMigrator(software, directory);
     await migrate.RunMigration();
   }
+
+  //Check if the customapps.vrmanifest has been created.
+  await new ManifestMigrator().RunMigration();
 
   createWindow();
   setupTrayIcon();

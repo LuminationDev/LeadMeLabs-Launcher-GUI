@@ -1,60 +1,72 @@
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from "vue";
-import * as CONSTANT from "../../assets/constants/_application";
+import * as CONSTANT from "../../assets/constants/index";
 import { useLibraryStore } from "../../store/libraryStore";
+import ModeSelection from "@renderer/components/settings/ModeSelection.vue";
+import LauncherDetails from "@renderer/components/settings/LauncherDetails.vue";
+import PinSettings from "@renderer/components/settings/PinSettings.vue";
+import { onBeforeMount, ref } from "vue";
+import PinPrompt from "@renderer/modals/PinPrompt.vue";
 
 const libraryStore = useLibraryStore();
-const modeCheck = computed(() => {
-  return libraryStore.mode;
-});
+const authorised = ref(false);
 
-const devCheck = ref(false);
-const localCheck = ref(false);
-
-const enableDevelopmentMode = () => {
-  localCheck.value = devCheck.value ? false : localCheck.value;
-  libraryStore.mode = devCheck.value ? "development" : "production";
-
-  writeManifest();
-}
-
-const enableLocalMode = () => {
-  devCheck.value = localCheck.value ? false : devCheck.value;
-  libraryStore.mode = localCheck.value ? "local" : "production";
-
-  writeManifest();
-}
-
-const writeManifest = () => {
+/**
+ * Update the Launcher's manifest entry with the new details about the program. The details
+ * are supplied in an object containing the key and value to be set. This is specifically for Application
+ * parameters not straight application values.
+ * @param obj A generic object containing a key and value parameter.
+ */
+const writeManifestParameter = (obj: any) => {
   //@ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.LAUNCHER_CONFIG,
-    name: CONSTANT.LAUNCHER_NAME,
-    mode: modeCheck.value
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_PARAMETERS,
+    name: CONSTANT.NAME.LAUNCHER_NAME,
+    value: JSON.stringify({[obj.key]: obj.value})
   });
 }
 
-onBeforeMount(() => {
-  if (libraryStore.mode === "development") {
-    devCheck.value = true;
-  } else if (libraryStore.mode === "local") {
-    localCheck.value = true;
+const writeManifest = (obj: any) => {
+  //@ts-ignore
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_SET_PARAMETERS,
+    name: CONSTANT.NAME.LAUNCHER_NAME,
+    parameterKey: obj.key,
+    parameterValue: obj.value
+  });
+}
+
+const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
+const openPinPromptModal = () => {
+  if(libraryStore.pin !== '') {
+    pinRef.value?.openModal();
+  } else {
+    authorised.value = true;
   }
-});
+}
+
+onBeforeMount(() => {
+  setTimeout(() =>
+    openPinPromptModal(), 100
+  );
+})
 </script>
 
 <template>
-  <div class="w-full h-auto my-4 flex flex-col">
-    <p class="text-lg text-black mb-3">Settings Page</p>
+  <PinPrompt ref="pinRef" :callback="() => authorised = true"/>
 
-    <div class="flex flex-row items-center mb-4">
-      <input class="h-5 w-5 ml-2 mr-2" type="checkbox" v-model="devCheck" @change="enableDevelopmentMode"/>
-      <p>Development Mode</p>
+  <div class="w-full h-auto flex flex-col">
+    <p class="text-lg text-black">Settings Page</p>
+
+    <div v-if="!authorised" class="flex items-center justify-center h-64">
+      Please enter the correct pin.
     </div>
 
-    <div class="flex flex-row items-center">
-      <input class="h-5 w-5 ml-2 mr-2" type="checkbox" v-model="localCheck" @change="enableLocalMode"/>
-      <p>Local Mode</p>
+    <div v-else class="w-full h-auto mb-4 flex flex-col">
+      <hr class="my-4">
+
+      <LauncherDetails />
+      <PinSettings @config-change="writeManifestParameter"/>
+      <ModeSelection @config-change="writeManifest"/>
     </div>
   </div>
 </template>

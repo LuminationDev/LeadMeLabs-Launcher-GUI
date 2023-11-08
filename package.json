@@ -1,10 +1,13 @@
 {
   "name": "LeadMe",
-  "version": "1.2.2",
+  "version": "1.2.14",
   "description": "The LeadMe launcher",
   "main": "build/main/main.js",
   "scripts": {
     "dev": "node scripts/dev-server.js",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "build": "node scripts/build.js",
     "postinstall": "electron-builder install-app-deps",
     "build:win": "npm run build && electron-builder --win --config",
@@ -50,9 +53,11 @@
   "dependencies": {
     "@electron-toolkit/preload": "^1.0.2",
     "@electron-toolkit/utils": "^1.0.2",
+    "@grpc/grpc-js": "^1.9.2",
+    "@sentry/electron": "^4.9.0",
     "@vuelidate/core": "^2.0.0",
     "@vuelidate/validators": "^2.0.0",
-    "axios": "^1.3.5",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "electron-dl": "^3.5.0",
     "electron-updater": "^5.3.0",

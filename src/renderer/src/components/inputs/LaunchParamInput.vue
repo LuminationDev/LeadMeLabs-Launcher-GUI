@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { Validate } from "@renderer/interfaces/custom";
 
 const collapse = ref(false);
 
@@ -9,7 +10,7 @@ defineProps({
     required: true,
   },
   paramInput: {
-    type: Object,
+    type: Object as () => {key: string, value: string},
     required: true,
   },
   keyError: {
@@ -21,6 +22,22 @@ defineProps({
     required: true,
   },
 });
+
+const emit = defineEmits<{
+  (e: string, value: string | boolean)
+  (e: string, object: Validate)
+}>();
+
+const handleInput = (emitType: string, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target) {
+    emit(emitType, target.value)
+  }
+};
+
+const handleValidateInput = (emitType: string, id: number, field: string, invalid: boolean) => {
+    emit(emitType, {id, field, invalid});
+};
 </script>
 
 <template>
@@ -45,28 +62,28 @@ defineProps({
     <div class="flex flex-col">
 
       <input
-          :value="paramInput.key" @input="$emit('update-key', $event.target.value)"
+          :value="paramInput.key" @input="handleInput('update-key', $event)"
           class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
           :class="{
             'border-red-800 focus:border-red-900': keyError,
             'hidden': collapse
           }"
           placeholder="key"
-          @blur="$emit('change-validation', id, 'key', paramInput.key === '')" />
+          @blur="handleValidateInput('change-validation', id, 'key', paramInput.key === '')" />
 
       <div class="flex flex-col items-end mr-2" v-if="keyError">
         <div class="text-red-800 text-xs">A key is required.</div>
       </div>
 
       <input
-          :value="paramInput.value" @input="$emit('update-value', $event.target.value)"
+          :value="paramInput.value" @input="handleInput('update-value', $event)"
           class="my-2 mx-2 py-1 px-3 bg-white rounded-lg border-gray-300 border"
           :class="{
             'border-red-800 focus:border-red-900': valueError,
             'hidden': collapse
           }"
           placeholder="value"
-          @blur="$emit('change-validation', id, 'value', paramInput.value === '')" />
+          @blur="handleValidateInput('change-validation', id, 'value', paramInput.value === '')" />
 
       <div class="flex flex-col items-end mr-2" v-if="valueError">
         <div class="text-red-800 text-xs">A value is required.</div>

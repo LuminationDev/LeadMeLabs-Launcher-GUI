@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import Modal from "./Modal.vue";
 import GenericButton from "../components/buttons/GenericButton.vue"
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from "../assets/constants/index";
 import { ref } from "vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
-import { useLibraryStore } from '../store/libraryStore'
 import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
 
-const libraryStore = useLibraryStore()
 const showImportModal = ref(false);
 const error = ref();
 const name = ref("");
@@ -25,7 +23,9 @@ const rules = {
 const v$ = useVuelidate(rules, { name });
 
 const selectApplication = (): void => {
-  filePath.value = fileInput.value.files[0]["path"];
+  if(fileInput.value !== null && fileInput.value.files !== null) {
+    filePath.value = fileInput.value.files[0]["path"];
+  }
 }
 
 /**
@@ -34,21 +34,25 @@ const selectApplication = (): void => {
 const importApplication = (): void => {
   if(filePath.value == "" || filePath.value == null) {
     error.value = "A file must be selected.";
-    fileInput.value.value = "";
   } else if (!checkFileExtension(filePath.value)) {
     error.value = "File must be an executable (.exe)";
-    fileInput.value.value = "";
   } else {
     //@ts-ignore
-    api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-      channelType: CONSTANT.APPLICATION_IMPORT,
+    api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+      channelType: CONSTANT.MESSAGE.APPLICATION_IMPORT,
       name: name.value,
       altPath: filePath.value
     });
 
     //Reset the file input
-    fileInput.value.value = "";
+    if (fileInput.value !== null) {
+      fileInput.value.value = "";
+    }
     closeModal();
+  }
+
+  if (fileInput.value !== null) {
+    fileInput.value.value = "";
   }
 }
 
@@ -72,7 +76,9 @@ function openModal() {
 function closeModal() {
   name.value = "";
   filePath.value = "";
-  fileInput.value.value = "";
+  if (fileInput.value !== null) {
+    fileInput.value.value = "";
+  }
   showImportModal.value = false;
 }
 </script>

@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import GenericButton from "../components/buttons/GenericButton.vue"
+import GenericButton from "../components/buttons/GenericButton.vue";
 import Modal from "./Modal.vue";
 import { ref } from "vue";
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from "../assets/constants/index";
+import {useLibraryStore} from "../store/libraryStore";
+import PinPrompt from "./PinPrompt.vue";
+
+const libraryStore = useLibraryStore();
 
 defineExpose({
   openModal
@@ -20,19 +24,33 @@ function closeModal() {
 
 function reset() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.SCAN_MANIFEST
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.SCAN_MANIFEST
   });
+
+  libraryStore.pin = '';
+  libraryStore.mode = 'production';
   closeModal();
+}
+
+const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
+const openPinPromptModal = () => {
+  if(libraryStore.pin !== '') {
+    pinRef.value?.openModal();
+  } else {
+    openModal()
+  }
 }
 </script>
 
 <template>
+  <PinPrompt ref="pinRef" :callback="openModal"/>
+
   <!--Anchor button used to control the modal-->
   <GenericButton
       class="w-full h-6 mt-2 bg-red-800 text-xs"
       :type="'primary'"
-      :callback="openModal"
+      :callback="openPinPromptModal"
       :spinnerColor="'#000000'"
   >Reset Manifest</GenericButton>
 
@@ -48,11 +66,12 @@ function reset() {
 
       <template v-slot:content>
         <div class="px-8 w-128 pt-3 flex flex-col items-center mb-3">
-          <p class="pb-5">
+          <p class="text-center pb-5">
             <b>WARNING:</b>
 
             Resetting the manifest will remove any imported experiences! This will overwrite the manifest and only include
-            the LeadMe software (Station or NUC). Experiences will then need to be re-imported.
+            the LeadMe software (Station or NUC). Experiences will then need to be re-imported and Launcher settings will
+            need to be re-entered.
           </p>
 
           <button class="w-20 h-10 mr-4 bg-red-800 text-white text-base rounded-lg hover:bg-red-500 font-medium"

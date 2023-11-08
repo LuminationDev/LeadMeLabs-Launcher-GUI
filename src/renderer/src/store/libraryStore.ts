@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { Application } from '../models'
 import { reactive, ref } from "vue";
-import * as CONSTANTS from '../assets/constants/_application';
+import * as CONSTANT from '../assets/constants/index';
 
 //Preset applications - Use this as an example of the LeadMe ID Library?
 // const values = {
@@ -11,7 +11,7 @@ import * as CONSTANTS from '../assets/constants/_application';
 //         'http://localhost:8082/program-leadmevr',
 //         '',
 //         false,
-//         CONSTANTS.STATUS_NOT_INSTALLED
+//         CONSTANTS.MODEL_VALUE.STATUS_NOT_INSTALLED
 //     )
 // }
 
@@ -23,7 +23,7 @@ const values = {
         '/program-station',
         '',
         false,
-        CONSTANTS.STATUS_NOT_INSTALLED
+        CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED
     ),
     '2': new Application(
         '2',
@@ -31,19 +31,23 @@ const values = {
         '/program-nuc',
         '',
         false,
-        CONSTANTS.STATUS_NOT_INSTALLED
+        CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED
     )
 }
 
 export const useLibraryStore = defineStore({
     id: 'library',
     state: () => ({
-        mode: "production",
+        version: '',
+        location: '',
+        pin: '',
+        mode: 'production',
         appDirectory: '',
-        selectedApplication: '',
+        selectedApplication: <string | undefined> '',
         applicationParameters: {},
         applicationSetup: reactive([]),
-        applications: ref(new Map<string, Application>(Object.entries(values)))
+        applications: ref(new Map<string, Application>(Object.entries(values))),
+        schedulerTask: { enabled: false, status: 'Unknown' }
     }),
     actions: {
         /**
@@ -82,27 +86,29 @@ export const useLibraryStore = defineStore({
         /**
          * Update the status of a settings application using its unique ID.
          * @param appID A string representing the unique id of an application.
-         * @param status A string of the new status to be saved.
+         * @param key A string of the variable to be updated.
+         * @param value A new value for the supplied key.
          */
-        updateApplicationStatusByID(appID: string, status: string) {
+        updateApplicationByID(appID: string, key: string, value: any) {
             const app = this.applications.get(appID)
             if(app != undefined) {
-                app.status = status
+                app[key] = value
             }
         },
 
         /**
-         * Update the status of a settings application using its name.
+         * Update the key of an application using its name.
          * @param appName A string representing the name of an application.
-         * @param status A string of the new status to be saved.
+         * @param key A string of the variable to be updated.
+         * @param value A new value for the supplied key.
          */
-        updateApplicationStatusByName(appName: string, status: string) {
-            const key = this.getKeyFromValue(appName)
-            if(key == undefined) { return; }
+        updateApplicationByName(appName: string, key: string, value: any) {
+            const appID = this.getKeyFromValue(appName)
+            if(appID == undefined) { return; }
 
-            const app = this.applications.get(key)
+            const app = this.applications.get(appID)
             if(app != undefined) {
-                app.status = status
+                app[key] = value
             }
         },
 
@@ -122,17 +128,18 @@ export const useLibraryStore = defineStore({
         },
 
         /**
-         * Update the status of a settings application using its name.
+         * Update a parameter of an application using its name.
          * @param appName A string representing the name of an application.
-         * @param autoStart A boolean of the new autoStart value to be saved.
+         * @param key A string of the variable to be updated.
+         * @param value A new value for the supplied key.
          */
-        updateApplicationAutoStartByName(appName: string, autoStart: boolean) {
-            const key = this.getKeyFromValue(appName)
-            if(key == undefined) { return; }
+        updateApplicationParameterByName(appName: string, key: string, value: any) {
+            const appID = this.getKeyFromValue(appName)
+            if(appID == undefined) { return; }
 
-            const app = this.applications.get(key)
+            const app = this.applications.get(appID)
             if(app != undefined) {
-                app.autoStart = autoStart
+                app.parameters[key] = value
             }
         },
 
@@ -146,8 +153,11 @@ export const useLibraryStore = defineStore({
 
             const app = this.applications.get(key)
             if(app != undefined) {
-                if(app.status )
-                return true;
+                if(app.status === CONSTANT.MODEL_VALUE.STATUS_INSTALLED
+                    || app.status === CONSTANT.MODEL_VALUE.STATUS_RUNNING
+                    || app.status === CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING)
+
+                    return true;
             }
 
             return false;
@@ -159,13 +169,38 @@ export const useLibraryStore = defineStore({
          */
         getKeyFromValue(val: string): string | undefined {
             return [...this.applications.keys()].find(key => this.applications.get(key)?.name === val)
+        },
+
+        /**
+         * Get an application entry that is has the supplied name.
+         * @param name A string that is the name to be searched for.
+         */
+        getApplicationByName(name: string): Application | undefined {
+            const entries = Object.values(this.applications);
+            return entries.find(entry => entry.name === name);
+        },
+
+        /**
+         * Query the system to see if the currently selected application has a scheduler task associated with it.
+         */
+        listSchedulerTask(): void {
+            // @ts-ignore
+            api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+                channelType: CONSTANT.MESSAGE.APPLICATION_SCHEDULER,
+                type: "list",
+                name: this.getSelectedApplicationName
+            });
         }
     },
     getters: {
         getHostURL(): string {
+            // Redirection
+            //production: "https://leadmelabs-redirect-server.herokuapp.com",
+            //development: "https://leadmelabs-redirect-server.herokuapp.com/development",
             const modeUrls = {
                 production: "https://learninglablauncher.herokuapp.com",
                 development: "https://learninglablauncherdevelopment.herokuapp.com",
+                offline: "http://localhost:8088",
                 local: "http://localhost:8082"
             };
 
@@ -173,7 +208,18 @@ export const useLibraryStore = defineStore({
         },
 
         getSelectedApplication(): Application | undefined {
+            if(this.selectedApplication === undefined) return undefined;
             return this.applications.get(this.selectedApplication)
+        },
+
+        getSelectedApplicationName(): string {
+            const app = this.getSelectedApplication
+            return app !== undefined ? app.name : 'Unselected'
+        },
+
+        getSelectedApplicationStatus(): string {
+            const app = this.getSelectedApplication
+            return app !== undefined ? app.status : 'Unselected'
         },
 
         getSetupConfig(): string[] {
