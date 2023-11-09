@@ -8,6 +8,7 @@ class Application {
     parameters: {
         vrManifest: boolean|null
     } //Holds different parameters that affect the running of software. Currently, may contain (vrManifest)
+    remoteConfigStatus: boolean // The status of whether the application is set up for remote config
 
     constructor(id: string, name: string, url: string, altPath: string, autostart: boolean, status: string) {
         this.id = id
@@ -19,6 +20,7 @@ class Application {
         this.parameters = {
             vrManifest: null
         }
+        this.remoteConfigStatus = false
     }
 }
 

@@ -2,58 +2,39 @@
 import GenericButton from '../components/buttons/GenericButton.vue'
 import Modal from "./Modal.vue";
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { getStorage, ref, uploadString } from "firebase/storage";
-import { required, email } from "@vuelidate/validators";
-import { computed, reactive, ref as vueRef, watch } from "vue";
+import { getAuth, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "firebase/auth";
+import { required, email, alphaNum } from "@vuelidate/validators";
+import { reactive, ref as vueRef } from "vue";
 import useVuelidate from "@vuelidate/core";
 import TextInput from "../components/inputs/TextInput.vue";
 import { useLibraryStore } from "../store/libraryStore";
-import * as CONSTANT from "../assets/constants/index";
-const libraryStore = useLibraryStore();
+import * as CONSTANT from '../assets/constants/index';
 
-const props = defineProps({
-  softwareName: {
-    type: String,
-    required: true
-  }
-});
+const libraryStore = useLibraryStore();
 
 const rules = {
   email: {
     required,
     email
   },
-  password: { required }
+  password: { required },
+  uid: {
+    required,
+    alphaNum
+  }
 }
 
 const state = reactive({
   email: '',
-  password: ''
+  password: '',
+  uid: ''
 });
 
 const v$ = useVuelidate(rules, state);
 const errorText = vueRef("");
 const showUploadModal = vueRef(false);
-const fileInput = vueRef<HTMLInputElement | null>(null);
 
-const selectFiles = (): void => {
-  if (fileInput.value !== null) {
-    console.log(fileInput.value.files);
-  }
-}
-
-async function uploadFiles(): Promise<void> {
-  if(fileInput.value == null) {
-    errorText.value = "Please select files to upload.";
-    return;
-  }
-  const files = fileInput.value.files;
-  if (files === null || files.length === 0) {
-    errorText.value = "Please select files to upload.";
-    return;
-  }
-
+async function submit(): Promise<void> {
   errorText.value = ""
   // @ts-ignore
   await v$.value.$validate()
@@ -76,34 +57,25 @@ async function uploadFiles(): Promise<void> {
   initializeApp(firebaseConfig);
   const auth = getAuth();
 
-  signInWithEmailAndPassword(auth, state.email, state.password).then(() => {
-    if (files == null) {
-      errorText.value = "No files found"
-      return;
-    }
-
-    const storage = getStorage();
-
+  signInWithEmailAndPassword(auth, state.email, state.password).then(async (tokenDetails) => {
     errorText.value = "uploading";
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const storageRef = ref(storage, `launcher/${LabLocation.value}/${room.value}/${StationId.value == undefined ? "NUC" : "Station " + StationId.value}/${file.name}`);
-
-      const reader = new FileReader();
-      reader.readAsText(file);
-      reader.onload = (event) => {
-        const fileString = event.target?.result as string;
-
-        uploadString(storageRef, fileString, "raw")
-            .then(() => {
-              console.log(`File ${file.name} uploaded successfully`);
-            })
-            .catch((error) => {
-              console.error(`Error uploading file ${file.name}: ${error}`);
-            });
-      };
-    }
+    const response = await fetch("https://us-central1-leadme-labs.cloudfunctions.net/getCustomToken", {
+      method: "POST",
+      body: JSON.stringify({
+        uid: state.uid,
+        token: await tokenDetails.user.getIdToken()
+      })
+    })
+    await signOut(auth)
+    const newAuth = await signInWithCustomToken(auth, await response.text() + "")
+    api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+      channelType: CONSTANT.MESSAGE.SET_REMOTE_CONFIG,
+      value: {
+        uid: state.uid,
+        refreshToken: newAuth.user.refreshToken,
+        name: libraryStore.getSelectedApplicationName
+      }
+    });
     errorText.value = "uploaded";
 
   }).catch((error) => {
@@ -111,38 +83,11 @@ async function uploadFiles(): Promise<void> {
   });
 }
 
-const room = vueRef("");
-const StationId = vueRef("");
-const LabLocation = vueRef("");
-
-const setupParams = computed(() => libraryStore.applicationSetup);
-watch(setupParams, (newValue) => {
-  if(newValue.length === 0) {
-    return;
-  }
-
-  newValue.forEach((value: string) => {
-    let values = value.split("=");
-
-    switch (values[0]) {
-      case "room":
-        room.value = values[1];
-        break;
-      case "StationId":
-        StationId.value = values[1];
-        break;
-      case "LabLocation":
-        LabLocation.value = values[1];
-        break;
-    }
-  });
-});
-
 function openModal() {
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
-    name: props.softwareName
+    name: libraryStore.getSelectedApplicationName
   });
 
   showUploadModal.value = true;
@@ -156,34 +101,23 @@ function closeModal() {
   <!--Anchor button used to control the modal-->
   <GenericButton
       id="share_button"
-      class="h-6 w-20 -mt-0.5"
+      class="h-6 w-40 -mt-0.5"
       :type="'primary'"
       :callback="openModal"
       :spinnerColor="'#000000'"
-  >Upload Logs</GenericButton>
+  >{{ libraryStore.getSelectedApplication.remoteConfigStatus ? 'Remote Enabled' : 'Enable Remote' }}</GenericButton>
 
   <Teleport to="body">
     <Modal :show="showUploadModal" @close="closeModal">
       <template v-slot:header>
         <header class="h-12 px-8 w-128 bg-white flex justify-between items-center rounded-t-lg">
           <div class="bg-white flex flex-col">
-            <span class="text-lg font-medium text-black">{{props.softwareName}} -- Upload Log Files</span>
+            <span class="text-lg font-medium text-black">Enable Remote Config</span>
           </div>
         </header>
       </template>
 
       <template v-slot:content>
-        <div class="w-full flex justify-center pt-2 bg-white">
-          <label
-              for="files"
-              class="w-32 h-10 rounded-lg flex items-center justify-center
-              text-white bg-primary cursor-pointer hover:bg-blue-400"
-          >
-            <input class="hidden" id="files" ref="fileInput" type="file" @change="selectFiles">
-            Find files
-          </label>
-        </div>
-
         <div class="px-8 w-full pt-3 pb-7 bg-white flex flex-col items-center">
           <TextInput
               ref="emailInputRef"
@@ -206,6 +140,16 @@ function closeModal() {
           >
             <template #label>Password</template>
           </TextInput>
+          <TextInput
+              ref="uidRef"
+              v-model="v$.uid.$model"
+              :v$="v$.uid"
+              field-id="uid"
+              class="my-2 w-full"
+              placeholder="thebarton-station-1"
+          >
+            <template #label>UID</template>
+          </TextInput>
         </div>
       </template>
 
@@ -215,8 +159,8 @@ function closeModal() {
             <GenericButton
                 type="primary"
                 class="w-32"
-                :callback="uploadFiles"
-            >Upload Files</GenericButton>
+                :callback="submit"
+            >Submit</GenericButton>
 
             <button class="w-24 h-10 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
                     v-on:click="closeModal"

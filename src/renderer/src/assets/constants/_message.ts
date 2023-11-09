@@ -1,6 +1,7 @@
 export const QUERY_INSTALLED = 'query_installed_applications'
 export const QUERY_MANIFEST_APP = 'query_manifest_app'
 export const SCAN_MANIFEST = 'scan_manifest'
+export const CHECK_REMOTE_CONFIG = 'check_remote_config'
 
 export const VR_MANIFEST = 'edit_vr_manifest'
 
@@ -21,3 +22,6 @@ export const CONFIG_APPLICATION_RETURN = 'application_config'
 export const CONFIG_APPLICATION_SET = 'set_config_application'
 export const CONFIG_APPLICATION_GET = 'get_config_application'
 export const CONFIG_APPLICATION_STEAMCMD = 'config_steamcmd'
+
+export const SET_REMOTE_CONFIG = 'set_remote_config'
+export const UPLOAD_EXISTING_CONFIG = 'upload_existing_conifg'

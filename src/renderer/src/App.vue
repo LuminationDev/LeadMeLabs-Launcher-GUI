@@ -28,6 +28,9 @@ api.ipcRenderer.on('backend_message', (event, info) => {
     case "applications_installed":
       installedApplications(info.directory, info.content);
       break;
+    case "remote_config":
+      remoteConfig(info.name, info.message);
+      break;
 
     case "autostart_active":
       autoStateApplications();
@@ -76,6 +79,10 @@ const updateLauncherSettings = (info: any) => {
   libraryStore.location = info.location;
 }
 
+function remoteConfig(applicationName: string, message: string) {
+  libraryStore.updateApplicationRemoteConfigStatusByName(applicationName, message.includes('Enabled') ? true : false);
+}
+
 /**
  * Cycle through the supplied manifest list and update the individual entries within the library settings.
  * @param directoryPath
@@ -122,6 +129,18 @@ const installedApplications = (directoryPath: string, appArray: Array<AppEntry>)
       if(application.parameters.vrManifest !== null) {
         libraryStore.updateApplicationParameterByName(application.name, CONSTANT.MODEL_KEY.KEY_VR_MANIFEST, application.parameters.vrManifest);
       }
+    }
+    if (application.name === "NUC") {
+      api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+        channelType: CONSTANT.MESSAGE.CHECK_REMOTE_CONFIG,
+        applicationType: "NUC"
+      });
+    }
+    if (application.name === "Station") {
+      api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+        channelType: CONSTANT.MESSAGE.CHECK_REMOTE_CONFIG,
+        applicationType: "Station"
+      });
     }
   });
 }
