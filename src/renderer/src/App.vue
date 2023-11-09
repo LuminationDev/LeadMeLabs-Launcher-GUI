@@ -7,7 +7,6 @@ import { Application } from "./models";
 import * as CONSTANT from "./assets/constants/index";
 import { useLibraryStore } from './store/libraryStore';
 import { ref } from "vue";
-import {CHECK_REMOTE_CONFIG} from "./assets/constants/_application";
 import * as Sentry from "@sentry/electron";
 
 Sentry.init({
@@ -132,14 +131,14 @@ const installedApplications = (directoryPath: string, appArray: Array<AppEntry>)
       }
     }
     if (application.name === "NUC") {
-      api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-        channelType: CONSTANT.CHECK_REMOTE_CONFIG,
+      api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+        channelType: CONSTANT.MESSAGE.CHECK_REMOTE_CONFIG,
         applicationType: "NUC"
       });
     }
     if (application.name === "Station") {
-      api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-        channelType: CONSTANT.CHECK_REMOTE_CONFIG,
+      api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+        channelType: CONSTANT.MESSAGE.CHECK_REMOTE_CONFIG,
         applicationType: "Station"
       });
     }

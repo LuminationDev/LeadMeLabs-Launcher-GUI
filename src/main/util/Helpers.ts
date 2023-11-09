@@ -1333,7 +1333,7 @@ export default class Helpers {
 
         try {
             const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
-            await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
+            await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
                 method: "PUT",
                 body: JSON.stringify(dataArray)
             })
@@ -1346,7 +1346,7 @@ export default class Helpers {
     async downloadAndUpdateLocalConfig(name: string): Promise<void> {
         try {
             const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
-            const result = await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
+            const result = await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
                 method: "GET"
             })
             if (result.status !== 200) {
@@ -1354,18 +1354,28 @@ export default class Helpers {
             }
             const config = join(this.appDirectory, `${name}/_config/config.env`)
 
-            const newDataArray: string[] = [];
+            const data = fs.readFileSync(config, 'utf-8');
+            const decryptedData = await Encryption.decryptData(data);
+
+            let dataArray = decryptedData.split('\n'); // convert file data in an array
+
             const body = await result.json()
 
             for(const key in body) {
-                newDataArray.push(`${body[key]}`)
+                var configItemKey = body[key].split("=", 2)[0];
+                const index = dataArray.findIndex(element => element.startsWith(configItemKey))
+
+                if (index === -1) {
+                    dataArray.push(`${body[key]}`)
+                } else {
+                    dataArray[index] = `${body[key]}`
+                }
             }
 
-            const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
+            const encryptedData = await Encryption.encryptData(dataArray.join('\n'));
 
-            await fs.writeFile(config, encryptedData, (err) => {
-                if (err) throw err;
-            });
+            fs.writeFileSync(config, encryptedData, 'utf-8')
+            await this.uploadExistingConfig(name)
         } catch (e) {
             console.log(e)
             return
@@ -1410,7 +1420,7 @@ export default class Helpers {
     }
 
     async generateIdTokenFromRefreshToken(refreshToken: string): Promise<string> {
-        const response = await fetch("https://securetoken.googleapis.com/v1/token?key=AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc", {
+        const response = await fetch("https://securetoken.googleapis.com/v1/token?key=AIzaSyDeXIbE7PvD5b3VMwkQNhWcvzmkEqD1zEQ", {
             method: "POST",
             body: JSON.stringify({
                 grant_type: 'refresh_token',

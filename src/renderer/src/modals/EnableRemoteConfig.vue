@@ -8,7 +8,7 @@ import { reactive, ref as vueRef } from "vue";
 import useVuelidate from "@vuelidate/core";
 import TextInput from "../components/inputs/TextInput.vue";
 import { useLibraryStore } from "../store/libraryStore";
-import * as CONSTANT from "../assets/constants/_application";
+import * as CONSTANT from '../assets/constants/index';
 
 const libraryStore = useLibraryStore();
 
@@ -44,7 +44,7 @@ async function submit(): Promise<void> {
   }
 
   const firebaseConfig = {
-    apiKey: "AIzaSyA5O7Ri4P6nfUX7duZIl19diSuT-wxICRc",
+    apiKey: "AIzaSyDeXIbE7PvD5b3VMwkQNhWcvzmkEqD1zEQ",
     authDomain: "leadme-labs.firebaseapp.com",
     projectId: "leadme-labs",
     storageBucket: "leadme-labs.appspot.com",
@@ -68,12 +68,12 @@ async function submit(): Promise<void> {
     })
     await signOut(auth)
     const newAuth = await signInWithCustomToken(auth, await response.text() + "")
-    api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-      channelType: CONSTANT.SET_REMOTE_CONFIG,
+    api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+      channelType: CONSTANT.MESSAGE.SET_REMOTE_CONFIG,
       value: {
         uid: state.uid,
         refreshToken: newAuth.user.refreshToken,
-        name: libraryStore.getSelectedApplication.name
+        name: libraryStore.getSelectedApplicationName
       }
     });
     errorText.value = "uploaded";
@@ -85,8 +85,9 @@ async function submit(): Promise<void> {
 
 function openModal() {
   // @ts-ignore
-  api.ipcRenderer.send(CONSTANT.HELPER_CHANNEL, {
-    channelType: CONSTANT.CONFIG_APPLICATION_GET,
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.CONFIG_APPLICATION_GET,
+    name: libraryStore.getSelectedApplicationName
   });
 
   showUploadModal.value = true;
