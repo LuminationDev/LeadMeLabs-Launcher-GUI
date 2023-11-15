@@ -6,19 +6,18 @@ import Encryption from "./Encryption";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
 import extract from "extract-zip";
-import {exec, execSync, spawn, spawnSync} from "child_process";
+import { exec, execSync, spawn, spawnSync } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https"; //Use for production hosting server
-import {app, BrowserWindow, shell, net as electronNet} from "electron";
+import { app, BrowserWindow, shell, net as electronNet } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
-import * as fspromises from 'fs/promises'
 import * as Sentry from "@sentry/electron";
 
 Sentry.init({
     dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
 });
-const net = require('net')
+const net = require('net');
 
 interface AppEntry {
     type: string
@@ -336,8 +335,14 @@ export default class Helpers {
     async checkFileAvailability(url): Promise<boolean> {
         const request_call = new Promise((resolve, reject) => {
             const request = electronNet.request(url);
+            const timeoutId = setTimeout(() => {
+                request.abort(); // Abort the request if it takes too long
+                console.log(`Request timed out ${url}`);
+                resolve(false);
+            }, 5000);
 
             request.on('response', (response) => {
+                clearTimeout(timeoutId);
                 if (response.statusCode === 200) {
                     resolve(true);
                 } else {
@@ -347,6 +352,7 @@ export default class Helpers {
             });
 
             request.on('error', (error) => {
+                clearTimeout(timeoutId);
                 console.log(`Failed to fetch ${url}: ${error}`);
                 reject(false);
             });
@@ -369,10 +375,11 @@ export default class Helpers {
      * and folder creation required for installation.
      */
     async extraDownloadCriteria(appName: string, directoryPath: string): Promise<void> {
-        const encryptedData = await Encryption.encryptData(`TIME_CREATED=${new Date()}`);
+        const encryptedData = await Encryption.encryptDataUTF16(`TIME_CREATED=${new Date()}`);
+        const buffer = Buffer.from(encryptedData, 'utf16le');
 
         //If installing the Station or NUC software edit the .env file with the time created
-        fs.writeFile(join(directoryPath, '_config/config.env'), encryptedData, function (err) {
+        fs.writeFile(join(directoryPath, '_config/config.env'), buffer, function (err) {
             if (err) throw err;
             console.log('Config file is updated successfully.');
         });
@@ -471,8 +478,14 @@ export default class Helpers {
             //Find the local steam variables
             const config = join(this.appDirectory, 'Station/_config/config.env');
 
-            const data = fs.readFileSync(config, {encoding: 'utf-8'});
-            const decryptedData = await Encryption.decryptData(data);
+            const decryptedData = await Encryption.detectFileEncryption(config);
+            if(decryptedData == null) {
+                this.mainWindow.webContents.send('status_update', {
+                    name: 'SteamCMD',
+                    message: 'Steam password or Login not found in Station config.env'
+                });
+                return;
+            }
             let dataArray = decryptedData.split('\n'); // convert file data in an array
 
             // looking for a line that contains the Steam username and password, split the line to get the value.
@@ -584,12 +597,12 @@ export default class Helpers {
      */
     readObjects = async (filename: string): Promise<Array<AppEntry>> => {
         if (fs.existsSync(filename)) {
-            const data = fs.readFileSync(filename, 'utf-8');
-            if(data.length === 0) {
+            //Attempt to read in utf16le - if this is not correct it will throw an exception in the decryption method.
+            const decryptedData = await Encryption.detectFileEncryption(filename);
+            if(decryptedData === null || decryptedData.length === 0) {
                 return [];
             }
 
-            const decryptedData = await Encryption.decryptData(data);
             return JSON.parse(decryptedData);
         }
         return [];
@@ -599,11 +612,12 @@ export default class Helpers {
      * Function to write the objects to a JSON file
      */
     writeObjects = async (filename: string, jsonArray: Array<AppEntry>) => {
-        const encryptedData = await Encryption.encryptData(JSON.stringify(jsonArray));
+        const encryptedData = await Encryption.encryptDataUTF16(JSON.stringify(jsonArray));
+        const buffer = Buffer.from(encryptedData, 'utf16le');
 
         //Create the file and write the new application entry in
-        fs.writeFile(filename, encryptedData, (err) => {
-            if (err) throw err;
+        fs.writeFile(filename, buffer, (err) => {
+            if (err) console.log(err);
 
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
@@ -1291,9 +1305,9 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
-
-        await fs.writeFile(config, encryptedData, (err) => {
+        const encryptedData = await Encryption.encryptDataUTF16(newDataArray.join('\n'));
+        const buffer = Buffer.from(encryptedData, 'utf16le');
+        fs.writeFile(config, buffer, (err) => {
             if (err) throw err;
             this.uploadExistingConfig(info.name)
         });
@@ -1313,11 +1327,12 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = await Encryption.encryptData(newDataArray.join('\n'));
+        const encryptedData = await Encryption.encryptDataUTF16(newDataArray.join('\n'));
 
-        await fs.writeFile(config, encryptedData, (err) => {
-            if (err) throw err;
-            this.uploadExistingConfig(info.value.name)
+        fs.writeFile(config, encryptedData, (err) => {
+            if (err)
+                throw err;
+            this.uploadExistingConfig(info.value.name);
         });
     }
 
@@ -1325,11 +1340,12 @@ export default class Helpers {
         const config = join(this.appDirectory, `${name}/_config/config.env`);
         let dataArray: Array<string> = []
 
-        await fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
-            const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(config);
+        if(decryptedData === null || decryptedData.length === 0) {
+            return;
+        }
 
-            dataArray = decryptedData.split('\n'); // convert file data in an array
-        });
+        dataArray = decryptedData.split('\n'); // convert file data in an array
 
         try {
             const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
@@ -1353,9 +1369,10 @@ export default class Helpers {
                 return
             }
             const config = join(this.appDirectory, `${name}/_config/config.env`)
-
-            const data = fs.readFileSync(config, 'utf-8');
-            const decryptedData = await Encryption.decryptData(data);
+            const decryptedData = await Encryption.detectFileEncryption(config);
+            if(decryptedData === null || decryptedData.length === 0) {
+                return;
+            }
 
             let dataArray = decryptedData.split('\n'); // convert file data in an array
 
@@ -1372,9 +1389,9 @@ export default class Helpers {
                 }
             }
 
-            const encryptedData = await Encryption.encryptData(dataArray.join('\n'));
+            const encryptedData = await Encryption.encryptDataUTF16(dataArray.join('\n'));
 
-            fs.writeFileSync(config, encryptedData, 'utf-8')
+            fs.writeFileSync(config, encryptedData, 'utf16le')
             await this.uploadExistingConfig(name)
         } catch (e) {
             console.log(e)
@@ -1406,8 +1423,11 @@ export default class Helpers {
         let idToken = ''
         let uid = ''
         let refreshToken = ''
-        const data = await fspromises.readFile(remoteConfig, {encoding: 'utf-8'});
-        const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(remoteConfig);
+        if(decryptedData === null || decryptedData.length === 0) {
+            // todo - throw failure
+            return { idToken: "", uid: "" };
+        }
 
         remoteConfigArray = decryptedData.split('\n'); // convert file data in an array
         if (remoteConfigArray.length < 2) {
@@ -1438,22 +1458,18 @@ export default class Helpers {
         await this.downloadAndUpdateLocalConfig(info.name)
         const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
-        //Read the file and remove any previous entries for the same item
-        fs.readFile(config, {encoding: 'utf-8'}, async (err, data) => {
-            if (err) {
-                console.log(err);
-            }
+        const decryptedData = await Encryption.detectFileEncryption(config);
+        if(decryptedData == null) {
+            return;
+        }
 
-            const decryptedData = await Encryption.decryptData(data);
+        let dataArray = decryptedData.split('\n'); // convert file data in an array
 
-            let dataArray = decryptedData.split('\n'); // convert file data in an array
-
-            //Send the data array back to the front end.
-            this.mainWindow.webContents.send('backend_message', {
-                channelType: "application_config",
-                name: info.name,
-                data: dataArray
-            });
+        //Send the data array back to the front end.
+        this.mainWindow.webContents.send('backend_message', {
+            channelType: "application_config",
+            name: info.name,
+            data: dataArray
         });
     }
 
@@ -1691,8 +1707,10 @@ export async function collectFeedURL(): Promise<string | null> {
     }
 
     try {
-        const data = fs.readFileSync(stationConfig, { encoding: 'utf-8' });
-        const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(stationConfig);
+        if (decryptedData == null) {
+            return null;
+        }
 
         let dataArray = decryptedData.split('\n'); // convert file data into an array
         const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
@@ -1726,8 +1744,10 @@ export async function collectLocation(): Promise<string | null> {
     }
 
     try {
-        const data = fs.readFileSync(path, { encoding: 'utf-8' });
-        const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(path);
+        if(decryptedData === null || decryptedData.length === 0) {
+            return "Unknown";
+        }
 
         let dataArray = decryptedData.split('\n'); // convert file data into an array
         const location = dataArray.find(item => item.startsWith('LabLocation='));
@@ -1742,6 +1762,11 @@ export async function collectLocation(): Promise<string | null> {
 }
 
 /**
+ * TODO the function below is the first function that is run in main.ts when the launcher starts up that interacts with
+ * TODO the manifest, hence this will update it when it first runs.
+ */
+
+/**
  * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
  * opened.
  */
@@ -1752,8 +1777,10 @@ export async function getLauncherManifestParameter(parameter: string): Promise<s
         return Promise.resolve(mode)
     }
     try {
-        const data = fs.readFileSync(filePath, { encoding: 'utf-8' });
-        const decryptedData = await Encryption.decryptData(data);
+        const decryptedData = await Encryption.detectFileEncryption(filePath);
+        if(decryptedData === null || decryptedData.length === 0) {
+            return "Unknown";
+        }
         JSON.parse(decryptedData).forEach((element: { [x: string]: any; type: string; }) => {
             if (element.type === 'Launcher') {
                 mode = element[parameter]
