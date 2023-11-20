@@ -1564,7 +1564,6 @@ export default class Helpers {
         });
     }
 
-    //TODO make sure this still works
     /**
      * Stop a running process on the local machine.
      * @param appName A string of the process to stop.
@@ -1746,11 +1745,6 @@ export async function collectLocation(): Promise<string | null> {
 
     return "Unknown";
 }
-
-/**
- * TODO the function below is the first function that is run in main.ts when the launcher starts up that interacts with
- * TODO the manifest, hence this will update it when it first runs.
- */
 
 /**
  * Update an applications entry in the manifest file to indirect that it should autostart when the launcher is
