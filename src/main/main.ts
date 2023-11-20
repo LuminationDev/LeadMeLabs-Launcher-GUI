@@ -3,7 +3,7 @@ import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers, {collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc} from "./util/Helpers";
-import { SoftwareMigrator, ManifestMigrator } from "./util/SoftwareMigrator";
+import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
 import net from "net";
 
@@ -131,7 +131,7 @@ function createWindow () {
   });
 
   // Show the main window and check for application updates
-  mainWindow.on('ready-to-show', () => {
+  mainWindow.on('ready-to-show', async () => {
     if (process.env.NODE_ENV === 'development') {
       mainWindow.webContents.openDevTools();
     }
@@ -146,6 +146,7 @@ function createWindow () {
           url: 'https://leadme-launcher-development-92514d5e709f.herokuapp.com/static/electron-launcher'
         })
       }
+
       if (process.env.NODE_ENV !== 'development') {
         autoUpdater.checkForUpdates().then((result) => {
           updateCheck(result);
@@ -327,15 +328,6 @@ app.whenReady().then(async () => {
     // @ts-ignore
     callback(fs.existsSync(url) ? url : null);
   });
-
-  let software = app.commandLine.getSwitchValue("software");
-  let directory = app.commandLine.getSwitchValue("directory");
-
-  //If the Station or NUC is passed as the command line argument then attempt to perform the migration
-  if (["Station", "NUC"].includes(software)) {
-    const migrate = new SoftwareMigrator(software, directory);
-    await migrate.RunMigration();
-  }
 
   //Check if the customapps.vrmanifest has been created.
   await new ManifestMigrator().RunMigration();
