@@ -3,10 +3,9 @@ import fs from "fs";
 import os from "os";
 import * as Sentry from '@sentry/electron'
 import { join, parse } from "path";
-import { promisify } from "util";
+import { execSync } from "child_process";
 
 const Registry = require('winreg');
-const stat = promisify(fs.stat);
 
 export default class Encryption {
     static key: string;
@@ -21,6 +20,8 @@ export default class Encryption {
      * @param filePath A string of the file (path) to check.
      */
     static async detectFileEncryption(filePath: string): Promise<string | null> {
+        await this._collectBackupSecret();
+
         let backup = this._getBackupFileName(filePath);
         if (!fs.existsSync(filePath) && !fs.existsSync(backup)) return null;
 
@@ -234,21 +235,41 @@ export default class Encryption {
      */
     static async _collectBackupSecret(): Promise<void> {
         try {
-            const stats = await stat('/');
+            let paddedKey: string|null = this._getProcessorId();
 
-            let paddedKey: string = stats.ino.toString();
+            if (paddedKey === null) {
+                return;
+            }
+
             while (paddedKey.includes(":")) {
                 paddedKey = paddedKey.replace("\:", '');
             }
 
             //Make sure the key is 32 characters long
             while (paddedKey.length < 32) {
-                paddedKey += "z";
+                paddedKey += "0";
             }
 
             this.backupKey = paddedKey;
         } catch (error) {
             console.error(`Error getting file system UUID: ${error}`);
+        }
+    }
+
+    /**
+     * Use a command process to collect the processor ID for the current computer. Return null if this operation cannot
+     * be completed.
+     */
+    static _getProcessorId(): string | null {
+        try {
+            const stdout = execSync('wmic cpu get processorid').toString();
+            const lines = stdout.trim().split('\n');
+
+            // Extracting the Processor ID from the output
+            return lines.length > 1 ? lines[1].trim() : null;
+        } catch (error) {
+            console.error(`Error: ${error}`);
+            return null;
         }
     }
 
