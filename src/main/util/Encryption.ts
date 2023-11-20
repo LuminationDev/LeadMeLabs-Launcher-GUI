@@ -250,7 +250,7 @@ export default class Encryption {
                 paddedKey += "0";
             }
 
-            this.backupKey = paddedKey;
+            this.backupKey = paddedKey?.toLowerCase();
         } catch (error) {
             console.error(`Error getting file system UUID: ${error}`);
         }
