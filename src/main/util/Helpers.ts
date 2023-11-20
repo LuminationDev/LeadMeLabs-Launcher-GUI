@@ -375,14 +375,8 @@ export default class Helpers {
      * and folder creation required for installation.
      */
     async extraDownloadCriteria(appName: string, directoryPath: string): Promise<void> {
-        const encryptedData = await Encryption.encryptDataUTF16(`TIME_CREATED=${new Date()}`);
-        const buffer = Buffer.from(encryptedData, 'utf16le');
-
         //If installing the Station or NUC software edit the .env file with the time created
-        fs.writeFile(join(directoryPath, '_config/config.env'), buffer, function (err) {
-            if (err) throw err;
-            console.log('Config file is updated successfully.');
-        });
+        await Encryption.encryptFile(`TIME_CREATED=${new Date()}`, join(directoryPath, '_config/config.env'));
 
         if (appName !== 'Station') return;
 
@@ -612,18 +606,15 @@ export default class Helpers {
      * Function to write the objects to a JSON file
      */
     writeObjects = async (filename: string, jsonArray: Array<AppEntry>) => {
-        const encryptedData = await Encryption.encryptDataUTF16(JSON.stringify(jsonArray));
-        const buffer = Buffer.from(encryptedData, 'utf16le');
+        const success = await Encryption.encryptFile(JSON.stringify(jsonArray), filename);
 
         //Create the file and write the new application entry in
-        fs.writeFile(filename, buffer, (err) => {
-            if (err) console.log(err);
-
+        if (success) {
             this.mainWindow.webContents.send('status_update', {
                 name: 'Manifest',
                 message: 'Manifest file is updated successfully.'
             });
-        });
+        }
     }
 
     /**
@@ -1305,12 +1296,10 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = await Encryption.encryptDataUTF16(newDataArray.join('\n'));
-        const buffer = Buffer.from(encryptedData, 'utf16le');
-        fs.writeFile(config, buffer, (err) => {
-            if (err) throw err;
-            this.uploadExistingConfig(info.name)
-        });
+        const success = await Encryption.encryptFile(newDataArray.join('\n'), config);
+        if (success) {
+            await this.uploadExistingConfig(info.name)
+        }
     }
 
     /**
@@ -1327,13 +1316,10 @@ export default class Helpers {
             newDataArray.push(`${key}=${data[key]}`)
         }
 
-        const encryptedData = await Encryption.encryptDataUTF16(newDataArray.join('\n'));
-
-        fs.writeFile(config, encryptedData, (err) => {
-            if (err)
-                throw err;
-            this.uploadExistingConfig(info.value.name);
-        });
+        const success = await Encryption.encryptFile(newDataArray.join('\n'), config);
+        if (success) {
+            await this.uploadExistingConfig(info.value.name)
+        }
     }
 
     async uploadExistingConfig(name: string): Promise<void> {
@@ -1389,10 +1375,10 @@ export default class Helpers {
                 }
             }
 
-            const encryptedData = await Encryption.encryptDataUTF16(dataArray.join('\n'));
-
-            fs.writeFileSync(config, encryptedData, 'utf16le')
-            await this.uploadExistingConfig(name)
+            const success = await Encryption.encryptFile(dataArray.join('\n'), config);
+            if (success) {
+                await this.uploadExistingConfig(name)
+            }
         } catch (e) {
             console.log(e)
             return
