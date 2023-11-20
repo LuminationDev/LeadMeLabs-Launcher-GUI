@@ -138,44 +138,54 @@ export default class Encryption {
      * @param backupKey A boolean to determine if the backup key should be used (true) or not (false).
      */
     static async encryptDataUTF16(dataToEncrypt: string, backupKey: boolean = false): Promise<string> {
-        const iv = crypto.randomBytes(16); // generate a random initialization vector (IV)
+        try {
+            const iv = crypto.randomBytes(16); // generate a random initialization vector (IV)
 
-        if (this.key === null || this.key === undefined) {
-            this._collectSecret();
+            if (this.key === null || this.key === undefined) {
+                this._collectSecret();
+            }
+
+            if (this.backupKey === null || this.backupKey === undefined) {
+                await this._collectBackupSecret();
+            }
+
+            const cipher = crypto.createCipheriv(this.algorithm, backupKey ? this.backupKey : this.key, iv);
+            let encrypted = cipher.update(dataToEncrypt, 'utf16le', 'hex');
+            encrypted += cipher.final('hex');
+
+            // Return the IV and encrypted data in UTF-16 hexadecimal format
+            return iv.toString('hex') + encrypted;
+        } catch (e: any) {
+            Sentry.captureMessage(`Encryption error at ${this.key}. ` + e.toString());
+            return "";
         }
-
-        if (this.backupKey === null || this.backupKey === undefined) {
-            await this._collectBackupSecret();
-        }
-
-        const cipher = crypto.createCipheriv(this.algorithm, backupKey ? this.backupKey : this.key, iv);
-        let encrypted = cipher.update(dataToEncrypt, 'utf16le', 'hex');
-        encrypted += cipher.final('hex');
-
-        // Return the IV and encrypted data in UTF-16 hexadecimal format
-        return iv.toString('hex') + encrypted;
     }
 
     /**
      * UTF-16 (Unicode) character decryption of the supplied data with the AES algorithm.
      */
     static async decryptDataUTF16(dataToDecrypt: string, backupKey: boolean = false): Promise<string> {
-        const iv = Buffer.from(dataToDecrypt.slice(0, 32), 'hex');
-        const encrypted = dataToDecrypt.slice(32);
+        try {
+            const iv = Buffer.from(dataToDecrypt.slice(0, 32), 'hex');
+            const encrypted = dataToDecrypt.slice(32);
 
-        if (this.key === null || this.key === undefined) {
-            this._collectSecret();
+            if (this.key === null || this.key === undefined) {
+                this._collectSecret();
+            }
+
+            if (this.backupKey === null || this.backupKey === undefined) {
+                await this._collectBackupSecret();
+            }
+
+            const decipher = crypto.createDecipheriv(this.algorithm, backupKey ? this.backupKey : this.key, iv);
+            let decrypted = decipher.update(encrypted, 'hex', 'utf16le');
+            decrypted += decipher.final('utf16le');
+
+            return decrypted;
+        } catch (e: any) {
+            Sentry.captureMessage(`Encryption key error at ${this.key}. ` + e.toString());
+            return "";
         }
-
-        if (this.backupKey === null || this.backupKey === undefined) {
-            await this._collectBackupSecret();
-        }
-
-        const decipher = crypto.createDecipheriv(this.algorithm, backupKey ? this.backupKey : this.key, iv);
-        let decrypted = decipher.update(encrypted, 'hex', 'utf16le');
-        decrypted += decipher.final('utf16le');
-
-        return decrypted;
     }
 
     /**
