@@ -126,6 +126,7 @@ export default class Encryption {
 
             return decrypted;
         } catch (e: any) {
+            console.log("ERROR:" + e);
             Sentry.captureMessage("Encryption key changed. " + e.toString());
             return "";
         }
@@ -284,7 +285,7 @@ export default class Encryption {
         });
 
         // Read the value of the ProductId key
-        this.backupKey = await new Promise<string>((resolve, reject) => {
+        this.oldKey = await new Promise<string>((resolve, reject) => {
             regKey.get('ProductId', (err, result) => {
                 if (err) {
                     console.error(err);
