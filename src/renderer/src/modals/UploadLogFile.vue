@@ -156,7 +156,7 @@ function closeModal() {
   <!--Anchor button used to control the modal-->
   <GenericButton
       id="share_button"
-      class="h-6 w-20 -mt-0.5"
+      class="h-6 w-20 -mt-0.5 mr-2"
       :type="'primary'"
       :callback="openModal"
       :spinnerColor="'#000000'"
