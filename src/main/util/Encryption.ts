@@ -20,10 +20,10 @@ export default class Encryption {
      * @param filePath A string of the file (path) to check.
      */
     static async detectFileEncryption(filePath: string): Promise<string | null> {
-        await this._collectBackupSecret();
-
         let backup = this._getBackupFileName(filePath);
-        if (!fs.existsSync(filePath) && !fs.existsSync(backup)) return null;
+        if (!fs.existsSync(filePath) && !fs.existsSync(backup)) {
+            return null;
+        }
 
         try {
             const data = fs.readFileSync(filePath, 'utf16le');
@@ -47,8 +47,6 @@ export default class Encryption {
                 console.log(`Error: File in backup file: ${backup}: ${e}`);
                 Sentry.captureMessage(`Original and Backup file corrupted: ${filePath} at MAC - ${this.key}`);
             }
-
-            console.log(`Error: File in UTF-8: ${e}`)
 
             //Attempt to read in utf-8 then
             const data = fs.readFileSync(filePath, 'utf-8');
@@ -128,7 +126,7 @@ export default class Encryption {
         } catch (e: any) {
             console.log("ERROR:" + e);
             Sentry.captureMessage("Encryption key changed. " + e.toString());
-            return "";
+            throw new Error();
         }
     }
 
@@ -157,7 +155,7 @@ export default class Encryption {
             return iv.toString('hex') + encrypted;
         } catch (e: any) {
             Sentry.captureMessage(`Encryption error at ${this.key}. ` + e.toString());
-            return "";
+            throw new Error();
         }
     }
 
@@ -184,7 +182,7 @@ export default class Encryption {
             return decrypted;
         } catch (e: any) {
             Sentry.captureMessage(`Encryption key error at ${this.key}. ` + e.toString());
-            return "";
+            throw new Error();
         }
     }
 
