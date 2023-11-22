@@ -62,6 +62,7 @@ export default class Helpers {
     appDirectory: string;
     host: string = "";
     offlineHost: string = "http://localhost:8088"; //Changes if on NUC (localhost) or Station (NUC IP address)
+    FIREBASE_BASE_URL: string = 'https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/'
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -1010,7 +1011,12 @@ export default class Helpers {
         const remote = this.checkIfRemoteConfigIsEnabled(_event, { applicationType: info.name })
         this.host = info.host;
         if (remote) {
-            await this.downloadAndUpdateLocalConfig(info.name)
+            const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(info.name)
+            await this.downloadAndUpdateLocalConfig(info.name, idTokenResponse)
+            if (info.name == 'NUC') {
+                await this.compareJsonFileAndUpdate('appliance_list', idTokenResponse)
+                await this.compareJsonFileAndUpdate('station_list', idTokenResponse)
+            }
         }
 
         await this.killAProcess(info.name, info.path, true);
@@ -1335,7 +1341,7 @@ export default class Helpers {
 
         try {
             const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
-            await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
+            await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
                 method: "PUT",
                 body: JSON.stringify(dataArray)
             })
@@ -1345,10 +1351,9 @@ export default class Helpers {
         }
     }
 
-    async downloadAndUpdateLocalConfig(name: string): Promise<void> {
+    async downloadAndUpdateLocalConfig(name: string, idTokenResponse: IdTokenResponse): Promise<void> {
         try {
-            const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(name)
-            const result = await fetch(`https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
+            const result = await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/config.json?auth=` + idTokenResponse.idToken, {
                 method: "GET"
             })
             if (result.status !== 200) {
@@ -1382,6 +1387,71 @@ export default class Helpers {
         } catch (e) {
             console.log(e)
             return
+        }
+    }
+
+    async compareJsonFileAndUpdate(fileName: string, idTokenResponse: IdTokenResponse) {
+        //get the dates and check
+        try {
+            const datesResult = await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/${fileName}_dates.json?auth=` + idTokenResponse.idToken, {
+                method: "GET"
+            })
+            let datesBody;
+            if (datesResult.status === 404) {
+                datesBody = { latestOnlineUpdate: 0, latestLocalUpdate: 0 }
+            } else if (datesResult.status === 200) {
+                datesBody = await datesResult.json() ?? { latestOnlineUpdate: 0, latestLocalUpdate: 0 }
+            } else {
+                return
+            }
+
+            const fileLocation = `C:\\labs_config\\${fileName}.json`
+            let fileStats = fs.statSync(fileLocation)
+
+            if (Number(datesBody.latestOnlineUpdate) > fileStats.mtimeMs) {
+                // update local from online
+                console.log('updating local from online')
+                Sentry.captureMessage(`updating local ${fileName} from online for uid: ${idTokenResponse.uid}`)
+                const result = await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/${fileName}.json?auth=` + idTokenResponse.idToken, {
+                    method: "GET"
+                })
+                if (result.status !== 200) {
+                    return
+                }
+                const responseBody = await result.json()
+                if (responseBody && responseBody.length > 0) {
+                    fs.writeFileSync(fileLocation, JSON.stringify(responseBody, null, 4), 'utf-8')
+
+                    fileStats = fs.statSync(fileLocation)
+                    await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/${fileName}_dates.json?auth=` + idTokenResponse.idToken, {
+                        method: "PUT",
+                        body: JSON.stringify({ ...datesBody, latestLocalUpdate: fileStats.mtimeMs })
+                    })
+                }
+            } else if (fileStats.mtimeMs > Number(datesBody.latestLocalUpdate)) {
+                // update online from local
+                console.log('updating online from local')
+                Sentry.captureMessage(`updating online ${fileName} from local for uid: ${idTokenResponse.uid}`)
+                let fileData = fs.readFileSync(fileLocation, {encoding: 'utf-8'});
+                let parsedData = JSON.parse(fileData)
+
+                try {
+                    await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/${fileName}.json?auth=` + idTokenResponse.idToken, {
+                        method: "PUT",
+                        body: JSON.stringify(parsedData)
+                    })
+                    await fetch(`${this.FIREBASE_BASE_URL}${idTokenResponse.uid}/${fileName}_dates.json?auth=` + idTokenResponse.idToken, {
+                        method: "PUT",
+                        body: JSON.stringify({ ...datesBody, latestLocalUpdate: fileStats.mtimeMs })
+                    })
+                } catch (e) {
+                    console.log(e)
+                    Sentry.captureException(e)
+                    return
+                }
+            }
+        } catch (e) {
+            Sentry.captureException(e)
         }
     }
 
@@ -1441,7 +1511,14 @@ export default class Helpers {
      * Gets the application configuration details.
      */
     async getApplicationConfig(_event: IpcMainEvent, info: any): Promise<void> {
-        await this.downloadAndUpdateLocalConfig(info.name)
+        if (this.checkIfRemoteConfigIsEnabled(_event, info)) {
+            const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(info.name)
+            await this.downloadAndUpdateLocalConfig(info.name, idTokenResponse)
+            if (info.name == 'NUC') {
+                await this.compareJsonFileAndUpdate('appliance_list', idTokenResponse)
+                await this.compareJsonFileAndUpdate('station_list', idTokenResponse)
+            }
+        }
         const config = join(this.appDirectory, `${info.name}/_config/config.env`);
 
         const decryptedData = await Encryption.detectFileEncryption(config);
