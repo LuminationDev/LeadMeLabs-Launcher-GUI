@@ -3,6 +3,7 @@ import { join } from "path";
 import { net as electronNet } from "electron";
 import Encryption from "./Encryption";
 import * as Sentry from "@sentry/electron";
+import os from "os";
 
 /**
  * Check if an online resource is available.
@@ -151,4 +152,28 @@ export function handleIpc(connection) {
         }
         connection.end()
     })
+}
+
+export function getInternalMac() {
+    let internalMac: string = "";
+    try {
+        const networkInterfaces = os.networkInterfaces();
+
+        // Assuming you want the MAC address of the first non-internal network interface
+        for (const key in networkInterfaces) {
+            const networkInterface = networkInterfaces[key];
+
+            if (networkInterface == null) continue;
+
+            for (const iface of networkInterface) {
+                if (!iface.internal) {
+                    internalMac = iface.mac;
+                    break;
+                }
+            }
+        }
+    } catch (e) {
+        console.log(e)
+    }
+    return internalMac
 }

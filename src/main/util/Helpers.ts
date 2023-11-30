@@ -15,7 +15,7 @@ import IpcMainEvent = Electron.IpcMainEvent;
 import * as Sentry from "@sentry/electron";
 import {AppEntry, ConfigFile, VREntry} from "./Interfaces";
 import { IdTokenResponse } from "./Types";
-import { checkFileAvailability, collectFeedURL, collectLocation } from "./Utilities";
+import { checkFileAvailability, collectFeedURL, collectLocation, getInternalMac } from "./Utilities";
 import os from "os";
 
 Sentry.init({

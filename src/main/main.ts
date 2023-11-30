@@ -3,7 +3,7 @@ import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers from "./util/Helpers";
-import { collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc } from "./util/Utilities";
+import { collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc, getInternalMac } from "./util/Utilities";
 import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
 import net from "net";
