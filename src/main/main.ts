@@ -3,7 +3,7 @@ import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers from "./util/Helpers";
-import { collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc } from "./util/Utilities";
+import { collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc, getInternalMac } from "./util/Utilities";
 import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
 import net from "net";
@@ -19,8 +19,6 @@ autoUpdater.setFeedURL({
   provider: 'generic',
   url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 })
-
-var server;
 
 // Offline
 // url: 'http://localhost:8088/static/electron-launcher'
@@ -39,6 +37,9 @@ autoUpdater.on('update-downloaded', () => {
       name: "UPDATE DOWNLOADED, close any open applications"
     });
   }
+  if (helpers) {
+    helpers.downloading = false
+  }
 
   if(downloadWindow) {
     //Setting progress above 1 turns the bar into an indeterminate loading bar while waiting for restart
@@ -53,12 +54,22 @@ autoUpdater.on('update-downloaded', () => {
     const isForceRunAfter = true
     autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
   }, 4000);
-  if (server) {
-    server.close()
+
+  try {
+    collectLocation().then(location => {
+      Sentry.captureMessage(`Updated launcher to ${app.getVersion()} at site ${location}`)
+    })
+  } catch (error) {
+    Sentry.captureException(error)
   }
+
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
+  console.log('updating', progressObj)
+  if (helpers) {
+    helpers.downloading = true
+  }
   if(!downloadWindow) {
     createDownloadWindow();
   }
@@ -80,16 +91,6 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 let downloadWindow;
 function createDownloadWindow() {
-  var PIPE_NAME = "LeadMeLauncher";
-  var PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
-  server = net.createServer((stream) => {
-    stream.on('data', (c) => {
-      if (c.toString().includes("checkIfDownloading")) {
-        stream.write("true")
-      }
-    });
-  });
-  server.listen(PIPE_PATH)
   downloadWindow = new BrowserWindow({
     width: 400,
     height: 150,
@@ -241,6 +242,14 @@ function updateCheck(result: UpdateCheckResult|null) {
   //Detect if there is an update, if not send the auto start command
   if(!semver.gt(result.updateInfo.version, app.getVersion())) {
     sendAutoStart();
+  } else {
+    try {
+      collectLocation().then(location => {
+        Sentry.captureMessage(`Updating launcher from ${result.updateInfo.version} to ${app.getVersion()} at site ${location} with MAC address ${getInternalMac()}`)
+      })
+    } catch (error) {
+      Sentry.captureException(error)
+    }
   }
 }
 
@@ -323,6 +332,8 @@ function setupTrayIcon(): void {
  */
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
+var helpers: Helpers
+
 app.whenReady().then(async () => {
   protocol.interceptFileProtocol('media-loader', (request, callback) => {
     const url = request.url.replace("media-loader://", "");
@@ -339,7 +350,8 @@ app.whenReady().then(async () => {
   console.log("Starting electron application");
 
   //Load in all the helper functions
-  new Helpers(ipcMain, mainWindow).startup();
+  helpers = new Helpers(ipcMain, mainWindow)
+  helpers.startup()
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({

@@ -15,7 +15,8 @@ import IpcMainEvent = Electron.IpcMainEvent;
 import * as Sentry from "@sentry/electron";
 import {AppEntry, ConfigFile, VREntry} from "./Interfaces";
 import { IdTokenResponse } from "./Types";
-import { checkFileAvailability, collectFeedURL, collectLocation } from "./Utilities";
+import { checkFileAvailability, collectFeedURL, collectLocation, getInternalMac } from "./Utilities";
+import os from "os";
 
 Sentry.init({
     dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
@@ -228,9 +229,10 @@ export default class Helpers {
 
         //Maintain a trace on the download progress
         info.properties.onProgress = (status): void => {
-            this.mainWindow.webContents.send('download_progress', status)
-            downloadWindow.setTitle(status)
-            downloadWindow.setProgressBar(status * 100)
+            console.log('status', status)
+            this.mainWindow.webContents.send('download_progress', status.percent)
+            downloadWindow.setTitle(status.percent)
+            downloadWindow.setProgressBar(status.percent * 100)
         }
 
         //Check if the server is online
@@ -1155,8 +1157,9 @@ export default class Helpers {
             }
         }
 
+        const location = await collectLocation()
         try {
-            Sentry.captureMessage(`Updating from ${localVersion} to ${onlineVersion} at site ${collectLocation()}`)
+            Sentry.captureMessage(`Updating ${appName} from ${localVersion} to ${onlineVersion} at site ${location} at MAC address ${getInternalMac()}`)
         } catch (e) {
             Sentry.captureException(e)
         }
@@ -1167,16 +1170,17 @@ export default class Helpers {
             console.log(status)
             downloadWindow.webContents.executeJavaScript(`
                 const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Downloading ${appName} update, ${status * 100}%';`
+                dynamicTextElement.innerText = 'Downloading ${appName} update, ${status.percent * 100}%';`
             );
-            this.mainWindow.webContents.send('download_progress', status)
-            downloadWindow.setTitle(status)
-            downloadWindow.setProgressBar(status * 100)
+            this.mainWindow.webContents.send('download_progress', status.percent)
+            downloadWindow.setTitle(status.percent)
+            downloadWindow.setProgressBar(status.percent * 100)
         }
 
         const download_call = new Promise((resolve, reject) => {
             // @ts-ignore
             download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
+                console.log("Download complete")
                 downloadWindow.setProgressBar(2)
                 downloadWindow.webContents.executeJavaScript(`
                     const dynamicTextElement = document.getElementById('update-message');
@@ -1193,6 +1197,7 @@ export default class Helpers {
                         name: appName,
                         message: 'Extracting complete, cleaning up.'
                     })
+                    console.log("Extracting complete")
 
                     //Delete the downloaded zip folder
                     fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
@@ -1200,6 +1205,13 @@ export default class Helpers {
                         name: appName,
                         message: 'Update clean up complete'
                     })
+                    console.log("Update clean up complete")
+
+                    try {
+                        Sentry.captureMessage(`Completed ${appName} update from ${localVersion} to ${onlineVersion} at site ${location} with MAC address ${getInternalMac()}`)
+                    } catch (e) {
+                        Sentry.captureException(e)
+                    }
 
                     resolve("Download Complete");
                 }).catch(err => {
