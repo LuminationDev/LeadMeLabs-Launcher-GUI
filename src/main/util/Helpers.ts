@@ -13,6 +13,7 @@ import * as https from "https"; //Use for production hosting server
 import { app, BrowserWindow, shell, net as electronNet } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 import * as Sentry from "@sentry/electron";
+import os from "os";
 
 Sentry.init({
     dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
@@ -1229,7 +1230,7 @@ export default class Helpers {
 
         const location = await collectLocation()
         try {
-            Sentry.captureMessage(`Updating ${appName} from ${localVersion} to ${onlineVersion} at site ${location}`)
+            Sentry.captureMessage(`Updating ${appName} from ${localVersion} to ${onlineVersion} at site ${location} at MAC address ${getInternalMac()}`)
         } catch (e) {
             Sentry.captureException(e)
         }
@@ -1278,7 +1279,7 @@ export default class Helpers {
                     console.log("Update clean up complete")
 
                     try {
-                        Sentry.captureMessage(`Completed ${appName} update from ${localVersion} to ${onlineVersion} at site ${location}`)
+                        Sentry.captureMessage(`Completed ${appName} update from ${localVersion} to ${onlineVersion} at site ${location} with MAC address ${getInternalMac()}`)
                     } catch (e) {
                         Sentry.captureException(e)
                     }
@@ -1871,4 +1872,28 @@ export function handleIpc(connection) {
         }
         connection.end()
     })
+}
+
+export function getInternalMac() {
+    let internalMac: string = "";
+    try {
+        const networkInterfaces = os.networkInterfaces();
+
+        // Assuming you want the MAC address of the first non-internal network interface
+        for (const key in networkInterfaces) {
+            const networkInterface = networkInterfaces[key];
+
+            if (networkInterface == null) continue;
+
+            for (const iface of networkInterface) {
+                if (!iface.internal) {
+                    internalMac = iface.mac;
+                    break;
+                }
+            }
+        }
+    } catch (e) {
+        console.log(e)
+    }
+    return internalMac
 }

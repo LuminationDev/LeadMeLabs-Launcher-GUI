@@ -2,10 +2,17 @@ import semver from "semver/preload";
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
-import Helpers, {collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc} from "./util/Helpers";
+import Helpers, {
+  collectFeedURL,
+  collectLocation,
+  getInternalMac,
+  getLauncherManifestParameter,
+  handleIpc
+} from "./util/Helpers";
 import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
 import net from "net";
+import os from "os";
 
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 
@@ -244,7 +251,7 @@ function updateCheck(result: UpdateCheckResult|null) {
   } else {
     try {
       collectLocation().then(location => {
-        Sentry.captureMessage(`Updating launcher from ${result.updateInfo.version} to ${app.getVersion()} at site ${location}`)
+        Sentry.captureMessage(`Updating launcher from ${result.updateInfo.version} to ${app.getVersion()} at site ${location} with MAC address ${getInternalMac()}`)
       })
     } catch (error) {
       Sentry.captureException(error)
