@@ -148,14 +148,18 @@ function createWindow () {
         })
       }
 
-      if (process.env.NODE_ENV !== 'development') {
+      if (mode === 'offline') {
+        handleUpdateCheckError("In offline mode");
+      }
+
+      if (process.env.NODE_ENV !== 'development' && mode !== 'offline') {
         autoUpdater.checkForUpdates().then((result) => {
           updateCheck(result);
         }).catch(handleUpdateCheckError);
       } else {
         sendAutoStart();
       }
-    })
+    });
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

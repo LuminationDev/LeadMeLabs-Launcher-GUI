@@ -104,10 +104,7 @@ onMounted(() => {
     }
 
     if(status.message === 'Server offline' && libraryStore.getApplicationByName(status.name)?.status != CONSTANT.MODEL_VALUE.STATUS_RUNNING) {
-      libraryStore.updateApplicationByName(
-          status.name,
-          CONSTANT.MODEL_KEY.KEY_STATUS,
-          CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED);
+      //libraryStore.updateApplicationByName(status.name, CONSTANT.MODEL_KEY.KEY_STATUS, CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED);
 
       //Show warning message?
       errorMessage.value = status.message;
