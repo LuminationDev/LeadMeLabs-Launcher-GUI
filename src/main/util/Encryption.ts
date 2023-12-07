@@ -235,7 +235,7 @@ export default class Encryption {
             paddedKey += "0";
         }
 
-        this.key = paddedKey;
+        this.key = paddedKey.toLowerCase();
     }
 
     /**
