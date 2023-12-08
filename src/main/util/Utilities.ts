@@ -79,32 +79,38 @@ export async function collectFeedURL(): Promise<string | null> {
 }
 
 /**
- * Check if the NUC or Station are installed, if so collect the location name from there to send to the front end.
+ * Collects and returns the location information from relevant configuration files.
+ * @returns The location string if found, otherwise "Unknown".
  */
 export async function collectLocation(): Promise<string | null> {
     let path = '';
-    const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
-    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
 
-    // We are updating the NUC software, bail out here
-    if(!fs.existsSync(stationConfig) && !fs.existsSync(NUCConfig)) {
+    const stationConfig = join(process.env.APPDATA + '/leadme_apps', 'Station/_config/config.env');
+    const stationExists = fs.existsSync(stationConfig);
+    const stationConfigBackup = join(process.env.APPDATA + '/leadme_apps', 'Station/_config/config_backup.env');
+    const stationBackupExists = fs.existsSync(stationConfigBackup);
+
+    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', 'NUC/_config/config.env');
+    const NUCConfigBackup = join(process.env.APPDATA + '/leadme_apps', 'NUC/_config/config_backup.env');
+
+    // Check if any of the files exist
+    if (!stationExists && !fs.existsSync(NUCConfig) && !stationBackupExists && !fs.existsSync(NUCConfigBackup)) {
         return "Unknown";
     }
 
-    if(fs.existsSync(stationConfig)) {
-        path = stationConfig;
-    } else {
-        path = NUCConfig;
-    }
+    // Determine the path based on the available files
+    path = (stationExists || stationBackupExists) ? stationConfig : NUCConfig;
 
     try {
         const decryptedData = await Encryption.detectFileEncryption(path);
-        if(decryptedData === null || decryptedData.length === 0) {
+
+        if (decryptedData === null || decryptedData.length === 0) {
             return "Unknown";
         }
 
-        let dataArray = decryptedData.split('\n'); // convert file data into an array
+        const dataArray = decryptedData.split('\n'); // Convert file data into an array
         const location = dataArray.find(item => item.startsWith('LabLocation='));
+
         if (location) {
             return location.split('=')[1];
         }

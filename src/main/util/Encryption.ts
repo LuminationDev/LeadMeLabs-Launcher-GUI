@@ -20,47 +20,102 @@ export default class Encryption {
      * @param filePath A string of the file (path) to check.
      */
     static async detectFileEncryption(filePath: string): Promise<string | null> {
-        let backup = this._getBackupFileName(filePath);
-        if (!fs.existsSync(filePath) && !fs.existsSync(backup)) {
-            return null;
+        const backup = this._getBackupFileName(filePath);
+        const doesConfigExist = fs.existsSync(filePath);
+        const doesBackupConfigExist = fs.existsSync(backup);
+
+        if (!doesConfigExist && !doesBackupConfigExist) {
+            return null; //No config files available
         }
 
         try {
+            if (!doesConfigExist) { //Original config does not exist
+                return await this.attemptAlternateDecryption(backup, filePath);
+            }
+
             const data = fs.readFileSync(filePath, 'utf16le');
             if(data.length === 0 && backup.length == 0) return null;
 
-            return await this.decryptDataUTF16(data.trim());
-        } catch (e) {
-            //Check if there is a backup available first and try to read that
-            try {
-                if (fs.existsSync(backup)) {
-                    const backupData = fs.readFileSync(backup, 'utf16le');
-                    console.log(`Backup data found`);
-                    const data = await this.decryptDataUTF16(backupData.trim(), true);
+            const decryptedData = await this.decryptDataUTF16(data.trim());
 
-                    //Re-write the original
-                    console.log(`Re-writing original data`);
-                    await this.encryptFile(data, filePath);
-                    return data;
-                }
-            } catch (e) {
-                console.log(`Error: File in backup file: ${backup}: ${e}`);
-                Sentry.captureMessage(`Original and Backup file corrupted: ${filePath} at MAC - ${this.key}`);
+            if(!this.validateOriginalFile(filePath, decryptedData)) {
+                return await this.attemptAlternateDecryption(backup, filePath);
             }
 
-            //Attempt to read in utf-8 then
-            const data = fs.readFileSync(filePath, 'utf-8');
-            if(data.length === 0) {
-                return null;
-            }
-
-            //Decrypt in utf8 and convert to utf16le
-            const decryptedData = await this.decryptData(data);
-            await this.encryptFile(decryptedData, filePath);
-
-            //Send back the original utf-8 decryptedData, so we don't have to decrypt again.
             return decryptedData;
+        } catch (e) {
+            console.log(e);
+            return await this.attemptAlternateDecryption(backup, filePath);
         }
+    }
+
+    /**
+     * Validates the original file based on its content and file path.
+     * @param filePath - The path of the original file.
+     * @param decryptedData - The decrypted data from the file.
+     * @returns True if the file is valid, false otherwise.
+     */
+    static validateOriginalFile(filePath: string, decryptedData: string): boolean {
+        if (filePath.includes("config.env")) {
+            const dataArray = decryptedData.split('\n'); // Convert file data into an array
+            const encryption = dataArray.find(item => item.startsWith('AppKey='));
+
+            if (encryption) {
+                console.log(`Data found for ${filePath}`);
+                return true;
+            } else {
+                console.log(`Data not found look in backup found for ${filePath}`);
+                return false;
+            }
+        } else if (filePath.includes("manifest.json")) {
+            if (decryptedData.includes("Station") || decryptedData.includes("NUC")) {
+                console.log(`Data found for ${filePath}`);
+                return true;
+            } else {
+                console.log(`Data not found look in backup found for ${filePath}`);
+                return false;
+            }
+        }
+
+        // Other file type
+        return true;
+    }
+
+    /**
+     * Check if the backup exists, decrypt it and re-write the original file, if the backup does not exist the
+     * config file is still in UTF-8.
+     * @param backup A string of the backup file path.
+     * @param filePath A string of the original file path
+     */
+    static async attemptAlternateDecryption(backup: string, filePath: string): Promise<string | null> {
+        //Check if there is a backup available first and try to read that
+        try {
+            if (fs.existsSync(backup)) {
+                const backupData = fs.readFileSync(backup, 'utf16le');
+                console.log(`Backup data found`);
+                const data = await this.decryptDataUTF16(backupData.trim(), true);
+
+                //Re-write the original
+                console.log(`Re-writing original data`);
+                await this.encryptFile(data, filePath);
+                return data;
+            }
+        } catch (e) {
+            console.log(`Error: File in backup file: ${backup}: ${e}`);
+            Sentry.captureMessage(`Original and Backup file corrupted: ${filePath} at MAC - ${this.key}`);
+        }
+
+        //Attempt to read in utf-8 then
+        const data = fs.readFileSync(filePath, 'utf-8');
+        if(data.length === 0) {
+            return null;
+        }
+
+        //Decrypt in utf8 and convert to utf16le
+        const decryptedData = await this.decryptData(data);
+        await this.encryptFile(decryptedData, filePath);
+
+        return decryptedData;
     }
 
     /**
@@ -87,23 +142,6 @@ export default class Encryption {
             console.error(`Error writing to file "${filePath}":`, error);
             return false;
         }
-    }
-
-    /**
-     * Encrypt the supplied data with the AES algorithm.
-     */
-    static async encryptData(dataToEncrypt: string): Promise<string> {
-        const iv = crypto.randomBytes(16); // generate a random initialization vector (IV)
-
-        if (this.oldKey === null || this.oldKey === undefined) {
-            await this._collectOldSecret();
-        }
-
-        const cipher = crypto.createCipheriv(this.algorithm, this.oldKey, iv);
-        let encrypted = cipher.update(dataToEncrypt, 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-
-        return iv.toString('hex') + encrypted;
     }
 
     /**
