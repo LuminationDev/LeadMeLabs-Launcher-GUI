@@ -78,6 +78,14 @@ autoUpdater.on('download-progress', (progressObj) => {
   const progress = Math.floor(progressObj.percent)/100;
 
   if(downloadWindow) {
+    downloadWindow.webContents.executeJavaScript(`
+        try {
+            const dynamicTextElement = document.getElementById('update-message');
+            dynamicTextElement.innerText = 'Downloading launcher update, ${(progressObj.percent).toFixed(2)} %';
+        } catch (error) {
+            console.error('Error in executeJavaScript:', error);
+        }
+    `);
     downloadWindow.setProgressBar(progress);
   }
 

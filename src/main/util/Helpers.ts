@@ -1168,13 +1168,19 @@ export default class Helpers {
         // @ts-ignore
         info.properties.onProgress = (status): void => {
             console.log(status)
-            downloadWindow.webContents.executeJavaScript(`
-                const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Downloading ${appName} update, ${status.percent * 100}%';`
-            );
-            this.mainWindow.webContents.send('download_progress', status.percent)
-            downloadWindow.setTitle(status.percent)
-            downloadWindow.setProgressBar(status.percent * 100)
+
+            try {
+                downloadWindow.webContents.executeJavaScript(`
+                    try {
+                        const dynamicTextElement = document.getElementById('update-message');
+                        dynamicTextElement.innerText = 'Downloading ${appName} update, ${(status.percent * 100).toFixed(2)} %';
+                    } catch (error) {
+                        console.error('Error in executeJavaScript:', error);
+                    }
+                `);
+            } catch (e) {
+                console.log(e);
+            }
         }
 
         const download_call = new Promise((resolve, reject) => {
