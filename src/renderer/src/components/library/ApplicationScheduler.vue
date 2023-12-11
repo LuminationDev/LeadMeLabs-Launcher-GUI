@@ -7,6 +7,7 @@ import { useLibraryStore } from '../../store/libraryStore';
 const libraryStore = useLibraryStore();
 const enabled = computed(() => { return libraryStore.schedulerTask.enabled });
 const status = computed(() => { return libraryStore.schedulerTask.status });
+const warning = computed(() => { return libraryStore.schedulerTask.warning });
 
 /**
  * Create the Scheduler Task associated with the currently selected application. NOTE: A command window will be opened
@@ -64,9 +65,16 @@ onMounted(() => {
     </div>
 
     <div v-else class="w-full">
-      <pre class="w-full flex flex-col pt-4 items-left justify-center">
-        {{ status }}
-      </pre>
+      <div class="w-full flex flex-col items-left justify-center">
+        <pre :class="{'h-36 -mt-5 mb-1 text-sm': warning.length > 0}"
+        >
+          {{ status }}
+        </pre>
+
+        <div v-if="warning.length > 0" class="w-full text-sm text-red-500">
+          <p><span class="font-semibold">Warning:</span> {{ warning }}</p>
+        </div>
+      </div>
 
       <div class="w-full flex-col items-end justify-around">
         <GenericButton

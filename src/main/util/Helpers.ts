@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import fetch from 'node-fetch'
-import xml2js from "xml2js";
 import Encryption from "./Encryption";
 import { join, resolve } from "path";
 import { download } from "electron-dl";
@@ -16,7 +15,7 @@ import * as Sentry from "@sentry/electron";
 import {AppEntry, ConfigFile, VREntry} from "./Interfaces";
 import { IdTokenResponse } from "./Types";
 import { checkFileAvailability, collectFeedURL, collectLocation, getInternalMac } from "./Utilities";
-import os from "os";
+import { taskSchedulerItem } from "./TaskScheduler";
 
 Sentry.init({
     dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
@@ -111,10 +110,10 @@ export default class Helpers {
                     void this.setRemoteConfig(_event, info);
                     break;
                 case "get_config_application":
-                    this.getApplicationConfig(_event, info);
+                    void this.getApplicationConfig(_event, info);
                     break;
                 case "schedule_application":
-                    this.taskSchedulerItem(_event, info);
+                    void taskSchedulerItem(this.mainWindow, info, this.appDirectory);
                     break;
                 case "edit_vr_manifest":
                     void this.updateVRManifest(info.name, info.id, info.altPath, info.add);
@@ -1480,111 +1479,6 @@ export default class Helpers {
             channelType: "application_config",
             name: info.name,
             data: dataArray
-        });
-    }
-
-    /**
-     * Interacting with the windows task scheduler, create, pause or destroy a task that actively monitors that the
-     * supplied application is running. The task runs on start up once a user is logged in and when there is an
-     * internet connection and then every 5 minutes onwards.
-     */
-    taskSchedulerItem(_event: IpcMainEvent, info: any): void {
-        const taskFolder: string = "LeadMe\\Software_Checker";
-        let args: string = "";
-
-        //Check the type - list is the only function that does not require Admin privilege
-        switch (info.type) {
-            case "list":
-                args = `SCHTASKS /QUERY /TN ${taskFolder} /fo LIST`;
-                exec(`${args}`, (err, stdout) => {
-                    if (err) {
-                        console.log(err);
-                    }
-
-                    //Send the output back to the user
-                    this.mainWindow.webContents.send('backend_message', {
-                        channelType: 'scheduler_update',
-                        message: stdout,
-                        type: info.type
-                    });
-                });
-                return;
-
-            case "create":
-                const outputPath = join(this.appDirectory, 'Software_Checker.xml');
-
-                //Edit the static XML with the necessary details
-                this.modifyDefaultXML(taskFolder, outputPath)
-
-                //Use the supplied XML to create the command
-                args = `SCHTASKS /CREATE /TN ${taskFolder} /XML ${outputPath}`;
-                break;
-
-            case "enable":
-                args = `SCHTASKS /CHANGE /TN ${taskFolder} /Enable`;
-                break;
-
-            case "disable":
-                args = `SCHTASKS /CHANGE /TN ${taskFolder} /Disable`;
-                break;
-
-            case "delete":
-                args = `SCHTASKS /DELETE /TN ${taskFolder}`;
-                break;
-
-            default:
-                return;
-        }
-
-        exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (err, stdout)=> {
-            if (err) {
-                console.log(err);
-            }
-
-            this.mainWindow.webContents.send('backend_message', {
-                channelType: 'scheduler_update',
-                message: stdout,
-                type: info.type
-            });
-        });
-    }
-
-    /**
-     * Modify the default software checker xml with the details necessary for either the NUC or Station software. As an
-     * XML we can set far more than a command line interface and add different triggers and conditions.
-     */
-    modifyDefaultXML(taskFolder: string, outputPath: string): void {
-        const exePath = join(__dirname, '../../../../..', '_batch/LeadMeLabs-SoftwareChecker.exe');
-
-        const filePath = join(app.getAppPath(), 'static', 'template.xml');
-        const data = fs.readFileSync(filePath, "utf16le")
-
-        // we then pass the data to our method here
-        xml2js.parseString(data, function(err: string, result: any) {
-            if (err) console.log("FILE ERROR: " + err);
-
-            let json = result;
-
-            //Edit the following variables for the newly created task
-            //Date - get the current date, remove the milliseconds and the zulu marker 'Z'
-            json.Task.RegistrationInfo[0].Date = new Date().toISOString().slice(0,-5);
-
-            //URI
-            json.Task.RegistrationInfo[0].URI = taskFolder;
-
-            //Main Action
-            json.Task.Actions[0].Exec[0].Command = exePath;
-
-            //Write the changes to the new temporary file
-            //Create a new builder object and then convert the json back to xml.
-            const builder = new xml2js.Builder({'xmldec': {'encoding': 'UTF-16'}});
-            const xml = builder.buildObject(json);
-
-            fs.writeFile(outputPath, xml, (err) => {
-                if (err) console.log(err);
-
-                console.log("Successfully written update xml to file");
-            });
         });
     }
 

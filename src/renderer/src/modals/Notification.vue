@@ -40,8 +40,8 @@ function closeModal() {
       </template>
 
       <template v-slot:content>
-        <div class="px-8 w-128 pt-3 pb-7 flex flex-col items-center mb-3">
-          <p>{{message}}</p>
+        <div class="px-6 w-128 flex flex-grow-0 pt-3 pb-7 whitespace-pre-line break-all">
+          {{message}}
         </div>
       </template>
 
