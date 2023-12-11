@@ -3,10 +3,9 @@ import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
 import Helpers from "./util/Helpers";
-import { collectFeedURL, collectLocation, getLauncherManifestParameter, handleIpc, getInternalMac } from "./util/Utilities";
+import { collectFeedURL, collectLocation, getLauncherManifestParameter, getInternalMac } from "./util/Utilities";
 import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
-import net from "net";
 
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 
@@ -137,7 +136,8 @@ function createWindow () {
       preload: join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-    }
+    },
+    icon: join(app.getAppPath(), 'static', 'logo.ico'),
   });
 
   // Show the main window and check for application updates

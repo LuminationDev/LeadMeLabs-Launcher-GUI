@@ -98,7 +98,7 @@ watch(imagePath, (newVal) => {
 </script>
 
 <template>
-  <div class="h-44 w-full bg-gray-100 rounded">
+  <div class="h-48 w-full bg-gray-100 rounded">
     <div v-if="libraryStore.getSelectedApplicationName === 'Unselected'">
       <!--TODO maybe put a placeholder here-->
     </div>

@@ -234,6 +234,18 @@ const manifestScanned = (info: any) => {
 }
 
 const schedulerTaskDetails = (info: any) => {
+  if (info.target !== null) {
+    if (!info.target.includes(info.current)) {
+      libraryStore.schedulerTask.warning = "The software task is not pointing at this Launcher's install directory. Please delete the task and recreate it.";
+
+      //Can comment out the below if the modal is too annoying
+      title.value = "WARNING: Scheduler issue";
+      message.value = `The software task is not pointing at this Launcher's install directory. Please delete the task and
+        recreate it.\n\nTask pointing to:\n\n${info.target}`;
+      openNotificationModal();
+    }
+  }
+
   if (info.type !== "list") {
     checkSchedulerTask(info.type === "delete" ? 10 : 3, 1000);
   } else {

@@ -47,7 +47,7 @@ export const useLibraryStore = defineStore({
         applicationParameters: {},
         applicationSetup: reactive([]),
         applications: ref(new Map<string, Application>(Object.entries(values))),
-        schedulerTask: { enabled: false, status: 'Unknown' }
+        schedulerTask: { enabled: false, status: 'Unknown', warning: "" }
     }),
     actions: {
         /**
