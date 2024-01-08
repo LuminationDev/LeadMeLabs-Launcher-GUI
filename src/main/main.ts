@@ -159,9 +159,10 @@ function createWindow () {
 
       if (mode === 'offline') {
         handleUpdateCheckError("In offline mode");
+        return;
       }
 
-      if (process.env.NODE_ENV !== 'development' && mode !== 'offline') {
+      if (process.env.NODE_ENV !== 'development') {
         autoUpdater.checkForUpdates().then((result) => {
           updateCheck(result);
         }).catch(handleUpdateCheckError);
