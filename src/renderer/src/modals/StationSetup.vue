@@ -74,7 +74,7 @@ watch(setupParams, (newValue) => {
   }
 
   newValue.forEach((value: string) => {
-    let values = value.split("=");
+    let values = setupStore.splitStringWithLimit(value, "=", 2);
 
     form[values[0]] = values[1];
 
