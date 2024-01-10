@@ -26,6 +26,24 @@ export const useSetupStore = defineStore({
             NovaStarPassword: '',
         })
     }),
-    actions: {},
+    actions: {
+        splitStringWithLimit(input: string, delimiter: string, limit: number): string[] {
+            const parts = input.split(delimiter);
+
+            if (parts.length <= limit) {
+                return parts;
+            }
+
+            const result: string[] = [];
+            for (let i = 0; i < limit - 1; i++) {
+                result.push(parts.shift() as string);
+            }
+
+            // Combine the remaining parts into the last block
+            result.push(parts.join(delimiter));
+
+            return result;
+        },
+    },
     getters: {}
 });
