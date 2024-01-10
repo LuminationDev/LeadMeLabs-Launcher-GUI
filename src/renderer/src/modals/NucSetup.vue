@@ -69,7 +69,7 @@ watch(setupParams, (newValue) => {
   }
 
   newValue.forEach((value: string) => {
-    let values = value.split("=");
+    let values = setupStore.splitStringWithLimit(value, "=", 2);
     let details;
 
     switch(values[0]) {
