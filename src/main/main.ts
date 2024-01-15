@@ -258,7 +258,7 @@ function updateCheck(result: UpdateCheckResult|null) {
   } else {
     try {
       collectLocation().then(location => {
-        Sentry.captureMessage(`Updating launcher from ${result.updateInfo.version} to ${app.getVersion()} at site ${location} with MAC address ${getInternalMac()}`)
+        Sentry.captureMessage(`Updating launcher from ${app.getVersion()} to ${result.updateInfo.version} at site ${location} with MAC address ${getInternalMac()}`)
       })
     } catch (error) {
       Sentry.captureException(error)
