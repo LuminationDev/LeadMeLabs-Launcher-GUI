@@ -65,7 +65,8 @@ export const taskSchedulerItem = (mainWindow: Electron.BrowserWindow, info: any,
         mainWindow.webContents.send('backend_message', {
             channelType: 'scheduler_update',
             message: stdout,
-            type: info.type
+            type: info.type,
+            target: null
         });
     });
 }
@@ -93,6 +94,11 @@ const listTasks = async (taskFolder: string): Promise<any> => {
         }
     } catch (err) {
         console.error(err);
+        return {
+            message: "",
+            target: null,
+            current: null
+        }
     }
 }
 
