@@ -59,6 +59,7 @@ commands:
       - run:
           name: Delete old files
           command: rm -rf ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
+      - run: mkdir ~/<<parameters.repository>>/applications/electron-launcher
       - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Copy built files to git repository
