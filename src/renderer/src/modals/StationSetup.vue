@@ -112,8 +112,11 @@ const transformForm = () => {
   if(!steamCMD.value) {
     delete data.SteamUserName;
     delete data.SteamPassword;
+  }
+
+  if(data.StationMode !== 'VR') {
     delete data.HeadsetType;
-  } 
+  }
 
   return data;
 };
@@ -138,9 +141,13 @@ const handleSubmit = async () => {
 // @ts-ignore
 const keys = reactive(Object.keys(form));
 const progress = computed(() => {
-  const formLength = steamCMD.value ? keys.length : keys.length - 3;
-  const completed = keys.filter(key => form[key] !== '' && form[key] !== undefined).length;
-  return Math.round((completed / formLength) * 100);
+  let formLength = steamCMD.value ? keys.length : keys.length - 2;
+  formLength = (form.StationMode === 'VR') ? formLength : formLength - 1;
+
+  const completedFields = keys.filter(key => form[key] !== '' && form[key] !== undefined).length;
+  const completionPercentage = (completedFields / formLength) * 100;
+
+  return Math.round(completionPercentage);
 });
 
 /**
@@ -173,11 +180,13 @@ function createValidator(fieldNames: string[]): () => boolean {
 }
 
 /**
- * Computed property that returns the list of fields to validate for page two
+ * Computed property that returns the list of fields to validate for page two. SteamUserName and SteamPassword are
+ * added if the 'include' checkbox has been ticked. HeadsetType is added if the StationMode is set to 'VR'.
  */
 const pageTwoFields = computed(() => [
   'StationMode',
-  ...(steamCMD.value ? ['SteamUserName', 'SteamPassword', 'HeadsetType'] : [])
+  ...(steamCMD.value ? ['SteamUserName', 'SteamPassword'] : []),
+  ...(form.StationMode === 'VR' ? 'HeadsetType' : [])
 ]);
 
 const validatePageOne = () => createValidator(['AppKey', 'LabLocation', 'StationId', 'room', 'NucAddress'])();
@@ -260,7 +269,7 @@ const openPinPromptModal = () => {
             <SetupSingleInput :title="'NUC IP Address'" :placeholder="'192.168.0.100'" :v$="v$.form.NucAddress" v-model="form.NucAddress"/>
           </div>
 
-          <div v-if="pageNum === 1" class="mt-4 mx-5 flex flex-col">
+          <div v-if="pageNum === 1" class="mt-4 mx-5 mb-3 flex flex-col">
             <SetupDoubleInput
                 :title="'Steam Account details'"
                 :placeholderOne="'username'"
@@ -286,7 +295,7 @@ const openPinPromptModal = () => {
             </div>
 
             <SetupChoiceSelection
-                v-if="steamCMD"
+                v-if="steamCMD && form.StationMode === 'VR'"
                 :title="'Headset Type'"
                 :choices="['Vive Pro 1', 'Vive Pro 2', 'Vive Focus 3']"
                 v-model="form.HeadsetType"
@@ -308,7 +317,10 @@ const openPinPromptModal = () => {
               <div v-if="!['Steam', 'Headset', 'TIME_CREATED'].some(k => key.includes(k))">
                 {{key}} = {{form[key]}}
               </div>
-              <div v-else-if="steamCMD && (key.includes('Steam') || key.includes('Headset'))">
+              <div v-else-if="steamCMD && (key.includes('Steam'))">
+                {{key}} = {{form[key]}}
+              </div>
+              <div v-else-if="form.StationMode === 'VR' && key.includes('Headset')">
                 {{key}} = {{form[key]}}
               </div>
             </div>
