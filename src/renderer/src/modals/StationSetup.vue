@@ -186,7 +186,7 @@ function createValidator(fieldNames: string[]): () => boolean {
 const pageTwoFields = computed(() => [
   'StationMode',
   ...(steamCMD.value ? ['SteamUserName', 'SteamPassword'] : []),
-  ...(form.StationMode === 'VR' ? 'HeadsetType' : [])
+  ...(form.StationMode === 'VR' ? ['HeadsetType'] : [])
 ]);
 
 const validatePageOne = () => createValidator(['AppKey', 'LabLocation', 'StationId', 'room', 'NucAddress'])();
