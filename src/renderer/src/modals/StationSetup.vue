@@ -224,6 +224,7 @@ function closeModal() {
   pageNum.value = 0;
   showStationModal.value = false;
   saved.value = false;
+  form.HeadsetType = '';
 }
 
 const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
