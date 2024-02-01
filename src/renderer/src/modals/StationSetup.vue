@@ -162,6 +162,16 @@ watch(steamCMD, (newVal) => {
 });
 
 /**
+ * Trigger an event when the StationMode is changed to something other than VR, remove the HeadsetType from the
+ * form so the progress is re-calculated.
+ */
+watch(() => form.StationMode, (newVal) => {
+  if (newVal !== "VR") {
+    form.HeadsetType = '';
+  }
+});
+
+/**
  * Validate certain fields that are passed in.
  * @param fieldNames An array of fields to validate for a particular page.
  */
@@ -186,7 +196,7 @@ function createValidator(fieldNames: string[]): () => boolean {
 const pageTwoFields = computed(() => [
   'StationMode',
   ...(steamCMD.value ? ['SteamUserName', 'SteamPassword'] : []),
-  ...(form.StationMode === 'VR' ? 'HeadsetType' : [])
+  ...(form.StationMode === 'VR' ? ['HeadsetType'] : [])
 ]);
 
 const validatePageOne = () => createValidator(['AppKey', 'LabLocation', 'StationId', 'room', 'NucAddress'])();
@@ -224,6 +234,7 @@ function closeModal() {
   pageNum.value = 0;
   showStationModal.value = false;
   saved.value = false;
+  form.HeadsetType = '';
 }
 
 const pinRef = ref<InstanceType<typeof PinPrompt> | null>(null)
