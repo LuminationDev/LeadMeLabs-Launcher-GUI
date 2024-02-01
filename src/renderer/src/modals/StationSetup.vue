@@ -162,6 +162,16 @@ watch(steamCMD, (newVal) => {
 });
 
 /**
+ * Trigger an event when the StationMode is changed to something other than VR, remove the HeadsetType from the
+ * form so the progress is re-calculated.
+ */
+watch(() => form.StationMode, (newVal) => {
+  if (newVal !== "VR") {
+    form.HeadsetType = '';
+  }
+});
+
+/**
  * Validate certain fields that are passed in.
  * @param fieldNames An array of fields to validate for a particular page.
  */
