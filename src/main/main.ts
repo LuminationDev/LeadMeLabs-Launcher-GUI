@@ -49,6 +49,11 @@ autoUpdater.setFeedURL({
 // Production
 // url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
 
+/*
+ * Hold a reference to the latest version number
+ */
+let appVersion = "";
+
 // Listen for update download progress events
 autoUpdater.on('update-downloaded', () => {
   if(mainWindow) {
@@ -77,12 +82,11 @@ autoUpdater.on('update-downloaded', () => {
 
   try {
     collectLocation().then(location => {
-      Sentry.captureMessage(`Updated launcher to ${app.getVersion()} at site ${location}`)
+      Sentry.captureMessage(`Updated launcher to ${appVersion} at site ${location}`)
     })
   } catch (error) {
     Sentry.captureException(error)
   }
-
 })
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -277,6 +281,8 @@ function updateCheck(result: UpdateCheckResult|null) {
   if(!semver.gt(result.updateInfo.version, app.getVersion())) {
     sendAutoStart();
   } else {
+    appVersion = result.updateInfo.version;
+
     try {
       collectLocation().then(location => {
         Sentry.captureMessage(`Updating launcher from ${app.getVersion()} to ${result.updateInfo.version} at site ${location} with MAC address ${getInternalMac()}`)
