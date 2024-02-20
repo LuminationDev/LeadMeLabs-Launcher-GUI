@@ -91,7 +91,7 @@ commands:
           command: cd <<pipeline.id>> && npm ci
       - run:
           name: "build"
-          command: cd <<pipeline.id>> npm run build
+          command: cd <<pipeline.id>> && npm run build
       - run:
           name: "electron-build"
           command: cd <<pipeline.id>> && npm run electron-build -- -<<parameters.command>>
