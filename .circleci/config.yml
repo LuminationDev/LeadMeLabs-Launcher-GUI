@@ -19,9 +19,6 @@ commands:
       - run:
           name: Add github to known hosts
           command: ssh-keyscan github.com >> ~/.ssh/known_hosts
-      - run:
-          name: Add github to known hosts
-          command: dir /home/circleci/.ssh
       - when:
           condition:
             and:
@@ -29,21 +26,21 @@ commands:
           steps:
             - run:
                 name: Write ssh config file
-                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_560c4fe9f6442dccea78cbbffe56beb5" >> ~/.ssh/config
+                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile ~/.ssh/id_rsa_560c4fe9f6442dccea78cbbffe56beb5" >> ~/.ssh/config
             - run:
                 name: Clone hosting server
-                command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting-Development.git
+                command: cd ~/circleci-working/<<pipeline.id>> && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting-Development.git
       - when:
           condition:
             and:
               - equal: [Release, <<parameters.buildType>> ]
           steps:
             - run:
-                name: Write ssh config file
-                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile /home/circleci/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
+                name: Write ssh config file.
+                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile ~/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
             - run:
                 name: Clone hosting server
-                command: cd ~/ && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
+                command: cd ~/circleci-working/<<pipeline.id>> && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
 
   copy_and_push:
     parameters:
@@ -54,85 +51,67 @@ commands:
     steps:
       - run:
           name: Checkout <<parameters.branch>>
-          command: cd ~/<<parameters.repository>> && git checkout <<parameters.branch>>
-      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git checkout <<parameters.branch>>
       - run:
-          name: Delete old files
-          command: rm -rf ~/LeadMeLabs-Launcher-Hosting/applications/electron-launcher
-      - run: mkdir ~/<<parameters.repository>>/applications/electron-launcher
-      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
+          name: Delete old files.
+          command: rm -rf ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
+      - run: mkdir ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Copy built files to git repository
-          command: cp -r ./project/dist/. ~/<<parameters.repository>>/applications/electron-launcher
+          command: cd ~/circleci-working/<<pipeline.id>>/ && cp -r ./dist/. ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Add built files to git
-          command: cd ~/<<parameters.repository>>/applications/electron-launcher && git add --all
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher && git add --all
       - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Commit
-          command: cd ~/<<parameters.repository>> && git commit -m "Update launcher"
-      - run: ls ~/<<parameters.repository>>
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git commit -m "Update launcher"
       - run:
           name: Push
-          command: cd ~/<<parameters.repository>> && git push
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git push
 
   windows-npm:
     steps:
-      - run: choco install wget -y
       - run:
-         command: wget https://nodejs.org/dist/v16.17.0/node-v16.17.0-x86.msi -P C:\Users\circleci\Downloads\
-         shell: cmd.exe
-      - run: MsiExec.exe /i C:\Users\circleci\Downloads\node-v16.17.0-x86.msi /qn
-      - run:
-          command: |
-              Start-Process powershell -verb runAs -Args "-start GeneralProfile"
-              nvm install 16.17.0
-              nvm use 16.17.0
+          command: nvm use 16.17.0
+          shell: powershell.exe
 
   build:
     parameters:
       command:
         type: string
     steps:
-      - checkout
+      - run: mkdir <<pipeline.id>>
+      - run: cd <<pipeline.id>>
+      - checkout:
+          path: <<pipeline.id>>
       - run:
           name: "npm ci"
-          command: "npm ci"
+          command: cd <<pipeline.id>> && npm ci
       - run:
           name: "build"
-          command: "npm run build"
+          command: cd <<pipeline.id>> && npm run build
       - run:
           name: "electron-build"
-          command: "npm run electron-build -- -<<parameters.command>>"
+          command: cd <<pipeline.id>> && npm run electron-build -- -<<parameters.command>>
       - when:
           condition:
             and:
               - equal: [w, <<parameters.command>>]
           steps:
-            - run: rm ~/project/dist/builder-debug.yml
-            - run: rm ~/project/dist/win-unpacked/LeadMe.exe
+            - run: rm ~/circleci-working/<<pipeline.id>>/dist/builder-debug.yml
+            - run: rm ~/circleci-working/<<pipeline.id>>/dist/win-unpacked/LeadMe.exe
       - store_artifacts:
-          path: ~/project/dist
+          path: ~/circleci-working/<<pipeline.id>>/dist
       - persist_to_workspace:
-          root: ~/
+          root: ~/circleci-working/<<pipeline.id>>/
           paths:
-            - project/dist
+            - dist
 
 jobs:
-  run-tests:
-    docker:
-      - image: cimg/node:current
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: |
-            npm ci
-      - run:
-          name: Run tests
-          command: |
-            npm test
   build-windows:
+    machine: true
+    resource_class: luminationdev/darragh-comp
     executor:
       name: windows/default
     steps:
@@ -141,6 +120,10 @@ jobs:
           command: w
 
   commit-and-push:
+    machine: true
+    resource_class: luminationdev/darragh-comp
+    executor:
+      name: windows/default
     parameters:
       branch:
         type: string
@@ -148,8 +131,6 @@ jobs:
         type: string
       buildType:
         type: string
-    docker:
-      - image: cimg/node:current
     steps:
       - clone_hosting:
           buildType: <<parameters.buildType>>
