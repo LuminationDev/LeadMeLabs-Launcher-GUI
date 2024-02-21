@@ -36,7 +36,7 @@ commands:
               - equal: [Release, <<parameters.buildType>> ]
           steps:
             - run:
-                name: Write ssh config file.
+                name: Write ssh config file
                 command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile ~/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
             - run:
                 name: Clone hosting server
