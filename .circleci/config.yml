@@ -53,7 +53,7 @@ commands:
           name: Checkout <<parameters.branch>>
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git checkout <<parameters.branch>>
       - run:
-          name: Delete old files.
+          name: Delete old files
           command: rm -rf ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run: mkdir ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
