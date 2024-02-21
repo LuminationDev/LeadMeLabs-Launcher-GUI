@@ -57,7 +57,7 @@ commands:
           command: rm -rf ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run: mkdir ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
-          name: Copy built files to git repository.
+          name: Copy built files to git repository
           command: cd ~/circleci-working/<<pipeline.id>>/ && cp -r ./dist/. ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Add built files to git
