@@ -68,6 +68,9 @@ commands:
       - run:
           name: Push
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git push
+      - run:
+          name: Cleanup
+          command: rm -rf ~/circleci-working/<<pipeline.id>>
 
   windows-npm:
     steps:
