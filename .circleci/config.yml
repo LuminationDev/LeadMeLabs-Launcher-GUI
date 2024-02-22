@@ -36,7 +36,7 @@ commands:
               - equal: [Release, <<parameters.buildType>> ]
           steps:
             - run:
-                name: Write ssh config file.
+                name: Write ssh config file
                 command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile ~/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
             - run:
                 name: Clone hosting server
@@ -53,7 +53,7 @@ commands:
           name: Checkout <<parameters.branch>>
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git checkout <<parameters.branch>>
       - run:
-          name: Delete old files.
+          name: Delete old files
           command: rm -rf ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run: mkdir ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
@@ -62,13 +62,15 @@ commands:
       - run:
           name: Add built files to git
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher && git add --all
-      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Commit
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git commit -m "Update launcher"
       - run:
           name: Push
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git push
+      - run:
+          name: Cleanup
+          command: rm -rf ~/circleci-working/<<pipeline.id>>
 
   windows-npm:
     steps:
