@@ -24,6 +24,7 @@ export const useSetupStore = defineStore({
             CbusPassword: '',
             NovaStarLogin: '',
             NovaStarPassword: '',
+            ReportRealtimeData: 'false'
         })
     }),
     actions: {

@@ -13,6 +13,7 @@ import PinPrompt from "@renderer/modals/PinPrompt.vue";
 import { useLibraryStore } from '../store/libraryStore';
 import { useSetupStore } from "../store/setupStore";
 import { NUCForm } from "@renderer/interfaces/forms";
+import SetupChoiceSelection from "@renderer/components/inputs/SetupChoiceSelection.vue";
 
 const libraryStore = useLibraryStore();
 const setupStore = useSetupStore();
@@ -53,6 +54,10 @@ const rules = {
     },
     NovaStarPassword: {
       required: helpers.withMessage("NovaStarPassword is required", required),
+      $autoDirty: true
+    },
+    ReportRealtimeData: {
+      required: helpers.withMessage("ReportRealtimeData is required", required),
       $autoDirty: true
     },
   }
@@ -178,6 +183,7 @@ const pageTwoFields = computed(() => [
   'CbusLogin',
   'CbusPassword',
   ...(novaStar.value ? ['NovaStarLogin', 'NovaStarPassword'] : []),
+  'ReportRealtimeData'
 ]);
 
 const validatePageOne = () => createValidator(['AppKey', 'LabLocation', 'CbusIP', 'CbusNucScriptId'])();
@@ -282,6 +288,12 @@ const openPinPromptModal = () => {
                 :optional="true"
                 v-model:visible="novaStar"
             />
+
+            <SetupChoiceSelection
+                :title="'Report realtime data'"
+                :choices="['true', 'false']"
+                v-model="form.ReportRealtimeData"
+                :v$="v$.form.ReportRealtimeData" />
           </div>
 
           <div v-if="pageNum === 2" class="my-4 mx-5 flex flex-col">

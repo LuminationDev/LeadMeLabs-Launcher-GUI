@@ -7,6 +7,7 @@ export interface NUCForm {
     CbusPassword?: string;
     NovaStarLogin?: string;
     NovaStarPassword?: string;
+    ReportRealtimeData?: string;
 }
 
 export interface StationForm {

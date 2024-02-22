@@ -1473,6 +1473,11 @@ export default class Helpers {
         }
 
         let dataArray = decryptedData.split('\n'); // convert file data in an array
+        if (info.name == 'NUC') {
+            if (dataArray.findIndex(element => element.startsWith("ReportRealtimeData")) === -1) {
+                dataArray.push("ReportRealtimeData=false")
+            }
+        }
 
         //Send the data array back to the front end.
         this.mainWindow.webContents.send('backend_message', {
