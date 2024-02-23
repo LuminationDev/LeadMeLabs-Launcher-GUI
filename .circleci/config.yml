@@ -192,12 +192,15 @@ workflows:
       - build-windows:
           requires:
             - hold
+      - sign:
+          requires:
+            - build-windows
       - commit-and-push:
           branch: "main"
           buildType: "Release"
           repository: "LeadMeLabs-Launcher-Hosting"
           requires:
-            - build-windows
+            - sign
   build_development:
     jobs:
       - hold:
@@ -206,9 +209,12 @@ workflows:
       - build-windows:
           requires:
             - hold
+      - sign:
+          requires:
+            - build-windows
       - commit-and-push:
           branch: "main"
           buildType: "Development"
           repository: "LeadMeLabs-Launcher-Hosting-Development"
           requires:
-            - build-windows
+            - sign
