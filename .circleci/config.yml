@@ -146,9 +146,6 @@ jobs:
   sign:
     machine: true
     resource_class: luminationdev/darragh-comp
-    parameters:
-      buildType:
-        type: string
     executor:
       name: windows/default
     steps:
