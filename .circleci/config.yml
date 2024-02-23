@@ -73,16 +73,9 @@ commands:
 
   windows-npm:
     steps:
-      - run: choco install wget -y
       - run:
-          command: wget https://nodejs.org/dist/v16.17.0/node-v16.17.0-x86.msi -P C:\Users\circleci\Downloads\
-          shell: cmd.exe
-      - run: MsiExec.exe /i C:\Users\circleci\Downloads\node-v16.17.0-x86.msi /qn
-      - run:
-          command: |
-            Start-Process powershell -verb runAs -Args "-start GeneralProfile"
-            nvm install 16.17.0
-            nvm use 16.17.0
+          command: nvm use 16.17.0
+          shell: powershell.exe
 
   build:
     parameters:
@@ -94,26 +87,17 @@ commands:
           path: ~/circleci-working/<<pipeline.id>>
       - run:
           name: "npm ci"
-          command: cd ~/circleci-working/<<pipeline.id>>; npm ci
+          command: cd ~/circleci-working/<<pipeline.id>> && npm ci
       - run:
           name: "build"
-          command: cd ~/circleci-working/<<pipeline.id>>; npm run build
-      - persist_to_workspace:
-          root: ~/circleci-working/<<pipeline.id>>/
-          paths:
-            - /
-  sign:
-    parameters:
-      command:
-        type: string
-    steps:
+          command: cd ~/circleci-working/<<pipeline.id>> && npm run build
       - run:
           name: "electron-build"
-          command: cd ~/circleci-working/<<pipeline.id>>; npm run electron-build -- -<<parameters.command>>
+          command: cd ~/circleci-working/<<pipeline.id>> && npm run electron-build -- -<<parameters.command>>
       - when:
           condition:
             and:
-              - equal: [ w, <<parameters.command>> ]
+              - equal: [w, <<parameters.command>>]
           steps:
             - run: rm ~/circleci-working/<<pipeline.id>>/dist/builder-debug.yml
             - run: rm ~/circleci-working/<<pipeline.id>>/dist/win-unpacked/LeadMe.exe
@@ -126,25 +110,13 @@ commands:
 
 jobs:
   build-windows:
-    executor:
-      name: windows/default
-    steps:
-      - windows-npm
-      - build:
-          command: w
-
-  sign:
     machine: true
     resource_class: luminationdev/darragh-comp
     executor:
       name: windows/default
     steps:
-      - attach_workspace:
-          at: ~/circleci-working/<<pipeline.id>>
-      - run:
-          command: nvm use 16.17.0
-          shell: powershell.exe
-      - sign:
+      - windows-npm
+      - build:
           command: w
 
   commit-and-push:
@@ -179,15 +151,12 @@ workflows:
       - build-windows:
           requires:
             - hold
-      - sign:
-          requires:
-            - build-windows
       - commit-and-push:
           branch: "main"
           buildType: "Release"
           repository: "LeadMeLabs-Launcher-Hosting"
           requires:
-            - sign
+            - build-windows
   build_development:
     jobs:
       - hold:
@@ -196,12 +165,9 @@ workflows:
       - build-windows:
           requires:
             - hold
-      - sign:
-          requires:
-            - build-windows
       - commit-and-push:
           branch: "main"
           buildType: "Development"
           repository: "LeadMeLabs-Launcher-Hosting-Development"
           requires:
-            - sign
+            - build-windows
