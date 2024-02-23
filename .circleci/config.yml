@@ -98,16 +98,6 @@ commands:
       - run:
           name: "build"
           command: cd ~/circleci-working/<<pipeline.id>>; npm run build
-      - run:
-          name: "electron-build"
-          command: cd ~/circleci-working/<<pipeline.id>>; npm run electron-build -- -<<parameters.command>>
-      - when:
-          condition:
-            and:
-              - equal: [w, <<parameters.command>>]
-          steps:
-            - run: rm ~/circleci-working/<<pipeline.id>>/dist/builder-debug.yml
-            - run: rm ~/circleci-working/<<pipeline.id>>/dist/win-unpacked/LeadMe.exe
       - persist_to_workspace:
           root: ~/circleci-working/<<pipeline.id>>/
           paths:
