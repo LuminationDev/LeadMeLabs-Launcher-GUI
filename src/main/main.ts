@@ -2,7 +2,7 @@ import semver from "semver/preload";
 import fs from "fs";
 import { autoUpdater, UpdateCheckResult } from 'electron-updater';
 import { join } from 'path';
-import Helpers from "./util/Helpers";
+import MainController from "./controllers/MainController";
 import { collectFeedURL, collectLocation, getLauncherManifestParameter, getInternalMac } from "./util/Utilities";
 import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
@@ -62,8 +62,8 @@ autoUpdater.on('update-downloaded', () => {
       name: "UPDATE DOWNLOADED, close any open applications"
     });
   }
-  if (helpers) {
-    helpers.downloading = false
+  if (mainController) {
+    mainController.downloading = false
   }
 
   if(downloadWindow) {
@@ -91,8 +91,8 @@ autoUpdater.on('update-downloaded', () => {
 
 autoUpdater.on('download-progress', (progressObj) => {
   console.log('updating', progressObj)
-  if (helpers) {
-    helpers.downloading = true
+  if (mainController) {
+    mainController.downloading = true
   }
   if(!downloadWindow) {
     createDownloadWindow();
@@ -372,7 +372,7 @@ function setupTrayIcon(): void {
  */
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-var helpers: Helpers
+var mainController: MainController
 
 app.whenReady().then(async () => {
   protocol.interceptFileProtocol('media-loader', (request, callback) => {
@@ -390,8 +390,8 @@ app.whenReady().then(async () => {
   console.log("Starting electron application");
 
   //Load in all the helper functions
-  helpers = new Helpers(ipcMain, mainWindow)
-  helpers.startup()
+  mainController = new MainController(ipcMain, mainWindow)
+  mainController.startup()
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({

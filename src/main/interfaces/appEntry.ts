@@ -19,8 +19,3 @@ export interface VREntry {
         }
     }
 }
-
-export interface ConfigFile {
-    source: string;
-    applications: VREntry[];
-}

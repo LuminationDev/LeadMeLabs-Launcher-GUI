@@ -171,7 +171,6 @@ const resumeDownloadingApplication = (): void => {
     >
       <Spinner />
     </div>
-    <BaseProgress :percentage="download_progress" :color="'gray'" class="mx-2 h-5"/>
   </div>
 
   <div
