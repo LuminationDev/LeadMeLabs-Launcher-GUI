@@ -63,7 +63,6 @@ commands:
       - run:
           name: Add built files to git
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher; git add --all
-      - run: ls ~/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Commit
           command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>; git commit -m "Update launcher"
