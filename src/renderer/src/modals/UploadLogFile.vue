@@ -10,8 +10,8 @@ import useVuelidate from "@vuelidate/core";
 import TextInput from "../components/inputs/TextInput.vue";
 import { useLibraryStore } from "../store/libraryStore";
 import * as CONSTANT from "../assets/constants/index";
-const libraryStore = useLibraryStore();
 
+const libraryStore = useLibraryStore();
 const props = defineProps({
   softwareName: {
     type: String,
@@ -37,8 +37,34 @@ const errorText = vueRef("");
 const showUploadModal = vueRef(false);
 const fileInput = vueRef<HTMLInputElement | null>(null);
 
+let fileContentsArray: { [key: string]: string }[] = [];
 const selectFiles = (): void => {
   if (fileInput.value !== null) {
+    fileContentsArray = [];
+
+    const selectedFiles = fileInput.value.files;
+
+    if (selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onload = (event) => {
+          const fileString = event.target?.result as string;
+          const fileObject = { [file.name]: fileString };
+          fileContentsArray.push(fileObject);
+
+          // Check if all files have been read
+          if (fileContentsArray.length === selectedFiles.length) {
+            // All files have been read, you can now use fileContentsArray
+            console.log("File contents array:", fileContentsArray);
+          }
+        };
+        reader.onerror = (event) => {
+          console.error('File reading error:', event.target.error);
+        };
+      }
+    }
     console.log(fileInput.value.files);
   }
 }
@@ -77,7 +103,7 @@ async function uploadFiles(): Promise<void> {
   const auth = getAuth();
 
   signInWithEmailAndPassword(auth, state.email, state.password).then(() => {
-    if (files == null) {
+    if (fileContentsArray.length == 0) {
       errorText.value = "No files found"
       return;
     }
@@ -86,31 +112,28 @@ async function uploadFiles(): Promise<void> {
 
     errorText.value = "uploading";
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const storageRef = ref(storage, `launcher/${LabLocation.value}/${room.value}/${StationId.value == undefined ? "NUC" : "Station " + StationId.value}/${file.name}`);
+    fileContentsArray.map((fileObject) => {
+      for (const fileName in fileObject) {
+        if (fileObject.hasOwnProperty(fileName)) {
+          const fileContent = fileObject[fileName];
 
-      const reader = new FileReader();
-      reader.readAsText(file);
-      reader.onload = (event) => {
-        const fileString = event.target?.result as string;
+          const deviceName = StationId.value == undefined || StationId.value.length == 0 ? "NUC" : "Station " + StationId.value;
+          const storageRef = ref(storage, `launcher/${LabLocation.value}/${room.value}/${deviceName}/${fileName}`);
 
-        uploadString(storageRef, fileString, "raw")
-            .then(() => {
-              console.log(`File ${file.name} uploaded successfully`);
-              errorText.value = "uploaded";
-            })
-            .catch((error) => {
-              console.error(`Error uploading file ${file.name}: ${error}`);
-            });
-      };
-
-      reader.onerror = (event) => {
-        console.error('File reading error:', event.target.error);
-        errorText.value = "File not uploaded";
-      };
-    }
+          uploadString(storageRef, fileContent, "raw")
+              .then(() => {
+                console.log(`File ${fileName} uploaded successfully`);
+                errorText.value = "uploaded";
+              })
+              .catch((error) => {
+                console.log(`Error uploading file ${fileName}: ${error}`);
+                errorText.value = "File not uploaded";
+              });
+        }
+      }
+    });
   }).catch((error) => {
+    console.log(error);
     errorText.value = error
   });
 }

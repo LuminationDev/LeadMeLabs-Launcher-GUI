@@ -1,9 +1,10 @@
 import fs from "fs";
 import { join } from "path";
 import { net as electronNet } from "electron";
-import Encryption from "./Encryption";
+import Encryption from "../encryption/Encryption";
 import * as Sentry from "@sentry/electron";
 import os from "os";
+import {AppEntry} from "../interfaces/appEntry";
 
 /**
  * Check if an online resource is available.
@@ -182,4 +183,59 @@ export function getInternalMac() {
         console.log(e)
     }
     return internalMac
+}
+
+/**
+ * Function to generate a unique ID for each object.
+ * @param name
+ */
+export function generateUniqueId(name: string) {
+    const allowedChars = 'abcdefghijklmnopqrstuvwxyz0123456789 ~`!@#$%^&*()-_=+[{]}\\|;:\'",<.>/?';
+
+    let id = name
+        .toLowerCase()
+        .split('')
+        .map((char) => {
+            const index = allowedChars.indexOf(char);
+            if (index >= 0) {
+                return (index + 11).toString();
+            } else {
+                return '';
+            }
+        })
+        .join('');
+
+    console.log(id);
+
+    return id;
+}
+
+/**
+ * Function to read the objects from a JSON file.
+ */
+export async function readObjects(filename: string): Promise<Array<AppEntry>> {
+    if (fs.existsSync(filename)) {
+        //Attempt to read in utf16le - if this is not correct it will throw an exception in the decryption method.
+        const decryptedData = await Encryption.detectFileEncryption(filename);
+        if(decryptedData === null || decryptedData.length === 0) {
+            return [];
+        }
+
+        return JSON.parse(decryptedData);
+    }
+    return [];
+}
+
+/**
+ * Function to write the objects to a JSON file
+ */
+export async function writeObjects (filename: string, jsonArray: Array<AppEntry>): Promise<string> {
+    const success = await Encryption.encryptFile(JSON.stringify(jsonArray), filename);
+
+    //Create the file and write the new application entry in
+    if (success) {
+        return 'Manifest file is updated successfully.';
+    }
+
+    return 'Manifest file was not updated.'
 }

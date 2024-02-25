@@ -1,32 +1,8 @@
 import fs from "fs-extra";
 import { join } from "path";
-import Encryption from "./Encryption";
-
-interface AppEntry {
-    type: string
-    id: string
-    name: string
-    autostart: boolean
-    altPath: string|null
-    parameters: {}
-}
-
-interface VREntry {
-    app_key: string
-    launch_type: string
-    binary_path_windows: string
-    is_dashboard_overlay: boolean
-    strings: {
-        [language: string]: {
-            name: string
-        }
-    }
-}
-
-interface ConfigFile {
-    source: string;
-    applications: VREntry[];
-}
+import Encryption from "../encryption/Encryption";
+import { AppEntry, VREntry } from "../interfaces/appEntry";
+import { ConfigFile } from "../interfaces/config";
 
 /**
  * The purpose of this class is to handle the migration of imported LeadMe applications, creating an
