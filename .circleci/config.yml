@@ -13,9 +13,10 @@ commands:
           fingerprints:
             - "12:41:3e:8a:8f:e0:54:05:f1:4c:a3:85:0b:49:1b:c8"
             - "56:0c:4f:e9:f6:44:2d:cc:ea:78:cb:bf:fe:56:be:b5"
+      - run: mkdir -p ~/circleci-working/<<pipeline.id>>
       - run:
           name: Setup git config
-          command: git config --global user.name "CircleCI" && git config --global user.email "CircleCI@lumination.com.au"
+          command: git config --global user.name "CircleCI"; git config --global user.email "CircleCI@lumination.com.au"
       - run:
           name: Add github to known hosts
           command: ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -26,21 +27,21 @@ commands:
           steps:
             - run:
                 name: Write ssh config file
-                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile ~/.ssh/id_rsa_560c4fe9f6442dccea78cbbffe56beb5" >> ~/.ssh/config
+                command: echo "Host github.com" > ~/.ssh/config; echo "  IdentitiesOnly yes" >> ~/.ssh/config; echo "  IdentityFile ~/.ssh/id_rsa_560c4fe9f6442dccea78cbbffe56beb5" >> ~/.ssh/config
             - run:
                 name: Clone hosting server
-                command: cd ~/circleci-working/<<pipeline.id>> && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting-Development.git
+                command: cd ~/circleci-working/<<pipeline.id>>; git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting-Development.git
       - when:
           condition:
             and:
               - equal: [Release, <<parameters.buildType>> ]
           steps:
             - run:
-                name: Write ssh config file
-                command: echo "Host github.com" > ~/.ssh/config && echo "  IdentitiesOnly yes" >> ~/.ssh/config && echo "  IdentityFile ~/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
+                name: Write ssh config file.
+                command: echo "Host github.com" > ~/.ssh/config; echo "  IdentitiesOnly yes" >> ~/.ssh/config; echo "  IdentityFile ~/.ssh/id_rsa_12413e8a8fe05405f14ca3850b491bc8" >> ~/.ssh/config
             - run:
                 name: Clone hosting server
-                command: cd ~/circleci-working/<<pipeline.id>> && git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
+                command: cd ~/circleci-working/<<pipeline.id>>; git clone git@github.com:LuminationDev/LeadMeLabs-Launcher-Hosting.git
 
   copy_and_push:
     parameters:
@@ -51,27 +52,23 @@ commands:
     steps:
       - run:
           name: Checkout <<parameters.branch>>
-          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git checkout <<parameters.branch>>
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>; git checkout <<parameters.branch>>
       - run:
           name: Delete old files
           command: rm -rf ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run: mkdir ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Copy built files to git repository
-          command: cd ~/circleci-working/<<pipeline.id>>/ && cp -r ./dist/. ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
+          command: cd ~/circleci-working/<<pipeline.id>>/; cp -r ./dist/. ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher
       - run:
           name: Add built files to git
-          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher && git add --all
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>/applications/electron-launcher; git add --all
       - run:
           name: Commit
-          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git commit -m "Update launcher"
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>; git commit -m "Update launcher"
       - run:
           name: Push
-          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>> && git push
-      - run:
-          name: Cleanup
-          command: rm -rf ~/circleci-working/<<pipeline.id>>
-
+          command: cd ~/circleci-working/<<pipeline.id>>/<<parameters.repository>>; git push
   windows-npm:
     steps:
       - run:
@@ -83,19 +80,18 @@ commands:
       command:
         type: string
     steps:
-      - run: mkdir <<pipeline.id>>
-      - run: cd <<pipeline.id>>
+      - run: mkdir -p ~/circleci-working/<<pipeline.id>>
       - checkout:
-          path: <<pipeline.id>>
+          path: ~/circleci-working/<<pipeline.id>>
       - run:
           name: "npm ci"
-          command: cd <<pipeline.id>> && npm ci
+          command: cd ~/circleci-working/<<pipeline.id>> && npm ci
       - run:
           name: "build"
-          command: cd <<pipeline.id>> && npm run build
+          command: cd ~/circleci-working/<<pipeline.id>> && npm run build
       - run:
           name: "electron-build"
-          command: cd <<pipeline.id>> && npm run electron-build -- -<<parameters.command>>
+          command: cd ~/circleci-working/<<pipeline.id>> && npm run electron-build -- -<<parameters.command>>
       - when:
           condition:
             and:
@@ -122,10 +118,8 @@ jobs:
           command: w
 
   commit-and-push:
-    machine: true
-    resource_class: luminationdev/darragh-comp
-    executor:
-      name: windows/default
+    docker:
+      - image: cimg/node:current
     parameters:
       branch:
         type: string
@@ -137,7 +131,7 @@ jobs:
       - clone_hosting:
           buildType: <<parameters.buildType>>
       - attach_workspace:
-          at: ./
+          at: ~/circleci-working/<<pipeline.id>>
       - copy_and_push:
           branch: <<parameters.branch>>
           repository: <<parameters.repository>>

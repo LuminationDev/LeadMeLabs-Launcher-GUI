@@ -98,14 +98,18 @@ async function uploadFiles(): Promise<void> {
         uploadString(storageRef, fileString, "raw")
             .then(() => {
               console.log(`File ${file.name} uploaded successfully`);
+              errorText.value = "uploaded";
             })
             .catch((error) => {
               console.error(`Error uploading file ${file.name}: ${error}`);
             });
       };
-    }
-    errorText.value = "uploaded";
 
+      reader.onerror = (event) => {
+        console.error('File reading error:', event.target.error);
+        errorText.value = "File not uploaded";
+      };
+    }
   }).catch((error) => {
     errorText.value = error
   });
