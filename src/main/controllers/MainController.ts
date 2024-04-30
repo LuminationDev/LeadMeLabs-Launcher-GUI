@@ -7,14 +7,14 @@ import extract from "extract-zip";
 import { exec, execSync, spawn, spawnSync } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
-import * as https from "https"; //Use for production hosting server
+import * as https from "https";
 import { app, BrowserWindow, shell } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 import * as Sentry from "@sentry/electron";
 import {
     checkFileAvailability, checkForElectronVersion,
     collectFeedURL,
-    collectLocation, findExecutable, findExecutableWithNameSetup,
+    collectLocation, findExecutableWithNameSetup,
     getInternalMac
 } from "../util/Utilities";
 import { taskSchedulerItem } from "../util/TaskScheduler";

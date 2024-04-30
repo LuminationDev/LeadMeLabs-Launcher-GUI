@@ -8,6 +8,25 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' 'unsafe-eval"
     /> -->
+
+    <!-- Custom scrollbar style -->
+    <style>
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background-color: #f1f1f1;
+    }
+    ::-webkit-scrollbar-thumb {
+        background-color: #888;
+        border-radius: 5px;
+    }
+    /* Optional styles for Firefox */
+    ::-webkit-scrollbar-thumb {
+        scrollbar-width: thin;
+        scrollbar-color: #888 #f1f1f1;
+    }
+    </style>
   </head>
 
   <body>
