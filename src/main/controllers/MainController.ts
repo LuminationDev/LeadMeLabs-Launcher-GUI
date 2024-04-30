@@ -12,12 +12,13 @@ import { app, BrowserWindow, shell } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 import * as Sentry from "@sentry/electron";
 import {
-    checkFileAvailability,
+    checkFileAvailability, checkForElectronVersion,
     collectFeedURL,
-    collectLocation,
+    collectLocation, findExecutable, findExecutableWithNameSetup,
     getInternalMac
 } from "../util/Utilities";
 import { taskSchedulerItem } from "../util/TaskScheduler";
+import * as CONSTANT from "../assets/constants";
 import ManifestController from "./ManifestController";
 import ConfigController from "./ConfigController";
 
@@ -37,6 +38,8 @@ export default class MainController {
     mainWindow: Electron.BrowserWindow;
     downloading: boolean = false;
     appDirectory: string;
+    embeddedDirectory: string;
+    toolDirectory: string;
     host: string = "";
     offlineHost: string = "http://localhost:8088"; //Changes if on NUC (localhost) or Station (NUC IP address)
     FIREBASE_BASE_URL: string = 'https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/'
@@ -47,6 +50,8 @@ export default class MainController {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
         this.appDirectory = process.env.APPDATA + '/leadme_apps';
+        this.embeddedDirectory = process.env.APPDATA + '/leadme_apps/Embedded';
+        this.toolDirectory = process.env.APPDATA + '/leadme_apps/Tools';
 
         var PIPE_NAME = "LeadMeLauncher";
         var PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
@@ -78,6 +83,9 @@ export default class MainController {
                 case "query_installed_applications":
                     void this.manifestController.installedApplications();
                     break;
+                case "modify_app_manifest":
+                    void this.manifestController.modifyAppManifest(info);
+                    break;
                 case "import_application":
                     void this.manifestController.importApplication(_event, info);
                     break;
@@ -96,6 +104,9 @@ export default class MainController {
                     break;
                 case "query_manifest_app":
                     void this.manifestController.getLaunchParameters(_event, info);
+                    break;
+                case "electron_check_setup":
+                    void this.manifestController.isElectronSetup(info);
                     break;
 
                 case "set_config_application":
@@ -129,6 +140,10 @@ export default class MainController {
                 case "stop_application":
                     void this.killAProcess(info.name, info.altPath, false);
                     break;
+                case "electron_setup":
+                    void this.setupElectronApplication(_event, info);
+                    break;
+
                 case "schedule_application":
                     void taskSchedulerItem(this.mainWindow, info, this.appDirectory);
                     break;
@@ -166,7 +181,170 @@ export default class MainController {
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
         this.downloading = true;
-        let downloadWindow = new BrowserWindow({
+        const downloadWindow = this.createDownloadWindow(`Downloading ${info.name} update, please wait...`);
+
+        this.host = info.host;
+        let url = this.host + info.url;
+
+        console.log("Server location:");
+        console.log(this.host);
+
+        //Set the directory for installation
+        let directoryPath: string;
+        switch (info.wrapperType) {
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
+                directoryPath = join(this.embeddedDirectory, info.name);
+                break;
+
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
+                let version: string = await checkForElectronVersion(url);
+                if (version === "" || version === null) {
+                    downloadWindow.destroy();
+                    this.mainWindow.webContents.send('status_message', {
+                        channelType: "status_update",
+                        name: info.name,
+                        message: `Server offline`
+                    });
+                    return;
+                }
+
+                url = this.host + `/${version}`;
+                directoryPath = join(this.toolDirectory, info.name);
+                break;
+
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME:
+            default:
+                directoryPath = join(this.appDirectory, info.name);
+                break;
+        }
+
+        this.mainWindow.webContents.send('status_message', {
+            channelType: "status_update",
+            name: info.name,
+            message: `Initiating download: ${directoryPath}`
+        })
+
+        //Create the main directory to hold the application
+        fs.mkdirSync(directoryPath, {recursive: true})
+
+        //Override the incoming directory path
+        info.properties.directory = directoryPath;
+
+        //Maintain a trace on the download progress
+        info.properties.onProgress = (status): void => {
+            console.log('status', status)
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "download_progress",
+                applicationName: info.name,
+                downloadProgress: status.percent
+            });
+
+            if(downloadWindow) {
+                downloadWindow.webContents.executeJavaScript(`
+                    try {
+                        const dynamicTextElement = document.getElementById('update-message');
+                        dynamicTextElement.innerText = 'Downloading ${info.name}, ${(status.percent * 100).toFixed(2)} %';
+                    } catch (error) {
+                        console.error('Error in executeJavaScript:', error);
+                    }
+                `);
+                downloadWindow.setProgressBar(status.percent * 100);
+            }
+        }
+
+        //Check if the server is online
+        if(!await checkFileAvailability(url, 10000)) {
+            const feedUrl = await collectFeedURL();
+            if(feedUrl == null) {
+                this.downloading = false;
+                return;
+            }
+            this.offlineHost = `http://${feedUrl}:8088`;
+
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
+                name: info.name,
+                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
+            });
+
+            //Check if offline line mode is available
+            url = this.offlineHost + info.url;
+            if(!await checkFileAvailability(url, 10000)) {
+                downloadWindow.destroy();
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
+                    name: info.name,
+                    message: 'Server offline'
+                });
+                this.downloading = false;
+                return;
+            } else {
+                url = "";
+            }
+        }
+
+        // @ts-ignore
+        download(BrowserWindow.fromId(this.mainWindow.id), url, info.properties).then((dl) => {
+            downloadWindow.setProgressBar(2)
+            downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Download completed, installing update';`
+            );
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
+                name: info.name,
+                message: `Download complete, now extracting. ${dl.getSavePath()}`
+            })
+
+            //Update the config.env file or the app manifest depending on the application
+            switch (info.wrapperType) {
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME:
+                    //Unzip the project and add it to the local installation folder
+                    extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
+                        this.mainWindow.webContents.send('status_message', {
+                            channelType: "status_update",
+                            name: info.name,
+                            message: 'Extracting complete, cleaning up.'
+                        })
+
+                        //Delete the downloaded zip folder
+                        fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
+                    }).then(() => {
+                        this.manifestController.updateAppManifest(info.name, info.alias, "LeadMe", null, null, null);
+                        this.extraDownloadCriteria(info.name, directoryPath);
+                    });
+                    break;
+
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
+                    this.manifestController.updateAppManifest(info.name, info.alias, "Embedded", null, null, null);
+                    break;
+
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
+                    this.manifestController.updateAppManifest(info.name, info.alias, "Tool", null, null, false);
+                    break;
+
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_IMPORTED:
+                default:
+                    this.manifestController.updateAppManifest(info.name, info.alias, "Custom", null, null, null);
+            }
+
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
+                name: info.name,
+                message: 'Clean up complete'
+            });
+
+            downloadWindow.destroy()
+            this.downloading = false;
+        });
+    }
+
+    /**
+     * Create a generic download window.
+     * @param initialContent A string of content to display to the user.
+     */
+    createDownloadWindow(initialContent: string): BrowserWindow {
+        const downloadWindow = new BrowserWindow({
             width: 400,
             height: 150,
             show: false,
@@ -195,111 +373,11 @@ export default class MainController {
         downloadWindow.webContents.on('did-finish-load', () => {
             downloadWindow.webContents.executeJavaScript(`
                 const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Downloading ${info.name} update, please wait...';`
+                dynamicTextElement.innerText = '${initialContent}';`
             );
         });
 
-        this.host = info.host;
-        let url = this.host + info.url;
-
-        console.log(this.host);
-
-        //Need to back up from the main file that is being run
-        const directoryPath = join(this.appDirectory, info.name)
-        this.mainWindow.webContents.send('status_update', {
-            name: info.name,
-            message: `Initiating download: ${directoryPath}`
-        })
-
-        //Create the main directory to hold the application
-        fs.mkdirSync(directoryPath, {recursive: true})
-
-        //Override the incoming directory path
-        info.properties.directory = directoryPath;
-
-        //Maintain a trace on the download progress
-        info.properties.onProgress = (status): void => {
-            console.log('status', status)
-            this.mainWindow.webContents.send('download_progress', status.percent)
-
-            if(downloadWindow) {
-                downloadWindow.webContents.executeJavaScript(`
-                    try {
-                        const dynamicTextElement = document.getElementById('update-message');
-                        dynamicTextElement.innerText = 'Downloading ${info.name}, ${(status.percent * 100).toFixed(2)} %';
-                    } catch (error) {
-                        console.error('Error in executeJavaScript:', error);
-                    }
-                `);
-                downloadWindow.setProgressBar(status.percent * 100);
-            }
-        }
-
-        //Check if the server is online
-        if(!await checkFileAvailability(url)) {
-            const feedUrl = await collectFeedURL();
-            if(feedUrl == null) {
-                this.downloading = false;
-                return;
-            }
-            this.offlineHost = `http://${feedUrl}:8088`;
-
-            this.mainWindow.webContents.send('status_update', {
-                name: info.name,
-                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
-            });
-
-            //Check if offline line mode is available
-            url = this.offlineHost + info.url;
-            if(!await checkFileAvailability(url)) {
-                this.mainWindow.webContents.send('status_update', {
-                    name: info.name,
-                    message: 'Server offline'
-                });
-                this.downloading = false;
-                return;
-            } else {
-                url = "";
-            }
-        }
-
-        // @ts-ignore
-        download(BrowserWindow.fromId(this.mainWindow.id), url, info.properties).then((dl) => {
-            downloadWindow.setProgressBar(2)
-            downloadWindow.webContents.executeJavaScript(`
-                const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Download completed, installing update';`
-            );
-            this.mainWindow.webContents.send('status_update', {
-                name: info.name,
-                message: `Download complete, now extracting. ${dl.getSavePath()}`
-            })
-
-            //Unzip the project and add it to the local installation folder
-            extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
-                this.mainWindow.webContents.send('status_update', {
-                    name: info.name,
-                    message: 'Extracting complete, cleaning up.'
-                })
-
-                //Delete the downloaded zip folder
-                fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
-                this.mainWindow.webContents.send('status_update', {
-                    name: info.name,
-                    message: 'Clean up complete'
-                })
-
-                //Update the config.env file or the app manifest depending on the application
-                if (info.name === 'Station' || info.name === 'NUC') {
-                    this.manifestController.updateAppManifest(info.name, "LeadMe", null, null);
-                    this.extraDownloadCriteria(info.name, directoryPath);
-                } else {
-                    this.manifestController.updateAppManifest(info.name, "Custom", null, null);
-                }
-            });
-            downloadWindow.destroy()
-            this.downloading = false;
-        });
+        return downloadWindow;
     }
 
     /**
@@ -312,41 +390,7 @@ export default class MainController {
 
         if (appName !== 'Station') return;
 
-        this.downloadSetVol(directoryPath);
-    }
-
-    /**
-     * Download and extract the SetVol program into the ~/Station/external/SetVol location, if the location does not exist
-     * it will be created. After extraction the downloadSteamCMD is triggered.
-     * @param directoryPath A string representing the working directory of the LeadMeLauncher program.
-     */
-    downloadSetVol(directoryPath: string) {
-        //Create a directory to hold the external applications of SetVol
-        const setVolDirectory = join(directoryPath, 'external', 'SetVol');
-        fs.mkdirSync(setVolDirectory, {recursive: true});
-
-        let setVolInfo = {
-            url: `${this.host}/program-setvol`,
-            properties: {
-                directory: setVolDirectory
-            }
-        }
-
-        //Download/Extra/Clean up SetVol
-        // @ts-ignore
-        download(BrowserWindow.fromId(this.mainWindow.id), setVolInfo.url, setVolInfo.properties).then((dl) => {
-            extract(dl.getSavePath(), {dir: setVolDirectory}).then(() => {
-                //Delete the downloaded zip folder
-                fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
-            });
-
-            this.mainWindow.webContents.send('status_update', {
-                name: 'SetVol',
-                message: 'SetVol installed successfully'
-            });
-
-            this.downloadSteamCMD(directoryPath);
-        });
+        this.downloadSteamCMD(directoryPath);
     }
 
     /**
@@ -373,7 +417,8 @@ export default class MainController {
                 //Delete the downloaded zip folder
                 fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
 
-                this.mainWindow.webContents.send('status_update', {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: 'SteamCMD',
                     message: 'SteamCMD installed successfully'
                 });
@@ -406,7 +451,8 @@ export default class MainController {
 
             const decryptedData = await Encryption.detectFileEncryption(config);
             if(decryptedData == null) {
-                this.mainWindow.webContents.send('status_update', {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: 'SteamCMD',
                     message: 'Steam password or Login not found in Station config.env'
                 });
@@ -423,7 +469,8 @@ export default class MainController {
         }
 
         if (steamUserName === null || steamPassword === null) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'SteamCMD',
                 message: 'Steam password or Login not found in Station config.env'
             });
@@ -440,7 +487,21 @@ export default class MainController {
      * Delete an application, including all sub folders and saved data.
      */
     async deleteApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        const directoryPath = join(this.appDirectory, info.name)
+        let directoryPath: string;
+        switch (info.wrapperType) {
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
+                directoryPath = join(this.embeddedDirectory, info.name);
+                break;
+
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
+                directoryPath = join(this.toolDirectory, info.name);
+                break;
+
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME:
+            default:
+                directoryPath = join(this.appDirectory, info.name);
+                break;
+        }
 
         await this.killAProcess(info.name, info.altPath, true);
 
@@ -463,11 +524,36 @@ export default class MainController {
                 message: `Imported application removed: ${info.name}`
             });
         } else {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: info.name,
                 message: `${info.name} removed.`
             });
         }
+    }
+
+    /**
+     * Launch the electron application's setup wizard.
+     * @param _event
+     * @param info
+     */
+    async setupElectronApplication(_event: IpcMainEvent, info: any): Promise<void> {
+        let directoryPath: string = this.toolDirectory;
+
+        // Search the tool directory to see if there is an executable with Setup in the name
+        const toolDirectory: string = join(directoryPath, `${info.name}`);
+        const executable = await findExecutableWithNameSetup(toolDirectory);
+        const exePath: string = join(directoryPath, `${info.name}/${executable}`);
+
+        // Construct the PowerShell command to start the executable without cmd
+        const powershellCommand = `Start-Process -FilePath "${exePath}" -Verb RunAs`;
+
+        // Execute the PowerShell command
+        exec(powershellCommand, { shell: 'powershell.exe' }, (err, stdout, stderr) => {
+            if (err)  console.error('Error:', err);
+            if (stdout) console.log('stdout:', stdout);
+            if (stderr) console.error('stderr:', stderr);
+        });
     }
 
     /**
@@ -487,18 +573,48 @@ export default class MainController {
 
         await this.killAProcess(info.name, info.path, true);
 
-        if(info.name == "Station" || info.name == "NUC") {
+        if(info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME) {
             await this.updateLeadMeApplication(info.name);
         }
 
         //Load from the local leadme_apps folder or the supplied absolute path
-        let exePath = info.path == '' ? join(this.appDirectory, `${info.name}/${info.name}.exe`) : info.path;
+        let directoryPath: string;
+        switch (info.wrapperType) {
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
+                directoryPath = this.embeddedDirectory;
+                break;
 
-        //Read any launch parameters that the manifest may have
-        const params = await this.manifestController.getLaunchParameterValues(info.name);
-        spawn(exePath, params, {
-            detached: true
-        });
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
+                directoryPath = this.toolDirectory;
+                break;
+
+            case CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME:
+            default:
+                directoryPath = this.appDirectory;
+                break;
+        }
+
+        if (info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL) {
+            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias}/${info.alias}.exe`) : info.path;
+
+            // Construct the PowerShell command to start the executable without cmd
+            const powershellCommand = `Start-Process -FilePath "${exePath}" -Verb RunAs`;
+
+            // Execute the PowerShell command
+            exec(powershellCommand, { shell: 'powershell.exe' }, (err, stdout, stderr) => {
+                if (err)  console.error('Error:', err);
+                if (stdout) console.log('stdout:', stdout);
+                if (stderr) console.error('stderr:', stderr);
+            });
+        } else {
+            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias}.exe`) : info.path;
+
+            //Read any launch parameters that the manifest may have
+            const params = await this.manifestController.getLaunchParameterValues(info.name);
+            spawn(exePath, params, {
+                detached: true
+            });
+        }
     }
 
     /**
@@ -522,43 +638,10 @@ export default class MainController {
             return;
         }
 
-        let downloadWindow = new BrowserWindow({
-            width: 400,
-            height: 150,
-            show: false,
-            resizable: false,
-            webPreferences: {
-                preload: join(__dirname, 'preload.js'),
-                nodeIntegration: false,
-                contextIsolation: true,
-            }
-        });
-
-        downloadWindow.setMenu(null);
-
-        downloadWindow.on('ready-to-show', () => {
-            downloadWindow.show();
-        });
-
-        downloadWindow.webContents.setWindowOpenHandler((details) => {
-            console.log('inside set window open handler')
-            void shell.openExternal(details.url)
-            this.downloading = false;
-            downloadWindow.destroy();
-            return { action: 'deny' }
-        });
-
-        downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
-
-        downloadWindow.webContents.on('did-finish-load', () => {
-            downloadWindow.webContents.executeJavaScript(`
-                const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Checking for ${appName} update, please wait...';`
-            );
-        });
+        let downloadWindow = this.createDownloadWindow(`Checking for ${appName} update, please wait...`);
 
         //Check if the server is online
-        if(!await checkFileAvailability(url)) {
+        if(!await checkFileAvailability(url, 5000)) {
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
                 this.downloading = false;
@@ -567,7 +650,8 @@ export default class MainController {
             }
             this.offlineHost = `http://${feedUrl}:8088`;
 
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: appName,
                 message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
             });
@@ -583,8 +667,9 @@ export default class MainController {
                 return;
             }
 
-            if(!await checkFileAvailability(url)) {
-                this.mainWindow.webContents.send('status_update', {
+            if(!await checkFileAvailability(url, 5000)) {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: appName,
                     message: 'Server offline'
                 });
@@ -674,7 +759,8 @@ export default class MainController {
         const difference = semver.diff(onlineVersion, localVersion);
 
         //Tell the user there is an update
-        this.mainWindow.webContents.send('status_update', {
+        this.mainWindow.webContents.send('status_message', {
+            channelType: "status_update",
             name: appName,
             message: `${appName} requires an update. Update type ${difference}`
         });
@@ -726,14 +812,16 @@ export default class MainController {
                     const dynamicTextElement = document.getElementById('update-message');
                     dynamicTextElement.innerText = 'Download completed, installing update';`
                 );
-                this.mainWindow.webContents.send('status_update', {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: appName,
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
                 });
 
                 //Unzip the project and add it to the local installation folder
                 extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
-                    this.mainWindow.webContents.send('status_update', {
+                    this.mainWindow.webContents.send('status_message', {
+                        channelType: "status_update",
                         name: appName,
                         message: 'Extracting complete, cleaning up.'
                     })
@@ -741,7 +829,8 @@ export default class MainController {
 
                     //Delete the downloaded zip folder
                     fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
-                    this.mainWindow.webContents.send('status_update', {
+                    this.mainWindow.webContents.send('status_message', {
+                        channelType: "status_update",
                         name: appName,
                         message: 'Update clean up complete'
                     })

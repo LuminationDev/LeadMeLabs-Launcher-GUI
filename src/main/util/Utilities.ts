@@ -1,23 +1,27 @@
 import fs from "fs";
+import path from 'path';
 import { join } from "path";
 import { net as electronNet } from "electron";
+import fetch from 'node-fetch';
+import yaml from 'js-yaml';
 import Encryption from "../encryption/Encryption";
 import * as Sentry from "@sentry/electron";
 import os from "os";
-import {AppEntry} from "../interfaces/appEntry";
+import { AppEntry } from "../interfaces/appEntry";
 
 /**
  * Check if an online resource is available.
  * @param url A string of the resource to check for.
+ * @param timeout
  */
-export async function checkFileAvailability(url: string): Promise<boolean> {
+export async function checkFileAvailability(url: string, timeout: number): Promise<boolean> {
     const request_call = new Promise((resolve, reject) => {
         const request = electronNet.request(url);
         const timeoutId = setTimeout(() => {
             request.abort(); // Abort the request if it takes too long
             console.log(`Request timed out ${url}`);
             resolve(false);
-        }, 5000);
+        }, timeout);
 
         request.on('response', (response) => {
             clearTimeout(timeoutId);
@@ -46,6 +50,39 @@ export async function checkFileAvailability(url: string): Promise<boolean> {
         Sentry.captureMessage(`Unable to contact server at ${await collectLocation()}.` + e.toString());
         return false;
     }
+}
+
+/**
+ * Check the url for the latest.yml, extracting the current version of the tool.
+ * @param url
+ */
+export async function checkForElectronVersion(url: string): Promise<string> {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.log(`Failed to fetch ${url}: ${response.statusText}`);
+            return "";
+        }
+        const text = await response.text();
+
+        try {
+            // Parse YAML text
+            const data = yaml.load(text);
+
+            // Extract URL
+            const url = data.files[0].url;
+
+            if (url != undefined) {
+                return url;
+            }
+        } catch (error) {
+            console.error("Error parsing YAML:", error);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+
+    return "";
 }
 
 /**
@@ -238,4 +275,49 @@ export async function writeObjects (filename: string, jsonArray: Array<AppEntry>
     }
 
     return 'Manifest file was not updated.'
+}
+
+/**
+ * Function to search for the first executable with 'Setup' in the name.
+ * @param directoryPath
+ */
+export async function findExecutableWithNameSetup(directoryPath: string) {
+    return new Promise((resolve, reject) => {
+        fs.readdir(directoryPath, (err, files) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            const setupExecutable = files.find(file => {
+                // Check if file name contains 'Setup' (case-insensitive) and ends with '.exe'
+                return file.toLowerCase().includes('setup') && path.extname(file).toLowerCase() === '.exe';
+            });
+
+            resolve(setupExecutable);
+        });
+    });
+}
+
+/**
+ * Function to search an executable of the supplied name in the supplied directory.
+ * @param directoryPath
+ * @param exeName
+ */
+export async function findExecutable(directoryPath: string, exeName: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        fs.readdir(directoryPath, (err, files) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            const setupExecutable = files.find(file => {
+                // Check if file name contains 'Setup' (case-insensitive) and ends with '.exe'
+                return file.toLowerCase().includes(exeName) && path.extname(file).toLowerCase() === '.exe';
+            });
+
+            resolve(setupExecutable != undefined);
+        });
+    });
 }

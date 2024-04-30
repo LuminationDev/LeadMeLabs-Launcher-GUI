@@ -2,18 +2,20 @@ import fs from "fs";
 import IpcMainEvent = Electron.IpcMainEvent;
 import { join } from "path";
 import { AppEntry, VREntry } from "../interfaces/appEntry";
-import { generateUniqueId, readObjects, writeObjects } from "../util/Utilities";
+import { findExecutable, generateUniqueId, readObjects, writeObjects } from "../util/Utilities";
 import { ConfigFile } from "../interfaces/config";
 
 export default class ManifestController {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
+    toolDirectory: string;
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
-        this.appDirectory = process.env.APPDATA + '/leadme_apps';
+        this.appDirectory = process.env.APPDATA + '\\leadme_apps';
+        this.toolDirectory = process.env.APPDATA + '\\leadme_apps\\Tools';
     }
 
     /**
@@ -30,22 +32,33 @@ export default class ManifestController {
             try {
                 const installed: Array<AppEntry> = await readObjects(filePath);
 
+                console.log(installed);
+
                 this.mainWindow.webContents.send('backend_message',
                     {
                         channelType: "applications_installed",
-                        directory: this.appDirectory,
+                        appDirectory: this.appDirectory,
+                        toolDirectory: this.toolDirectory,
                         content: installed
                     }
                 );
                 return;
             } catch (err) {
-                this.mainWindow.webContents.send('status_update', {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
+                    name: 'Manifest',
+                    message: 'Manifest file read failed.'
+                });
+
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: 'Manifest',
                     message: 'Manifest file read failed.'
                 });
             }
         } else {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: 'Manifest file does not exist.'
             });
@@ -61,11 +74,13 @@ export default class ManifestController {
      * Update the local app manifest with the details of the newly installed application. This manifest is used by the
      * Station software to see what Custom experiences are installed.
      * @param appName A string of the experience name being added.
+     * @param appAlias A string of the executable name if different from the name.
      * @param type A string of the type of experience being added, i.e. Steam, Custom, Vive, etc.
      * @param altPath A string of the absolute path of an executable, used for imported experiences.
      * @param mode A string of what environment mode the application is in.
+     * @param setup A boolean which shows if an electron tool has been installed correctly.
      */
-    async updateAppManifest(appName: string, type: string, altPath: string|null, mode: string|null): Promise<string> {
+    async updateAppManifest(appName: string, appAlias: string, type: string, altPath: string|null, mode: string|null, setup: boolean|null): Promise<string> {
         const filePath = join(this.appDirectory, 'manifest.json');
 
         //Create the application entry for the json
@@ -73,10 +88,12 @@ export default class ManifestController {
             type: type,
             id: "",
             name: appName,
+            alias: appAlias,
             autostart: false, //default on installation
             altPath: altPath,
             parameters: {},
-            mode: mode
+            mode: mode,
+            setup: setup
         }
 
         //Check if the file exists
@@ -93,12 +110,14 @@ export default class ManifestController {
                 objects.push(appJSON);
 
                 let result: string = await writeObjects(filePath, objects);
-                this.mainWindow.webContents.send('status_update', {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: 'Manifest',
                     message: result
                 });
             } catch (err) {
-                this.mainWindow.webContents.send('status_update', {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
                     name: 'Manifest',
                     message: 'Manifest file updated failed.'
                 });
@@ -114,7 +133,8 @@ export default class ManifestController {
 
         objects.push(appJSON);
         let result: string = await writeObjects(filePath, objects);
-        this.mainWindow.webContents.send('status_update', {
+        this.mainWindow.webContents.send('status_message', {
+            channelType: "status_update",
             name: 'Manifest',
             message: result
         });
@@ -123,12 +143,43 @@ export default class ManifestController {
     }
 
     /**
+     * Update the values of a manifest entry that matches the supplied entry name.
+     * @param info
+     */
+    async modifyAppManifest(info: any) {
+        const filePath = join(this.appDirectory, 'manifest.json');
+
+        //Check if the file exists
+        const exists = fs.existsSync(filePath);
+        if (!exists) {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
+                name: 'Manifest',
+                message: `Manifest file does not exist.`
+            });
+            return;
+        }
+
+        let [jsonArray, entry] = await this.collectManifestEntry(filePath, info.name);
+        if ((jsonArray === undefined || entry === undefined)) return;
+
+        entry[info.parameterKey] = info.parameterValue;
+        let result: string = await writeObjects(filePath, jsonArray);
+
+        this.mainWindow.webContents.send('status_message', {
+            channelType: "status_update",
+            name: 'Manifest',
+            message: result
+        });
+    }
+
+    /**
      * This function allows a user to import an executable into the launcher library, the executable path is recorded
      * along with the name within the local manifest but the original files are not moved at all. The idea is to simple
      * point to the file wherever that may be on the hard drive.
      */
     async importApplication(_event: IpcMainEvent, info: any): Promise<void> {
-        let AppId = await this.updateAppManifest(info.name, "Custom", info.altPath, null);
+        let AppId = await this.updateAppManifest(info.name, info.name, "Custom", info.altPath, null, null);
 
         //Send back the new application and its assigned ID
         this.mainWindow.webContents.send('backend_message', {
@@ -151,8 +202,6 @@ export default class ManifestController {
         //Check if the leadme_apps folder exists, if not create it
         const manifestExists = fs.existsSync(this.appDirectory);
 
-        console.log(manifestExists);
-
         //Create the main directory to hold the application
         if(!manifestExists) {
             fs.mkdirSync(this.appDirectory, {recursive: true})
@@ -171,15 +220,26 @@ export default class ManifestController {
         const nucExists = fs.existsSync(join(this.appDirectory, 'NUC', 'NUC.exe'));
         const stationExists = fs.existsSync(join(this.appDirectory, 'Station', 'Station.exe'));
 
+        //Check for any qa tools
+        const qaToolExists = fs.existsSync(join(this.toolDirectory, 'QA Tool', 'leadme-tools-qa', 'leadme-tools-qa.exe'));
+        const networkToolExists = fs.existsSync(join(this.appDirectory, 'Network Tool', 'leadme-network', 'leadme-network.exe'));
+
+        //TODO find out what the executables are called
+        // const experienceToolExists = fs.existsSync(join(this.appDirectory, 'Experience Tool', ''));
+
         const objects: Array<AppEntry> = [];
 
+        //TODO add in the rest of the Embedded applications & Tools eventually
         const appEntries = [
-            { exists: nucExists, name: "NUC" },
-            { exists: stationExists, name: "Station" }
+            { exists: nucExists, type: "LeadMe", name: "NUC", alias: 'NUC', setup: null },
+            { exists: stationExists, type: "LeadMe", name: "Station", alias: 'Station', setup: null },
+            { exists: qaToolExists, type: "Tool", name: "QA Tool", alias: 'leadme-tools-qa', setup: true},
+            { exists: networkToolExists, type: "Tool", name: "Network Tool", alias: 'leadme-network', setup: true},
+            // { exists: experienceToolExists, type: "Tool", name: "Experience Tool", alias: '', setup: true},
         ];
 
         appEntries.forEach(entry => {
-            entry.exists ? this.createAppEntry(entry.name, objects, info.mode) : null;
+            entry.exists ? this.createAppEntry(entry.type, entry.name, entry.alias, objects, info.mode, entry.setup) : null;
         });
 
         if (objects.length === 0) {
@@ -198,7 +258,8 @@ export default class ManifestController {
 
         //Write the objects array for the manifest
         let result: string = await writeObjects(filePath, objects);
-        this.mainWindow.webContents.send('status_update', {
+        this.mainWindow.webContents.send('status_message', {
+            channelType: "status_update",
             name: 'Manifest',
             message: result
         });
@@ -211,30 +272,40 @@ export default class ManifestController {
             }
         );
 
+        let message: string = "";
+        appEntries.forEach(entry => {
+            message += `${entry.name} added: ${entry.exists}`;
+        });
+
         //Send back confirmation to the user
         this.mainWindow.webContents.send('backend_message', {
             channelType: "manifest_scanned",
             title: "Operation successful",
-            message: `Scanned for files. NUC added: ${nucExists}, Station added: ${stationExists}.`,
+            message: `Scanned for files. ${message}`,
         });
     }
 
     /**
      * Create an App entry object with an assigned unique ID.
+     * @param type
      * @param name
+     * @param alias
      * @param objects
      * @param mode
+     * @param setup
      */
-    createAppEntry(name: string, objects: AppEntry[], mode: string|null) {
+    createAppEntry(type: string, name: string, alias: string, objects: AppEntry[], mode: string|null, setup: boolean|null) {
         //Create the application entry for the json
         const appJSON: AppEntry = {
-            type: "LeadMe",
+            type: type,
             id: "",
             name: name,
+            alias: alias,
             autostart: false, //default on installation
             altPath: "",
             parameters: {},
-            mode: mode
+            mode: mode,
+            setup: setup
         }
 
         appJSON.id = generateUniqueId(name);
@@ -252,7 +323,8 @@ export default class ManifestController {
         //Check if the file exists
         const exists = fs.existsSync(filePath);
         if (!exists) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: `Manifest file does not exist.`
             });
@@ -286,13 +358,15 @@ export default class ManifestController {
             }
 
             let result: string = await writeObjects(filePath, jsonArray);
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: result
             });
         } catch (err) {
             console.log(err);
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: 'Manifest file is updated failed.'
             });
@@ -309,7 +383,8 @@ export default class ManifestController {
         //Check if the file exists
         const exists = fs.existsSync(filePath);
         if (!exists) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: `Manifest file does not exist.`
             });
@@ -324,12 +399,14 @@ export default class ManifestController {
             entry[info.parameterKey] = info.parameterValue;
 
             let result: string = await writeObjects(filePath, jsonArray);
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: result
             });
         } catch (err) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: 'Manifest file is updated failed.'
             });
@@ -337,8 +414,8 @@ export default class ManifestController {
     }
 
     /**
-     * Check the local manifest.json for the leadme_launcher entry, this contains the current download mode as well as
-     * any custom settings for the launcher (i.e. pin)
+     * Check the local manifest.json for the a specific application entry or the leadme_launcher entry, this contains
+     * the current download mode as well as any custom settings for the launcher (i.e. pin)
      * @param info An object holding the entry name to search for.
      * @param filePath A string of the path to the manifest.
      */
@@ -368,7 +445,8 @@ export default class ManifestController {
         const entry: AppEntry | undefined = jsonArray.find(entry => entry.name === name);
 
         if(entry === undefined) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: name,
                 message: `${name} does not exist in the manifest.`
             });
@@ -382,7 +460,7 @@ export default class ManifestController {
      * This function creates the Launcher configuration on the local device.
      */
     async createConfigLauncher(info: any): Promise<void> {
-        await this.updateAppManifest(info.name, "Launcher", null, "production"); //Default mode is production
+        await this.updateAppManifest(info.name, info.name, "Launcher", null, "production", null); //Default mode is production
     }
 
     /**
@@ -428,7 +506,8 @@ export default class ManifestController {
 
             fs.writeFileSync(filePath, JSON.stringify(config, null, 4));
         } catch (err) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: 'customapps.vrmanifest file updated failed.'
             });
@@ -516,7 +595,8 @@ export default class ManifestController {
         const exists = fs.existsSync(filePath);
 
         if (!exists) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: 'Manifest file does not exist.'
             });
@@ -529,15 +609,58 @@ export default class ManifestController {
             jsonArray = jsonArray.filter(entry => entry.name !== appName)
 
             let result: string = await writeObjects(filePath, jsonArray);
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: result
             });
         } catch (err) {
-            this.mainWindow.webContents.send('status_update', {
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
                 name: 'Manifest',
                 message: 'Manifest file is updated failed.'
             });
         }
+    }
+
+    /**
+     * Check if an electron application has been setup in the correct location by looking for the executable that is
+     * created after the electron setup wizard.
+     * @param info
+     */
+    async isElectronSetup(info: any) {
+        //Check that the .exe exists after the setup
+        let directoryPath: string = this.toolDirectory;
+
+        // Search the tool directory to see if there is an executable with Setup in the name
+        const toolDirectory: string = join(directoryPath, `${info.name}`, `${info.alias}`);
+        const executableExists: boolean = await findExecutable(toolDirectory, info.alias);
+
+        if (executableExists) {
+            info.parameterKey = "setup";
+            info.parameterValue = true;
+
+            //Update the app manifest
+            await this.modifyAppManifest(info);
+
+            //Update the front end that the program is setup
+            this.mainWindow.webContents.send('backend_message',
+                {
+                    channelType: "update_application_entry",
+                    applicationName: info.name,
+                    parameterKey: info.parameterKey,
+                    parameterValue: info.parameterValue
+                }
+            );
+            return;
+        }
+
+        //Notify the user?
+        this.mainWindow.webContents.send('backend_message',
+            {
+                channelType: "error_message",
+                message: "Executable not found, setup not complete.",
+            }
+        );
     }
 }

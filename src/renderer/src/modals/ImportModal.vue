@@ -86,7 +86,7 @@ function closeModal() {
 <template>
   <!--Anchor button used to control the modal-->
   <GenericButton
-      class="w-full h-6 mt-2"
+      class="w-full h-10"
       :type="'primary'"
       :callback="openModal"
       :spinnerColor="'#000000'"

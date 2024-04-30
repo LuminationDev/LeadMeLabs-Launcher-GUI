@@ -23,5 +23,8 @@ export const CONFIG_APPLICATION_SET = 'set_config_application'
 export const CONFIG_APPLICATION_GET = 'get_config_application'
 export const CONFIG_APPLICATION_STEAMCMD = 'config_steamcmd'
 
+export const ELECTRON_APPLICATION_SETUP = 'electron_setup'
+export const ELECTRON_APPLICATION_CHECK_SETUP = 'electron_check_setup'
+
 export const SET_REMOTE_CONFIG = 'set_remote_config'
 export const UPLOAD_EXISTING_CONFIG = 'upload_existing_conifg'

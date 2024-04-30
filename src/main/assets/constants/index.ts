@@ -1,0 +1,1 @@
+export * as APPLICATION_TYPE from "./_applicationType"
