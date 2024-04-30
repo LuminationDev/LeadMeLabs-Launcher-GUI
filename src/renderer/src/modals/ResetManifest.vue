@@ -48,7 +48,7 @@ const openPinPromptModal = () => {
 
   <!--Anchor button used to control the modal-->
   <GenericButton
-      class="w-full h-6 mt-2 bg-red-800 text-xs"
+      class="w-full h-10 bg-red-800 text-xs"
       :type="'primary'"
       :callback="openPinPromptModal"
       :spinnerColor="'#000000'"

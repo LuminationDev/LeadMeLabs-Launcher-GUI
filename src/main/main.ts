@@ -121,7 +121,7 @@ autoUpdater.on('download-progress', (progressObj) => {
   }
 })
 
-let downloadWindow;
+let downloadWindow: Electron.CrossProcessExports.BrowserWindow;
 function createDownloadWindow() {
   downloadWindow = new BrowserWindow({
     width: 400,
@@ -151,10 +151,10 @@ function createDownloadWindow() {
 }
 
 //Maintain a reference to the window
-let mainWindow
+let mainWindow: Electron.BrowserWindow;
 function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 1000,
+    width: 1200,
     height: 800,
     show: false,
     webPreferences: {

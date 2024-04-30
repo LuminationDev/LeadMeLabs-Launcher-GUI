@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import * as CONSTANT from "../../assets/constants/index"
-import ApplicationBar from "./ApplicationBar.vue";
-import ApplicationImage from "./ApplicationImage.vue";
+import ApplicationBar from "./ApplicationButtons.vue";
+import ApplicationImage from "./ApplicationDetails.vue";
 import { useLibraryStore } from '../../store/libraryStore'
 import UploadLogFile from "../../modals/UploadLogFile.vue";
 import EnableRemoteConfig from "../../modals/EnableRemoteConfig.vue";
@@ -63,7 +63,8 @@ const setVRManifest = (): void => {
     <div class="h-6 text-xl rounded flex items-baseline justify-between">
       <p class="text-black font-bold">{{ applicationName }}</p>
 
-      <div v-if="[CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(libraryStore.getSelectedApplicationStatus)" class="text-sm">
+      <div v-if="[CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(libraryStore.getSelectedApplicationStatus)
+      && libraryStore.getSelectedApplication.wrapperType !== CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL" class="text-sm">
         <div v-if="!['Station', 'NUC'].includes(applicationName)">
           <p>VR Manifest</p>
           <input class="h-5 w-5 ml-2 mr-6" type="checkbox" v-model="vrChecked" @change="setVRManifest()"/>

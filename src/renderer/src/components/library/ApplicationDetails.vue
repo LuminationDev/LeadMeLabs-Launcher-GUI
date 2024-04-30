@@ -103,14 +103,14 @@ watch(imagePath, (newVal) => {
       <!--TODO maybe put a placeholder here-->
     </div>
 
-    <div class="w-full" v-else-if="['Station', 'NUC'].includes(libraryStore.getSelectedApplicationName)
+    <div class="w-full" v-else-if="libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME
           && [CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(libraryStore.getSelectedApplicationStatus)">
       <ApplicationScheduler />
     </div>
 
     <div v-else class="w-full flex flex-col items-center justify-center">
       <!--Perform an auto scan to see if anything is in the leadme_apps folder, rewriting the manifest if required-->
-      <div v-if="['Station', 'NUC'].includes(libraryStore.getSelectedApplicationName)
+      <div v-if="[CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME, CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED, CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL].includes(libraryStore.getSelectedApplication.wrapperType)
            && !libraryStore.checkIfApplicationInstalled(libraryStore.getSelectedApplicationName)"
            class="w-full flex justify-center items-center">
         <GenericButton
@@ -123,6 +123,8 @@ watch(imagePath, (newVal) => {
       </div>
 
       <div v-else-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED" class="text-black">NOT INSTALLED</div>
+
+      <div v-else-if="libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL" class="text-black">TOOL INSTALLED</div>
 
       <div v-else-if="imageSource === null" class="text-black flex flex-col items-center">
         Image Not Found

@@ -57,7 +57,7 @@ export const taskSchedulerItem = (mainWindow: Electron.BrowserWindow, info: any,
             return;
     }
 
-    exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /k ${args}'`, {'shell':'powershell.exe'}, (err, stdout)=> {
+    exec(`Start-Process cmd -Verb RunAs -ArgumentList '@cmd /c ${args}'`, {'shell':'powershell.exe'}, (err, stdout)=> {
         if (err) {
             console.log(err);
         }

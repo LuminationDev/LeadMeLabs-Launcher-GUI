@@ -2,10 +2,12 @@ export interface AppEntry {
     type: string
     id: string
     name: string
+    alias?: string
     autostart: boolean
     altPath: string|null
     parameters: {}
     mode: string|null
+    setup?: boolean|null
 }
 
 export interface VREntry {

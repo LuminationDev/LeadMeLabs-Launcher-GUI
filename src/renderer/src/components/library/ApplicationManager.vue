@@ -1,20 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import * as CONSTANT from '../../assets/constants/index';
 import Spinner from "../loading/Spinner.vue";
-import BaseProgress from "../loading/BaseProgress.vue";
 import GenericButton from "../buttons/GenericButton.vue";
 import ErrorNotification from "../../modals/ErrorNotification.vue";
 import { useLibraryStore } from '../../store/libraryStore';
 
 const libraryStore = useLibraryStore();
-const download_progress = ref(0);
-const showError = ref(false);
-const errorMessage = ref("");
-
-const closeErrorModal = () => {
-  showError.value = false;
-}
 
 const selectedApplication = computed(() => {
   return libraryStore.getSelectedApplication
@@ -25,21 +17,26 @@ const selectedApplication = computed(() => {
  * follow the altPath if it is supplied/not null.
  */
 const launchApplication = (): void => {
-  if (selectedApplication.value === undefined) {
-    return
-  }
+  if (selectedApplication.value === undefined) return;
+
+  const host = libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  if (host === undefined) return;
 
   libraryStore.updateApplicationByName(
       selectedApplication.value.name,
       CONSTANT.MODEL_KEY.KEY_STATUS,
       CONSTANT.MODEL_VALUE.STATUS_RUNNING);
 
+  const alias = selectedApplication.value.alias !== undefined ? selectedApplication.value.alias : selectedApplication.value.name;
+
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.APPLICATION_LAUNCH,
     id: selectedApplication.value.id,
+    wrapperType: selectedApplication.value.wrapperType,
     name: selectedApplication.value.name,
-    host: libraryStore.getHostURL,
+    alias,
+    host: host,
     path: selectedApplication.value.altPath
   })
 }
@@ -67,81 +64,41 @@ const stopApplication = (): void => {
  * with its name and the folder it should be saved in.
  */
 const downloadApplication = (): void => {
-  if (selectedApplication.value === undefined) {
-    return
-  }
+  if (selectedApplication.value === undefined) return;
+
+  const host = libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  if (host === undefined) return;
 
   libraryStore.updateApplicationByName(
       selectedApplication.value.name,
       CONSTANT.MODEL_KEY.KEY_STATUS,
       CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING);
 
+  const alias = selectedApplication.value.alias !== undefined ? selectedApplication.value.alias : selectedApplication.value.name;
+
   // @ts-ignore
   api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
     channelType: CONSTANT.MESSAGE.APPLICATION_DOWNLOAD,
     name: selectedApplication.value.name,
-    host: libraryStore.getHostURL,
+    alias,
+    host: host,
     url: selectedApplication.value.url,
+    wrapperType: selectedApplication.value.wrapperType,
     properties: { directory: `leadme_apps/${selectedApplication.value.name}` }
   })
-}
-
-//Todo maybe move to App.vue in the future
-onMounted(() => {
-  // @ts-ignore
-  api.ipcRenderer.on('download_progress', (event, progress) => {
-    download_progress.value = progress * 100;
-  })
-
-  //TODO DO NOT DOUBLE THIS UP?
-  // @ts-ignore
-  api.ipcRenderer.on('status_update', (event, status) => {
-    if(status.message === 'Clean up complete') {
-      libraryStore.updateApplicationByName(
-          status.name,
-          CONSTANT.MODEL_KEY.KEY_STATUS,
-          CONSTANT.MODEL_VALUE.STATUS_INSTALLED);
-    }
-
-    if(status.message === 'Server offline' && libraryStore.getApplicationByName(status.name)?.status != CONSTANT.MODEL_VALUE.STATUS_RUNNING) {
-      //libraryStore.updateApplicationByName(status.name, CONSTANT.MODEL_KEY.KEY_STATUS, CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED);
-
-      //Show warning message?
-      errorMessage.value = status.message;
-      showError.value = true;
-    }
-  });
-});
-
-const pauseDownloadingApplication = (): void => {
-  if (selectedApplication.value === undefined) {
-    return
-  }
-  // ipcRenderer.send(CONSTANT.APPLICATION_PAUSE_DOWNLOAD, {
-  //     name: selectedApplication.value.name,
-  //     url: selectedApplication.value.url
-  //     //properties: { directory: '../leadme_apps/' + selectedApplication.value.name }
-  // })
-}
-
-const resumeDownloadingApplication = (): void => {
-  if (selectedApplication.value === undefined) {
-    return
-  }
-  // ipcRenderer.send(CONSTANT.APPLICATION_RESUME_DOWNLOAD, {
-  //     name: selectedApplication.value.name,
-  //     url: selectedApplication.value.url
-  //     //properties: { directory: '../leadme_apps/' + selectedApplication.value.name }
-  // })
 }
 </script>
 
 <!--Manage the installing and launching of an application.-->
 <template>
-  <ErrorNotification @close-error-modal="closeErrorModal" :show-error="showError" :message="errorMessage"/>
+  <ErrorNotification />
 
+  <!--Do not show the launch button if the application is of type Tool and has not been setup-->
   <GenericButton
-      v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_INSTALLED"
+      v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_INSTALLED
+      && !(libraryStore.getSelectedApplication.wrapperType !== undefined &&
+          libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL &&
+          !libraryStore.getSelectedApplication.setup)"
       class="h-10 w-32 text-base"
       :type="'primary'"
       :callback="launchApplication"
@@ -167,17 +124,8 @@ const resumeDownloadingApplication = (): void => {
   <div v-else-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING" class="flex flex-col">
     <div
         class="w-32 h-8 mb-2 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-        @click="pauseDownloadingApplication"
     >
       <Spinner />
     </div>
-  </div>
-
-  <div
-      v-else-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_PAUSED_DOWNLOADING"
-      class="w-32 h-12 cursor-pointer rounded-lg bg-blue-400 items-center justify-center hover:bg-blue-200"
-      @click="resumeDownloadingApplication"
-  >
-    Paused
   </div>
 </template>

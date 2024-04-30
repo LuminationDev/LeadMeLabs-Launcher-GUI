@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { Application } from '../models'
 import { reactive, ref } from "vue";
 import * as CONSTANT from '../assets/constants/index';
+import { ModeUrls } from "../interfaces/modeUrls";
 
 //Preset applications - Use this as an example of the LeadMe ID Library?
 // const values = {
@@ -15,25 +16,98 @@ import * as CONSTANT from '../assets/constants/index';
 //     )
 // }
 
-//This is for production
-const values = {
-    '1': new Application(
-        '1',
-        'Station',
-        '/program-station',
-        '',
-        false,
-        CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED
-    ),
-    '2': new Application(
-        '2',
-        'NUC',
-        '/program-nuc',
-        '',
-        false,
-        CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED
-    )
+const leadMeApplications = {
+    type: CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME,
+    apps: [
+        {
+            id: "1",
+            name: 'Station',
+            alias: 'Station',
+            url: '/program-station'
+        },
+        {
+            id: "2",
+            name: 'NUC',
+            alias: 'NUC',
+            url: '/program-nuc'
+        }
+    ]
 }
+
+const leadMeTools = {
+    type: CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL,
+    apps: [
+        {
+            id: "101",
+            name: CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_QA_TOOL,
+            alias: 'leadme-tools-qa', //What the executable is named
+            url: '/latest.yml'
+        },
+        {
+            id: "102",
+            name: CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_NETWORK_TOOL,
+            alias: 'leadme-network',
+            url: '/latest.yml'
+        },
+        {
+            id: "103",
+            name: CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_EXPERIENCE_TOOL,
+            alias: 'leadme-tools-experiences',
+            url: '/latest.yml'
+        }
+    ]
+}
+
+const embeddedApplications = {
+    type: CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED,
+    apps: [
+        // {
+        //     id: "201",
+        //     name: 'Video Player',
+        //     url:'/'
+        // },
+        // {
+        //     id: "202",
+        //     name: 'VR Video Player',
+        //     url:'/'
+        // },
+        // {
+        //     id: "203",
+        //     name: 'Open Brush',
+        //     url:'/'
+        // },
+        // {
+        //     id: "204",
+        //     name: 'ThingLink & CoSpaces',
+        //     url:'/'
+        // }
+    ]
+}
+
+const allPrograms = [leadMeApplications, leadMeTools, embeddedApplications]
+
+/**
+ * A dictionary containing all hosted programs associated with LeadMe. Programs are categorized based on their types,
+ * with each category starting their IDs 100 units apart from the previous category.
+ */
+const values: {} = {};
+allPrograms.forEach(program => {
+    const type = program.type;
+
+    program.apps.forEach((app, _) => {
+        values[app.id] = new Application(
+            app.id,
+            app.name,
+            app.alias,
+            app.url,
+            '',
+            false,
+            CONSTANT.MODEL_VALUE.STATUS_NOT_INSTALLED,
+            null,
+            type
+        );
+    });
+});
 
 export const useLibraryStore = defineStore({
     id: 'library',
@@ -43,6 +117,7 @@ export const useLibraryStore = defineStore({
         pin: '',
         mode: 'production',
         appDirectory: '',
+        toolDirectory: '',
         selectedApplication: <string | undefined> '',
         applicationParameters: {},
         applicationSetup: reactive([]),
@@ -190,23 +265,75 @@ export const useLibraryStore = defineStore({
                 type: "list",
                 name: this.getSelectedApplicationName
             });
-        }
-    },
-    getters: {
-        getHostURL(): string {
-            // Redirection
-            //production: "https://leadmelabs-redirect-server.herokuapp.com",
-            //development: "https://leadmelabs-redirect-server.herokuapp.com/development",
-            const modeUrls = {
-                production: "https://learninglablauncher.herokuapp.com",
-                development: "https://learninglablauncherdevelopment.herokuapp.com",
-                offline: "http://localhost:8088",
-                local: "http://localhost:8082"
-            };
+        },
+
+        /**
+         * Get the host url for the supplied application.
+         * @param wrapperType
+         * @param applicationName
+         */
+        getHostURL(wrapperType: string, applicationName: string): string|undefined {
+            let modeUrls: ModeUrls|undefined;
+            switch (wrapperType) {
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME:
+                    modeUrls = {
+                        production: "https://learninglablauncher.herokuapp.com",
+                        development: "https://learninglablauncherdevelopment.herokuapp.com",
+                        offline: "http://localhost:8088",
+                        local: "http://localhost:8082"
+                    };
+                    break;
+
+                //Currently this is just for the QA Tool
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
+                    modeUrls = this.determineToolHosting(applicationName);
+                    break;
+
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
+                    //TODO update for Embedded routes
+                    modeUrls = undefined;
+                    break;
+
+                default:
+                    return undefined;
+            }
+
+            if (modeUrls === undefined) return undefined;
 
             return modeUrls[this.mode] || modeUrls.production;
         },
 
+        /**
+         * Determine what tool is being downloaded and collect the correct hosting urls.
+         * @param applicationName
+         */
+        determineToolHosting(applicationName: string): any {
+            switch (applicationName) {
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_QA_TOOL:
+                    return {
+                        production: "https://leadme-qa-tool-85e3c7ba88eb.herokuapp.com/static",
+                        development: "https://leadme-qa-tool-85e3c7ba88eb.herokuapp.com/static",
+                        offline: "http://localhost:8088",
+                        local: "http://localhost:8082"
+                    };
+
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_EXPERIENCE_TOOL:
+                    return undefined;
+
+                case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_NETWORK_TOOL:
+                    return {
+                        production: "https://leadme-network-tool-f81e92d61350.herokuapp.com/static",
+                        development: "https://leadme-network-tool-f81e92d61350.herokuapp.com/static",
+                        offline: "http://localhost:8088",
+                        local: "http://localhost:8082"
+                    };
+
+                default:
+                    return undefined;
+            }
+        }
+    },
+    getters: {
         getSelectedApplication(): Application | undefined {
             if(this.selectedApplication === undefined) return undefined;
             return this.applications.get(this.selectedApplication)

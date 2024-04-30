@@ -1,28 +1,17 @@
 <script setup lang="ts">
 import Modal from "./Modal.vue";
-import { defineEmits } from "vue";
+import { useModalStore } from "@renderer/store/modalStore";
 
-defineProps({
-  showError: {
-    type: Boolean,
-    required: true
-  },
-  message: {
-    type: String,
-    required: true
-  }
-});
+const modalStore = useModalStore();
 
-const emits = defineEmits(['close-error-modal']);
-
-function closeModal() {
-  emits('close-error-modal')
+const closeModal = () => {
+  modalStore.errorModelOpen = false;
 }
 </script>
 
 <template>
   <Teleport to="body">
-    <Modal :show="showError" @close="closeModal">
+    <Modal :show="modalStore.errorModelOpen">
       <template v-slot:header>
         <header class="h-12 px-8 w-96 bg-white flex justify-between items-center rounded-t-lg">
           <div class="bg-white flex flex-col">
@@ -33,7 +22,7 @@ function closeModal() {
 
       <template v-slot:content>
         <div class="px-8 w-96 pt-3 pb-7 flex flex-col items-center">
-          <p class="mb-3">{{message}}</p>
+          <p class="mb-3">{{modalStore.errorModelMessage}}</p>
         </div>
       </template>
 

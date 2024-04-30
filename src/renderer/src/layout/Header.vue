@@ -4,13 +4,13 @@ import NavItems from './NavItems.vue'
 
 <template>
     <header class="navbar">
-        <nav class="flex flex-row w-full p-5 pt-5 text-black">
+        <nav class="flex flex-row items-center w-full p-5 pt-5 text-black">
             <div class="sidebar-title mr-8">
                 <h2 class="title font-bold text-lg text-center">LeadMe Launcher</h2>
             </div>
-            <NavItems target="/">Library</NavItems>
             <NavItems target="/dashboard">Dashboard</NavItems>
             <NavItems target="/home">Home</NavItems>
+            <NavItems target="/">Library</NavItems>
             <NavItems target="/settings">Settings</NavItems>
         </nav>
     </header>
