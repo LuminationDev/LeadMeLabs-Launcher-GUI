@@ -157,6 +157,8 @@ function createWindow () {
     width: 1200,
     height: 800,
     show: false,
+    frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -356,12 +358,20 @@ function setupTrayIcon(): void {
   });
 
   // Manage window minimising and tray icon
-  mainWindow.on('minimize', function (event) {
+  ipcMain.on('minimize', function (event) {
+    console.log("mini");
     event.preventDefault()
     mainWindow.hide()
   })
 
-  mainWindow.on('close', function (event) {
+  ipcMain.on('maximize', function (event) {
+    console.log("max");
+    event.preventDefault()
+    mainWindow.maximize()
+  })
+
+  ipcMain.on('close', function (event) {
+    console.log("close");
     event.preventDefault()
     mainWindow.hide()
   })

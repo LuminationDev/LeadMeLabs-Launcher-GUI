@@ -42,15 +42,17 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <div class="flex flex-col bg-white rounded-3xl mb-2">
-    <Header />
-  </div>
-  <div class="content flex flex-row w-full">
-    <RouterView />
-  </div>
+  <div class="flex flex-col h-full non-draggable">
+    <div class="flex flex-col bg-white rounded-3xl mb-2 draggable">
+      <Header />
+    </div>
+    <div class="content flex flex-row h-full w-full">
+      <RouterView />
+    </div>
 
-  <!--Modal to handle entire application updates-->
-  <Notification />
+    <!--Modal to handle entire application updates-->
+    <Notification />
+  </div>
 </template>
 
 <style lang="less">
