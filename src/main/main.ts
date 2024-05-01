@@ -359,19 +359,16 @@ function setupTrayIcon(): void {
 
   // Manage window minimising and tray icon
   ipcMain.on('minimize', function (event) {
-    console.log("mini");
     event.preventDefault()
     mainWindow.hide()
   })
 
   ipcMain.on('maximize', function (event) {
-    console.log("max");
     event.preventDefault()
     mainWindow.maximize()
   })
 
   ipcMain.on('close', function (event) {
-    console.log("close");
     event.preventDefault()
     mainWindow.hide()
   })
