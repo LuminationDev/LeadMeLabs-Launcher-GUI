@@ -8,7 +8,7 @@ import Releases from "@renderer/components/home/Releases.vue";
 
       <hr class="mt-4 mb-2">
 
-      <div class="flex flex-col flex-grow-1 max-h-[500px]">
+      <div class="flex flex-col flex-grow-1 max-h-[550px]">
         <Releases />
       </div>
     </div>
