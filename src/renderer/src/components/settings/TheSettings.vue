@@ -55,15 +55,11 @@ onBeforeMount(() => {
   <PinPrompt ref="pinRef" :callback="() => authorised = true"/>
 
   <div class="w-full h-auto flex flex-col">
-    <p class="text-lg text-black">Settings Page</p>
-
     <div v-if="!authorised" class="flex items-center justify-center h-64">
       Please enter the correct pin.
     </div>
 
-    <div v-else class="w-full h-auto mb-4 flex flex-col">
-      <hr class="my-4">
-
+    <div v-else class="w-full h-auto my-4 flex flex-col">
       <LauncherDetails />
       <PinSettings @config-change="writeManifestParameter"/>
       <ModeSelection @config-change="writeManifest"/>

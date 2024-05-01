@@ -3,7 +3,8 @@ body {
   display: flex;
   flex-direction: column;
   font-family: 'Poppins', sans-serif;
-  background-color: #F5F5F5;
+  background-color: dimgray;
+  height: 100vh;
 }
 
 * {
@@ -32,7 +33,6 @@ a {
   outline: none;
 }
 
-
 #app {
   flex: 1;
   display: flex;
@@ -40,5 +40,13 @@ a {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 15px 30px 0 30px;
+  padding: 5px;
+}
+
+.draggable {
+  -webkit-app-region: drag;
+}
+
+.non-draggable {
+  -webkit-app-region: no-drag;
 }
