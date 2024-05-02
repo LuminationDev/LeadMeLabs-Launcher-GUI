@@ -200,6 +200,8 @@ workflows:
           requires:
             - hold
       - vultr-upload:
+          requires:
+            - build-windows
           branch: "main"
           buildType: "Development"
           repository: "LeadMeLabs-Launcher-Hosting-Development"
