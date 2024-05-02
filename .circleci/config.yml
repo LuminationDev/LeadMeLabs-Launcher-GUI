@@ -111,11 +111,7 @@ jobs:
     docker:
       - image: cimg/node:current
     parameters:
-      branch:
-        type: string
-      repository:
-        type: string
-      buildType:
+      directory:
         type: string
     steps:
       - attach_workspace:
@@ -127,8 +123,8 @@ jobs:
              brew install s3cmd && 
              cd ~/circleci-working/<<pipeline.id>>/ &&
              ls &&
-             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s del --recursive s3://leadme-tools/leadme-launcher-debug/ &&
-             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s sync -P ./dist/ s3://leadme-tools/leadme-launcher-debug/
+             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s del --recursive s3://leadme-tools/<<parameters.directory>>/ &&
+             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s sync -P ./dist/ s3://leadme-tools/<<parameters.directory>>/
   build-windows:
     machine: true
     resource_class: luminationdev/darragh-comp
@@ -177,6 +173,10 @@ workflows:
           repository: "LeadMeLabs-Launcher-Hosting"
           requires:
             - build-windows
+      - vultr-upload:
+          requires:
+            - build-windows
+          directory: "leadme-launcher"
   build_development:
     jobs:
       - hold:
@@ -191,17 +191,7 @@ workflows:
           repository: "LeadMeLabs-Launcher-Hosting-Development"
           requires:
             - build-windows
-  vultr_testing:
-    jobs:
-      - hold:
-          context: LeadMeDeployers
-          type: approval
-      - build-windows:
-          requires:
-            - hold
       - vultr-upload:
           requires:
             - build-windows
-          branch: "main"
-          buildType: "Development"
-          repository: "LeadMeLabs-Launcher-Hosting-Development"
+          directory: "leadme-launcher-debug"
