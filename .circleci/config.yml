@@ -112,6 +112,9 @@ jobs:
       - image: cimg/node:current
     steps:
       - run:
+          name: "install brew"
+          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      - run:
           name: "install s3cmd"
           command: brew install s3cmd
       - run:
