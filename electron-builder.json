@@ -15,7 +15,7 @@
         "publish": [
             {
                 "provider": "generic",
-                "url": "https://electronlauncher.herokuapp.com/static/electron-launcher"
+                "url": "https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher"
             }
         ]
     },

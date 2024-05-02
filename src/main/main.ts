@@ -37,7 +37,7 @@ else {
 autoUpdater.autoDownload = true;
 autoUpdater.setFeedURL({
   provider: 'generic',
-  url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+  url: 'https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher'
 })
 
 // Offline
@@ -47,7 +47,7 @@ autoUpdater.setFeedURL({
 // Local
 // url: 'http://localhost:8082/electron-launcher'
 // Production
-// url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+// url: 'https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher'
 
 /*
  * Hold a reference to the latest version number
@@ -180,7 +180,7 @@ function createWindow () {
       if (mode === 'development') {
         autoUpdater.setFeedURL({
           provider: 'generic',
-          url: 'https://leadme-launcher-development-92514d5e709f.herokuapp.com/static/electron-launcher'
+          url: 'https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher-debug'
         })
       }
 
@@ -235,7 +235,7 @@ async function handleUpdateCheckError(error) {
   }
 
   // Set a new FeedURL as the offline backup
-  autoUpdater.setFeedURL({
+  autoUpdater.setFeedURL({ // todo
     provider: 'generic',
     url: `http://${feedUrl}:8088/static/electron-launcher`
   });
