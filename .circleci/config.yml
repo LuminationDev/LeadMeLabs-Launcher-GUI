@@ -113,13 +113,7 @@ jobs:
     steps:
       - run:
           name: "install brew"
-          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      - run:
-          name: "add brew to path"
-          command: test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)" && test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bashrc
-      - run:
-          name: "install s3cmd"
-          command: brew install s3cmd
+          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/circleci/.profile && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install s3cmd
       - run:
           name: "create tmp file"
           command: touch temp.txt
