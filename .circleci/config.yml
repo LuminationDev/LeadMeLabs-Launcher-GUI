@@ -116,8 +116,7 @@ jobs:
           command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       - run:
           name: "add brew to path"
-          command: (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/circleci/.profile
-      - run: eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          command: test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)" && test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bashrc
       - run:
           name: "install s3cmd"
           command: brew install s3cmd
