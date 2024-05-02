@@ -107,19 +107,27 @@ commands:
             - dist
 
 jobs:
-  install-and-upload:
+  vultr-upload:
     docker:
       - image: cimg/node:current
+    parameters:
+      branch:
+        type: string
+      repository:
+        type: string
+      buildType:
+        type: string
     steps:
+      - attach_workspace:
+          at: ~/circleci-working/<<pipeline.id>>
       - run:
-          name: "create tmp file"
-          command: touch temp.txt
-      - run:
-          name: "data in"
-          command: ls > temp.txt
-      - run:
-          name: "install brew"
-          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/circleci/.profile && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install s3cmd && s3cmd --access_key=$VULTR_ACCESS --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s put -P temp.txt s3://leadme-tools/temp.txt
+          name: "install brew and upload"
+          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && 
+            (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/circleci/.profile && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" &&
+             brew install s3cmd && 
+             cd ~/circleci-working/<<pipeline.id>>/ &&
+             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s del --recursive s3://leadme-tools/leadme-launcher-debug/ &&
+             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s put --recursive -P ./dist/. s3://leadme-tools/leadme-launcher-debug/
   build-windows:
     machine: true
     resource_class: luminationdev/darragh-comp
@@ -187,6 +195,9 @@ workflows:
       - hold:
           context: LeadMeDeployers
           type: approval
-      - install-and-upload:
+      - vultr-upload:
+          branch: "main"
+          buildType: "Development"
+          repository: "LeadMeLabs-Launcher-Hosting-Development"
           requires:
             - hold
