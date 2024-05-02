@@ -112,17 +112,14 @@ jobs:
       - image: cimg/node:current
     steps:
       - run:
-          name: "install brew"
-          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/circleci/.profile && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install s3cmd
-      - run:
           name: "create tmp file"
           command: touch temp.txt
       - run:
           name: "data in"
           command: ls > temp.txt
       - run:
-          name: "s3cmd ls"
-          command: s3cmd ls --access-key=$env:VULTR_ACCESS --secret-key=$env:VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s
+          name: "install brew"
+          command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/circleci/.profile && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install s3cmd && s3cmd ls --access-key=$env:VULTR_ACCESS --secret-key=$env:VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s
   build-windows:
     machine: true
     resource_class: luminationdev/darragh-comp
