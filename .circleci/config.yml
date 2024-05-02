@@ -196,9 +196,10 @@ workflows:
       - hold:
           context: LeadMeDeployers
           type: approval
+      - build-windows:
+          requires:
+            - hold
       - vultr-upload:
           branch: "main"
           buildType: "Development"
           repository: "LeadMeLabs-Launcher-Hosting-Development"
-          requires:
-            - hold
