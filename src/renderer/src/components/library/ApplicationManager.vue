@@ -16,10 +16,10 @@ const selectedApplication = computed(() => {
  * Start a process for the application that has been selected, the backend will start a leadme_apps application or
  * follow the altPath if it is supplied/not null.
  */
-const launchApplication = (): void => {
+const launchApplication = async (): Promise<void> => {
   if (selectedApplication.value === undefined) return;
 
-  const host = libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
   if (host === undefined) return;
 
   libraryStore.updateApplicationByName(
@@ -63,10 +63,10 @@ const stopApplication = (): void => {
  * Send an api call to the backend asking to download an application. The applications' download URL is supplied along
  * with its name and the folder it should be saved in.
  */
-const downloadApplication = (): void => {
+const downloadApplication = async (): Promise<void> => {
   if (selectedApplication.value === undefined) return;
 
-  const host = libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
   if (host === undefined) return;
 
   libraryStore.updateApplicationByName(

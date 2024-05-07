@@ -28,7 +28,7 @@ export const backendListeners = (info: any) => {
             break;
 
         case "autostart_active":
-            autoStateApplications();
+            autoStartApplications();
             break;
 
         case "app_manifest_query":
@@ -155,19 +155,19 @@ const installedApplications = (appDirectoryPath: string, toolDirectoryPath: stri
  * A command sent from the backend stating there are no updates available at this time or any update has been installed,
  * and it is now safe to auto start any applications that are required.
  */
-const autoStateApplications = () => {
+const autoStartApplications = () => {
     libraryStore.applications.forEach((application: Application) => {
         //Open the application if required by autostart flag
         if (application.autostart) {
-            const host = libraryStore.getHostURL(application.wrapperType, application.name);
-
-            // @ts-ignore
-            api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
-                channelType: CONSTANT.MESSAGE.APPLICATION_LAUNCH,
-                id: application.id,
-                host,
-                name: application.name,
-                path: application.altPath === null ? "" : application.altPath
+            libraryStore.getHostURL(application.wrapperType, application.name).then((host: any) => {
+                // @ts-ignore
+                api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+                    channelType: CONSTANT.MESSAGE.APPLICATION_LAUNCH,
+                    id: application.id,
+                    host,
+                    name: application.name,
+                    path: application.altPath === null ? "" : application.altPath
+                });
             });
         }
     });

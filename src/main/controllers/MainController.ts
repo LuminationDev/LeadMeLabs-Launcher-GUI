@@ -184,10 +184,33 @@ export default class MainController {
         const downloadWindow = this.createDownloadWindow(`Downloading ${info.name} update, please wait...`);
 
         this.host = info.host;
-        let url = this.host + info.url;
+        let url = "";
 
         console.log("Server location:");
         console.log(this.host);
+
+        if (this.host.includes("vultrobjects")) {
+            if(info.name === "NUC") {
+                url = this.host + "NUC/version";
+            } else if(info.name === "Station") {
+                url = this.host + "Station/version";
+            } else {
+                this.downloading = false;
+                return;
+            }
+        } else if (this.host.includes("herokuapp")) {
+            if(info.name === "NUC") {
+                url = this.host + '/program-nuc-version';
+            } else if(info.name === "Station") {
+                url = this.host + '/program-station-version';
+            } else {
+                this.downloading = false;
+                return;
+            }
+        } else if (this.host.includes("localhost")) {
+            // todo
+            url = ''
+        }
 
         //Set the directory for installation
         let directoryPath: string;
@@ -253,7 +276,9 @@ export default class MainController {
         }
 
         //Check if the server is online
+        console.log(url)
         if(!await checkFileAvailability(url, 10000)) {
+            // todo offline
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
                 this.downloading = false;
@@ -281,6 +306,29 @@ export default class MainController {
             } else {
                 url = "";
             }
+        }
+
+        if (this.host.includes("vultrobjects")) {
+            if(info.name === "NUC") {
+                url = this.host + "NUC/NUC.zip";
+            } else if(info.name === "Station") {
+                url = this.host + "Station/Station.zip";
+            } else {
+                this.downloading = false;
+                return;
+            }
+        } else if (this.host.includes("herokuapp")) {
+            if(info.name === "NUC") {
+                url = this.host + '/program-nuc';
+            } else if(info.name === "Station") {
+                url = this.host + '/program-station';
+            } else {
+                this.downloading = false;
+                return;
+            }
+        } else if (this.host.includes("localhost")) {
+            // todo
+            url = ''
         }
 
         // @ts-ignore
@@ -625,17 +673,28 @@ export default class MainController {
         this.downloading = true;
         const directoryPath = join(this.appDirectory, appName);
 
-        const nucUrl = '/program-nuc-version';
-        const stationUrl = '/program-station-version';
-
-        let url: string;
-        if(appName === "NUC") {
-            url = this.host + nucUrl;
-        } else if(appName === "Station") {
-            url = this.host + stationUrl;
-        } else {
-            this.downloading = false;
-            return;
+        let url: string = "";
+        if (this.host.includes("vultrobjects")) {
+            if(appName === "NUC") {
+                url = this.host + "NUC/version";
+            } else if(appName === "Station") {
+                url = this.host + "Station/version";
+            } else {
+                this.downloading = false;
+                return;
+            }
+        } else if (this.host.includes("herokuapp")) {
+            if(appName === "NUC") {
+                url = this.host + '/program-nuc-version';
+            } else if(appName === "Station") {
+                url = this.host + '/program-station-version';
+            } else {
+                this.downloading = false;
+                return;
+            }
+        } else if (this.host.includes("localhost")) {
+            // todo
+            url = ''
         }
 
         let downloadWindow = this.createDownloadWindow(`Checking for ${appName} update, please wait...`);
@@ -658,9 +717,9 @@ export default class MainController {
 
             //Check if offline line mode is available
             if(appName === "NUC") {
-                url = this.offlineHost + nucUrl;
+                url = this.offlineHost + "TODO"; // todo
             } else if(appName === "Station") {
-                url = this.offlineHost + stationUrl;
+                url = this.offlineHost + "TODO"; // todo
             } else {
                 this.downloading = false;
                 downloadWindow.destroy();
@@ -765,8 +824,27 @@ export default class MainController {
             message: `${appName} requires an update. Update type ${difference}`
         });
 
-        //Create the url path
-        let baseUrl = url.replace("-version", "");
+        let baseUrl: string = "";
+        if (this.host.includes("vultrobjects")) {
+            if(appName === "NUC") {
+                baseUrl = this.host + "NUC/NUC.zip";
+            } else if(appName === "Station") {
+                baseUrl = this.host + "Station/Station.zip";
+            } else {
+                return;
+            }
+        } else if (this.host.includes("herokuapp")) {
+            if(appName === "NUC") {
+                baseUrl = this.host + '/program-nuc';
+            } else if(appName === "Station") {
+                baseUrl = this.host + '/program-station';
+            } else {
+                return;
+            }
+        } else if (this.host.includes("localhost")) {
+            // todo
+            baseUrl = "todo"
+        }
 
         //Create the new info packet for the download function
         let info = {
