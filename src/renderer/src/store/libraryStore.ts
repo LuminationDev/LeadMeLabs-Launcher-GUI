@@ -77,11 +77,12 @@ const embeddedApplications = {
         //     name: 'Open Brush',
         //     url:'/'
         // },
-        // {
-        //     id: "204",
-        //     name: 'ThingLink & CoSpaces',
-        //     url:'/'
-        // }
+        {
+            id: "204",
+            name: 'WebXR Viewer',
+            alias: "leadme-webxr-viewer",
+            url:'https://leadme-apps.sgp1.vultrobjects.com/leadme-webxr-viewer/'
+        }
     ]
 }
 
@@ -302,7 +303,17 @@ export const useLibraryStore = defineStore({
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
                     //TODO update for Embedded routes
-                    modeUrls = undefined;
+                    const app = embeddedApplications.apps.find(element => element.name === applicationName)
+                    if (app === undefined) {
+                        modeUrls = undefined;
+                        break;
+                    }
+                    modeUrls = {
+                        production: app.url,
+                        development: app.url,
+                        offline: "",
+                        local: ""
+                    };
                     break;
 
                 default:

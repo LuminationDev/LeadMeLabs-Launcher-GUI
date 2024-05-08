@@ -41,6 +41,32 @@ const launchApplication = async (): Promise<void> => {
   })
 }
 
+const updateApplication = async (): Promise<void> => {
+  if (selectedApplication.value === undefined) return;
+
+  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  if (host === undefined) return;
+
+  libraryStore.updateApplicationByName(
+      selectedApplication.value.name,
+      CONSTANT.MODEL_KEY.KEY_STATUS,
+      CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING);
+
+  const alias = selectedApplication.value.alias !== undefined ? selectedApplication.value.alias : selectedApplication.value.name;
+
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_UPDATE,
+    id: selectedApplication.value.id,
+    wrapperType: selectedApplication.value.wrapperType,
+    name: selectedApplication.value.name,
+    alias,
+    host: host,
+    path: selectedApplication.value.altPath,
+    updateOnly: true
+  })
+}
+
 /**
  * Stop an application that is running. It sends an api call to the backend to call a kill process based on the name or
  * alternate path that is supplied.
@@ -97,13 +123,22 @@ const downloadApplication = async (): Promise<void> => {
   <GenericButton
       v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_INSTALLED
       && !(libraryStore.getSelectedApplication.wrapperType !== undefined &&
-          libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL &&
+          [CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL, CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED].includes(libraryStore.getSelectedApplication.wrapperType) &&
           !libraryStore.getSelectedApplication.setup)"
       class="h-10 w-32 text-base"
       :type="'primary'"
       :callback="launchApplication"
       :spinnerColor="'#000000'"
   >Launch</GenericButton>
+
+  <GenericButton
+      v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_INSTALLED
+        && libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED"
+      class="h-10 w-32 text-base"
+      :type="'primary'"
+      :callback="updateApplication"
+      :spinnerColor="'#000000'"
+  >Update</GenericButton>
 
   <GenericButton
       v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_RUNNING"

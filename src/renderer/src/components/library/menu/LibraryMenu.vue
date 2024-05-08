@@ -23,7 +23,7 @@ const searchQuery = ref("");
 
       <div class="flex-col overflow-auto max-h-[400px]">
         <SubMenu title="LeadMe" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME"/>
-        <SubMenu title="In-built" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED"/>
+        <SubMenu title="Apps" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED"/>
         <SubMenu title="Imported" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_IMPORTED"/>
         <SubMenu title="Tools" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL" :start-expanded="false"/>
       </div>

@@ -137,6 +137,9 @@ export default class MainController {
                 case "launch_application":
                     void this.launchApplication(_event, info);
                     break;
+                case "update_application":
+                    void this.updateApplication(_event, info);
+                    break;
                 case "stop_application":
                     void this.killAProcess(info.name, info.altPath, false);
                     break;
@@ -194,6 +197,8 @@ export default class MainController {
                 url = this.host + "NUC/version";
             } else if(info.name === "Station") {
                 url = this.host + "Station/version";
+            } else if (info.wrapperType === "embedded") {
+                url = this.host + "version"
             } else {
                 this.downloading = false;
                 return;
@@ -313,6 +318,8 @@ export default class MainController {
                 url = this.host + "NUC/NUC.zip";
             } else if(info.name === "Station") {
                 url = this.host + "Station/Station.zip";
+            } else if (info.wrapperType === "embedded") {
+                url = this.host + "application.zip"
             } else {
                 this.downloading = false;
                 return;
@@ -364,7 +371,19 @@ export default class MainController {
                     break;
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
-                    this.manifestController.updateAppManifest(info.name, info.alias, "Embedded", null, null, null);
+                    //Unzip the project and add it to the local installation folder
+                    extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
+                        this.mainWindow.webContents.send('status_message', {
+                            channelType: "status_update",
+                            name: info.name,
+                            message: 'Extracting complete, cleaning up.'
+                        })
+
+                        //Delete the downloaded zip folder
+                        fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
+                    }).then(() => {
+                        this.manifestController.updateAppManifest(info.name, info.alias, "Embedded", null, null, null);
+                    });
                     break;
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
@@ -610,6 +629,11 @@ export default class MainController {
     async launchApplication(_event: IpcMainEvent, info: any): Promise<void> {
         const remote = this.configController.checkIfRemoteConfigIsEnabled(_event, { applicationType: info.name })
         this.host = info.host;
+        if (!info.path || info.path === "") {
+            if (info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED) {
+                info.path = process.env.APPDATA + '\\leadme_apps\\Embedded\\' + info.name
+            }
+        }
         if (remote) {
             const idTokenResponse = await this.configController.generateIdTokenFromRemoteConfigFile(info.name)
             await this.configController.downloadAndUpdateLocalConfig(info.name, idTokenResponse)
@@ -621,8 +645,8 @@ export default class MainController {
 
         await this.killAProcess(info.name, info.path, true);
 
-        if(info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME) {
-            await this.updateLeadMeApplication(info.name);
+        if(info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME || info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED) {
+            await this.updateApplication(_event, info);
         }
 
         //Load from the local leadme_apps folder or the supplied absolute path
@@ -669,30 +693,33 @@ export default class MainController {
      * Check for an update for either the Station or NUC software, if there is one download and extract the update, do
      * not download files such as steamcmd or override config.env
      */
-    async updateLeadMeApplication(appName: string): Promise<void> {
+    async updateApplication(_event: IpcMainEvent, details: any): Promise<void> {
+        var appName = details.name
         this.downloading = true;
-        const directoryPath = join(this.appDirectory, appName);
+        const directoryPath = details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED ? join(this.appDirectory, "Embedded\\" , appName) : join(this.appDirectory, appName);
 
         let url: string = "";
-        if (this.host.includes("vultrobjects")) {
+        if (details.host.includes("vultrobjects")) {
             if(appName === "NUC") {
-                url = this.host + "NUC/version";
+                url = details.host + "NUC/version";
             } else if(appName === "Station") {
-                url = this.host + "Station/version";
+                url = details.host + "Station/version";
+            } else if (details.wrapperType === "embedded") {
+                url = details.host + "version"
             } else {
                 this.downloading = false;
                 return;
             }
         } else if (this.host.includes("herokuapp")) {
             if(appName === "NUC") {
-                url = this.host + '/program-nuc-version';
+                url = details.host + '/program-nuc-version';
             } else if(appName === "Station") {
-                url = this.host + '/program-station-version';
+                url = details.host + '/program-station-version';
             } else {
                 this.downloading = false;
                 return;
             }
-        } else if (this.host.includes("localhost")) {
+        } else if (details.host.includes("localhost")) {
             // todo
             url = ''
         }
@@ -712,7 +739,7 @@ export default class MainController {
             this.mainWindow.webContents.send('status_message', {
                 channelType: "status_update",
                 name: appName,
-                message: `Hosting server offline: ${this.host}. Checking offline backup: ${this.offlineHost}.`
+                message: `Hosting server offline: ${details.host}. Checking offline backup: ${this.offlineHost}.`
             });
 
             //Check if offline line mode is available
@@ -779,26 +806,41 @@ export default class MainController {
         }
 
         //Write out and then get the local version
-        const args = `writeversion`;
+        var localVersion = ""
+        if (details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME) {
+            const args = `writeversion`;
 
-        try {
-            // Replace "program.exe" with the path to your program
-            const program = spawnSync(resolve(directoryPath, `${appName}.exe`), [args]);
+            try {
+                // Replace "program.exe" with the path to your program
+                const program = spawnSync(resolve(directoryPath, `${appName}.exe`), [args]);
 
-            console.log(`Program exited with status: ${program.status}`);
-        } catch (error) {
-            // @ts-ignore
-            console.log(error.toString());
+                console.log(`Program exited with status: ${program.status}`);
+            } catch (error) {
+                // @ts-ignore
+                console.log(error.toString());
+            }
+
+            const versionPath = join(this.appDirectory, `${appName}/_logs/version.txt`);
+
+            if(!fs.existsSync(versionPath)) {
+                console.log("Cannot find version file path.");
+                this.downloading = false;
+                return;
+            }
+            localVersion = fs.readFileSync(versionPath, 'utf8')
         }
 
-        const versionPath = join(this.appDirectory, `${appName}/_logs/version.txt`);
+        if (details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED) {
+            const versionPath = join(directoryPath, `\\version.txt`);
 
-        if(!fs.existsSync(versionPath)) {
-            console.log("Cannot find version file path.");
-            this.downloading = false;
-            return;
+            if(!fs.existsSync(versionPath)) {
+                console.log("Cannot find version file path.");
+                this.downloading = false;
+                return;
+            }
+            localVersion = fs.readFileSync(versionPath, 'utf8')
         }
-        const localVersion = fs.readFileSync(versionPath, 'utf8')
+
 
         //Compare the versions
         console.log("Online version: " + onlineVersion);
@@ -810,6 +852,13 @@ export default class MainController {
         if(newVersionAvailable == null || !newVersionAvailable) {
             this.downloading = false;
             downloadWindow.destroy();
+            if (details.updateOnly) {
+                this.mainWindow.webContents.send('status_message', {
+                    channelType: "status_update",
+                    name: details.name,
+                    message: 'Clean up complete'
+                });
+            }
             return;
         }
 
@@ -825,23 +874,25 @@ export default class MainController {
         });
 
         let baseUrl: string = "";
-        if (this.host.includes("vultrobjects")) {
+        if (details.host.includes("vultrobjects")) {
             if(appName === "NUC") {
-                baseUrl = this.host + "NUC/NUC.zip";
+                baseUrl = details.host + "NUC/NUC.zip";
             } else if(appName === "Station") {
-                baseUrl = this.host + "Station/Station.zip";
+                baseUrl = details.host + "Station/Station.zip";
+            } else if (details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED) {
+                baseUrl = details.host + "application.zip"
             } else {
                 return;
             }
-        } else if (this.host.includes("herokuapp")) {
+        } else if (details.host.includes("herokuapp")) {
             if(appName === "NUC") {
-                baseUrl = this.host + '/program-nuc';
+                baseUrl = details.host + '/program-nuc';
             } else if(appName === "Station") {
-                baseUrl = this.host + '/program-station';
+                baseUrl = details.host + '/program-station';
             } else {
                 return;
             }
-        } else if (this.host.includes("localhost")) {
+        } else if (details.host.includes("localhost")) {
             // todo
             baseUrl = "todo"
         }
@@ -907,11 +958,19 @@ export default class MainController {
 
                     //Delete the downloaded zip folder
                     fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
-                    this.mainWindow.webContents.send('status_message', {
-                        channelType: "status_update",
-                        name: appName,
-                        message: 'Update clean up complete'
-                    })
+                    if (details.updateOnly) {
+                        this.mainWindow.webContents.send('status_message', {
+                            channelType: "status_update",
+                            name: details.name,
+                            message: 'Clean up complete'
+                        });
+                    } else {
+                        this.mainWindow.webContents.send('status_message', {
+                            channelType: "status_update",
+                            name: details.name,
+                            message: 'Update clean up complete'
+                        });
+                    }
                     console.log("Update clean up complete")
 
                     try {
