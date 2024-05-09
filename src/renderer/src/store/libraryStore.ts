@@ -24,13 +24,13 @@ const leadMeApplications = {
             id: "1",
             name: 'Station',
             alias: 'Station',
-            url: '/program-station'
+            url: '/Station'
         },
         {
             id: "2",
             name: 'NUC',
             alias: 'NUC',
-            url: '/program-nuc'
+            url: '/NUC'
         }
     ]
 }
@@ -283,14 +283,14 @@ export const useLibraryStore = defineStore({
                         modeUrls = {
                             production: "https://leadme-internal.sgp1.vultrobjects.com/",
                             development: "https://leadme-internal-debug.sgp1.vultrobjects.com/",
-                            offline: "http://localhost:8088",
+                            offline: "http://localhost:8088/",
                             local: "http://localhost:8082"
                         };
                     } else {
                         modeUrls = {
                             production: "https://learninglablauncher.herokuapp.com",
                             development: "https://learninglablauncherdevelopment.herokuapp.com",
-                            offline: "http://localhost:8088",
+                            offline: "http://localhost:8088/",
                             local: "http://localhost:8082"
                         };
                     }

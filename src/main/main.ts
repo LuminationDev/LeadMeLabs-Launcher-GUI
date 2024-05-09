@@ -249,7 +249,7 @@ async function handleUpdateCheckError(error) {
   }
 
   // Set a new FeedURL as the offline backup
-  autoUpdater.setFeedURL({ // todo
+  autoUpdater.setFeedURL({
     provider: 'generic',
     url: `http://${feedUrl}:8088/static/electron-launcher`
   });

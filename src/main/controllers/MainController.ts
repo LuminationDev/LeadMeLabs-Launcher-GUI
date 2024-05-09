@@ -8,13 +8,13 @@ import { exec, execSync, spawn, spawnSync } from "child_process";
 import semver from "semver/preload";
 import * as http from "http";
 import * as https from "https";
-import { app, BrowserWindow, shell } from "electron";
+import { BrowserWindow } from "electron";
 import IpcMainEvent = Electron.IpcMainEvent;
 import * as Sentry from "@sentry/electron";
 import {
     checkFileAvailability, checkForElectronVersion,
     collectFeedURL,
-    collectLocation, findExecutableWithNameSetup,
+    collectLocation, createDownloadWindow, findExecutableWithNameSetup,
     getInternalMac
 } from "../util/Utilities";
 import { taskSchedulerItem } from "../util/TaskScheduler";
@@ -184,38 +184,12 @@ export default class MainController {
      */
     async downloadApplication(_event: IpcMainEvent, info: any): Promise<void> {
         this.downloading = true;
-        const downloadWindow = this.createDownloadWindow(`Downloading ${info.name} update, please wait...`);
+        const downloadWindow = createDownloadWindow(`Downloading ${info.name} update, please wait...`);
+
+        console.log(info);
 
         this.host = info.host;
-        let url = "";
-
-        console.log("Server location:");
-        console.log(this.host);
-
-        if (this.host.includes("vultrobjects")) {
-            if(info.name === "NUC") {
-                url = this.host + "NUC/version";
-            } else if(info.name === "Station") {
-                url = this.host + "Station/version";
-            } else if (info.wrapperType === "embedded") {
-                url = this.host + "version"
-            } else {
-                this.downloading = false;
-                return;
-            }
-        } else if (this.host.includes("herokuapp")) {
-            if(info.name === "NUC") {
-                url = this.host + '/program-nuc-version';
-            } else if(info.name === "Station") {
-                url = this.host + '/program-station-version';
-            } else {
-                this.downloading = false;
-                return;
-            }
-        } else if (this.host.includes("localhost")) {
-            // todo
-            url = ''
-        }
+        let url = this.generateVersionURL(info, info.name);
 
         //Set the directory for installation
         let directoryPath: string;
@@ -250,7 +224,7 @@ export default class MainController {
             channelType: "status_update",
             name: info.name,
             message: `Initiating download: ${directoryPath}`
-        })
+        });
 
         //Create the main directory to hold the application
         fs.mkdirSync(directoryPath, {recursive: true})
@@ -283,7 +257,7 @@ export default class MainController {
         //Check if the server is online
         console.log(url)
         if(!await checkFileAvailability(url, 10000)) {
-            // todo offline
+            //Server is offline
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
                 this.downloading = false;
@@ -298,44 +272,55 @@ export default class MainController {
             });
 
             //Check if offline line mode is available
-            url = this.offlineHost + info.url;
+            url = this.offlineHost + info.url + info.url + ".zip";
+            console.log(url);
             if(!await checkFileAvailability(url, 10000)) {
-                downloadWindow.destroy();
-                this.mainWindow.webContents.send('status_message', {
-                    channelType: "status_update",
-                    name: info.name,
-                    message: 'Server offline'
-                });
-                this.downloading = false;
-                return;
-            } else {
-                url = "";
-            }
-        }
+                console.log("Checking backup routes");
 
-        if (this.host.includes("vultrobjects")) {
-            if(info.name === "NUC") {
-                url = this.host + "NUC/NUC.zip";
-            } else if(info.name === "Station") {
-                url = this.host + "Station/Station.zip";
-            } else if (info.wrapperType === "embedded") {
-                url = this.host + "application.zip"
-            } else {
-                this.downloading = false;
-                return;
+                //Check the older route
+                if(info.name === "NUC") {
+                    url = this.offlineHost + '/program-nuc';
+                } else if(info.name === "Station") {
+                    url = this.offlineHost + '/program-station';
+                }
+
+                if (!await checkFileAvailability(url, 10000)) {
+                    downloadWindow.destroy();
+                    this.mainWindow.webContents.send('status_message', {
+                        channelType: "status_update",
+                        name: info.name,
+                        message: 'Server offline'
+                    });
+                    this.downloading = false;
+                    return;
+                }
             }
-        } else if (this.host.includes("herokuapp")) {
-            if(info.name === "NUC") {
-                url = this.host + '/program-nuc';
-            } else if(info.name === "Station") {
-                url = this.host + '/program-station';
-            } else {
-                this.downloading = false;
-                return;
+        } else {
+            //Server is online
+            if (this.host.includes("vultrobjects")) {
+                if(info.name === "NUC") {
+                    url = this.host + "NUC/NUC.zip";
+                } else if(info.name === "Station") {
+                    url = this.host + "Station/Station.zip";
+                } else if (info.wrapperType === "embedded") {
+                    url = this.host + "application.zip"
+                } else {
+                    this.downloading = false;
+                    return;
+                }
+            } else if (this.host.includes("herokuapp")) {
+                if(info.name === "NUC") {
+                    url = this.host + '/program-nuc';
+                } else if(info.name === "Station") {
+                    url = this.host + '/program-station';
+                } else {
+                    this.downloading = false;
+                    return;
+                }
+            } else if (this.host.includes("localhost")) {
+                // todo
+                url = ''
             }
-        } else if (this.host.includes("localhost")) {
-            // todo
-            url = ''
         }
 
         // @ts-ignore
@@ -404,47 +389,6 @@ export default class MainController {
             downloadWindow.destroy()
             this.downloading = false;
         });
-    }
-
-    /**
-     * Create a generic download window.
-     * @param initialContent A string of content to display to the user.
-     */
-    createDownloadWindow(initialContent: string): BrowserWindow {
-        const downloadWindow = new BrowserWindow({
-            width: 400,
-            height: 150,
-            show: false,
-            resizable: false,
-            webPreferences: {
-                preload: join(__dirname, 'preload.js'),
-                nodeIntegration: false,
-                contextIsolation: true,
-            }
-        });
-
-        downloadWindow.setMenu(null);
-
-        downloadWindow.on('ready-to-show', () => {
-            downloadWindow.show();
-        });
-
-        downloadWindow.webContents.setWindowOpenHandler((details) => {
-            void shell.openExternal(details.url)
-            this.downloading = false;
-            return { action: 'deny' }
-        });
-
-        downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
-
-        downloadWindow.webContents.on('did-finish-load', () => {
-            downloadWindow.webContents.executeJavaScript(`
-                const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = '${initialContent}';`
-            );
-        });
-
-        return downloadWindow;
     }
 
     /**
@@ -694,46 +638,121 @@ export default class MainController {
      * not download files such as steamcmd or override config.env
      */
     async updateApplication(_event: IpcMainEvent, details: any): Promise<void> {
-        var appName = details.name
+        const appName = details.name;
         this.downloading = true;
         const directoryPath = details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED ? join(this.appDirectory, "Embedded\\" , appName) : join(this.appDirectory, appName);
 
-        let url: string = "";
-        if (details.host.includes("vultrobjects")) {
-            if(appName === "NUC") {
-                url = details.host + "NUC/version";
-            } else if(appName === "Station") {
-                url = details.host + "Station/version";
-            } else if (details.wrapperType === "embedded") {
-                url = details.host + "version"
-            } else {
-                this.downloading = false;
-                return;
+        //Generate the correct URL
+        let url: string = this.generateVersionURL(details, appName);
+
+        //Create the download window
+        let downloadWindow = createDownloadWindow(`Checking for ${appName} update, please wait...`);
+
+        //Check if the main server is online
+        const { offline, backupUrl } = await this.checkServerStatus(details, appName);
+        if (backupUrl.length > 0) {
+            url = backupUrl;
+        }
+
+        //Online version number
+        let onlineVersion: string;
+        try {
+            onlineVersion = await this.fetchOnlineVersion(url);
+        } catch {
+            console.log("Unable to establish connection to server.");
+            return;
+        }
+
+        //Write out and then get the local version
+        const localVersion = this.getLocalVersion(details, appName, directoryPath);
+
+        //Compare the versions
+        const isUpdateAvailable = this.checkAndUpdateVersion(onlineVersion, localVersion, details, appName);
+        if (!isUpdateAvailable) {
+            downloadWindow.destroy();
+            return;
+        }
+
+        //Generate the download URL
+        const baseUrl: string = this.generateBaseUrl(details, appName, offline);
+
+        //Create the new info packet for the download function
+        let info = {
+            url: baseUrl,
+            properties: {
+                directory: directoryPath,
+                onProgress: undefined
             }
-        } else if (this.host.includes("herokuapp")) {
-            if(appName === "NUC") {
-                url = details.host + '/program-nuc-version';
-            } else if(appName === "Station") {
-                url = details.host + '/program-station-version';
+        }
+
+        //Maintain a trace on the download progress
+        // @ts-ignore
+        info.properties.onProgress = (status): void => {
+            console.log(status)
+
+            try {
+                downloadWindow.webContents.executeJavaScript(`
+                    try {
+                        const dynamicTextElement = document.getElementById('update-message');
+                        dynamicTextElement.innerText = 'Downloading ${appName} update, ${(status.percent * 100).toFixed(2)} %';
+                    } catch (error) {
+                        console.error('Error in executeJavaScript:', error);
+                    }
+                `);
+            } catch (e) {
+                console.log(e);
+            }
+        }
+
+        //Download the application
+        try {
+            await this.performDownload(info, appName, details, directoryPath, downloadWindow, localVersion, onlineVersion);
+        } catch {
+            console.log("Download failed.");
+        }
+    }
+
+    generateVersionURL(details: any, appName: string): string {
+        let url: string = "";
+
+        if (details.host.includes("vultrobjects")) {
+            if (appName === "NUC") {
+                url = `${details.host}NUC/version`;
+            } else if (appName === "Station") {
+                url = `${details.host}Station/version`;
+            } else if (details.wrapperType === "embedded") {
+                url = `${details.host}version`;
             } else {
-                this.downloading = false;
-                return;
+                return "";
+            }
+        } else if (details.host.includes("herokuapp")) {
+            if (appName === "NUC") {
+                url = `${details.host}/program-nuc-version`;
+            } else if (appName === "Station") {
+                url = `${details.host}/program-station-version`;
+            } else {
+                return "";
             }
         } else if (details.host.includes("localhost")) {
             // todo
-            url = ''
+            url = '';
         }
 
-        let downloadWindow = this.createDownloadWindow(`Checking for ${appName} update, please wait...`);
+        return url;
+    }
 
-        //Check if the server is online
-        if(!await checkFileAvailability(url, 5000)) {
+    async checkServerStatus(details: any, appName: string): Promise<{ offline: string, backupUrl: string }> {
+        let offline = "";
+        let backupUrl = "";
+
+        if (!await checkFileAvailability(backupUrl, 5000)) {
+            offline = "original";
             const feedUrl = await collectFeedURL();
-            if(feedUrl == null) {
-                this.downloading = false;
-                downloadWindow.destroy();
-                return;
+
+            if (feedUrl == null) {
+                return { offline: "", backupUrl: "" };
             }
+
             this.offlineHost = `http://${feedUrl}:8088`;
 
             this.mainWindow.webContents.send('status_message', {
@@ -742,31 +761,32 @@ export default class MainController {
                 message: `Hosting server offline: ${details.host}. Checking offline backup: ${this.offlineHost}.`
             });
 
-            //Check if offline line mode is available
-            if(appName === "NUC") {
-                url = this.offlineHost + "TODO"; // todo
-            } else if(appName === "Station") {
-                url = this.offlineHost + "TODO"; // todo
+            if (appName === "NUC" || appName === "Station") {
+                backupUrl = `${this.offlineHost}/${appName}/version`;
             } else {
-                this.downloading = false;
-                downloadWindow.destroy();
-                return;
+                return { offline: "", backupUrl: "" };
             }
 
-            if(!await checkFileAvailability(url, 5000)) {
-                this.mainWindow.webContents.send('status_message', {
-                    channelType: "status_update",
-                    name: appName,
-                    message: 'Server offline'
-                });
+            if (!await checkFileAvailability(backupUrl, 5000)) {
+                offline = "backup";
+                backupUrl = `${this.offlineHost}/program-${appName.toLowerCase()}-version`;
 
-                this.downloading = false;
-                downloadWindow.destroy();
-                return;
+                if (!await checkFileAvailability(backupUrl, 10000)) {
+                    this.mainWindow.webContents.send('status_message', {
+                        channelType: "status_update",
+                        name: appName,
+                        message: 'Server offline'
+                    });
+                    return { offline: "", backupUrl: "" };
+                }
             }
         }
 
-        const request_call = new Promise((resolve, reject) => {
+        return { offline, backupUrl };
+    }
+
+    async fetchOnlineVersion(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
             const protocol = url.startsWith('https') ? https : http;
 
             const request = protocol.get(url, (response) => {
@@ -795,117 +815,113 @@ export default class MainController {
                 reject(error);
             });
         });
+    }
 
-        //Online version number
-        let onlineVersion: string;
-        try {
-            onlineVersion = <string>await request_call;
-        } catch {
-            console.log("Unable to establish connection to server.");
-            return;
-        }
+    getLocalVersion(details: any, appName: string, directoryPath: string): string {
+        let localVersion = "";
 
-        //Write out and then get the local version
-        var localVersion = ""
         if (details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME) {
             const args = `writeversion`;
 
             try {
-                // Replace "program.exe" with the path to your program
                 const program = spawnSync(resolve(directoryPath, `${appName}.exe`), [args]);
-
                 console.log(`Program exited with status: ${program.status}`);
-            } catch (error) {
-                // @ts-ignore
+            } catch (error: any) {
                 console.log(error.toString());
             }
 
             const versionPath = join(this.appDirectory, `${appName}/_logs/version.txt`);
 
-            if(!fs.existsSync(versionPath)) {
+            if (!fs.existsSync(versionPath)) {
                 console.log("Cannot find version file path.");
-                this.downloading = false;
-                return;
+                return localVersion;
             }
-            localVersion = fs.readFileSync(versionPath, 'utf8')
+            localVersion = fs.readFileSync(versionPath, 'utf8');
         }
 
         if (details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED) {
             const versionPath = join(directoryPath, `\\version.txt`);
 
-            if(!fs.existsSync(versionPath)) {
+            if (!fs.existsSync(versionPath)) {
                 console.log("Cannot find version file path.");
-                this.downloading = false;
-                return;
+                return localVersion;
             }
-            localVersion = fs.readFileSync(versionPath, 'utf8')
+            localVersion = fs.readFileSync(versionPath, 'utf8');
         }
 
+        return localVersion;
+    }
 
-        //Compare the versions
+    checkAndUpdateVersion(onlineVersion: string, localVersion: string, details: any, appName: string): boolean {
         console.log("Online version: " + onlineVersion);
         console.log("Local version: " + localVersion);
-        const newVersionAvailable = semver.gt(onlineVersion, localVersion)
+        const newVersionAvailable = semver.gt(onlineVersion, localVersion);
 
         console.log("Difference: " + newVersionAvailable);
 
-        if(newVersionAvailable == null || !newVersionAvailable) {
+        if (newVersionAvailable === null || !newVersionAvailable) {
             this.downloading = false;
-            downloadWindow.destroy();
             if (details.updateOnly) {
                 this.mainWindow.webContents.send('status_message', {
                     channelType: "status_update",
-                    name: details.name,
+                    name: appName,
                     message: 'Clean up complete'
                 });
             }
-            return;
+            return false;
         }
 
-        //Check what type of update is required (I.e. patch, minor, major) can
-        //handle these differently in the future.
         const difference = semver.diff(onlineVersion, localVersion);
 
-        //Tell the user there is an update
         this.mainWindow.webContents.send('status_message', {
             channelType: "status_update",
             name: appName,
             message: `${appName} requires an update. Update type ${difference}`
         });
 
+        return true;
+    }
+
+    generateBaseUrl(details: any, appName: string, offline: string): string {
         let baseUrl: string = "";
-        if (details.host.includes("vultrobjects")) {
-            if(appName === "NUC") {
+
+        if (offline.length > 0) {
+            if (offline === "original") {
+                if (appName === "NUC") {
+                    baseUrl = details.host + "/NUC/NUC.zip";
+                } else if (appName === "Station") {
+                    baseUrl = details.host + "/Station/Station.zip";
+                }
+            } else if (offline === "backup") {
+                if (appName === "NUC") {
+                    baseUrl = details.host + '/program-nuc';
+                } else if (appName === "Station") {
+                    baseUrl = details.host + '/program-station';
+                }
+            }
+        } else if (details.host.includes("vultrobjects")) {
+            if (appName === "NUC") {
                 baseUrl = details.host + "NUC/NUC.zip";
-            } else if(appName === "Station") {
+            } else if (appName === "Station") {
                 baseUrl = details.host + "Station/Station.zip";
             } else if (details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED) {
-                baseUrl = details.host + "application.zip"
-            } else {
-                return;
+                baseUrl = details.host + "application.zip";
             }
         } else if (details.host.includes("herokuapp")) {
-            if(appName === "NUC") {
+            if (appName === "NUC") {
                 baseUrl = details.host + '/program-nuc';
-            } else if(appName === "Station") {
+            } else if (appName === "Station") {
                 baseUrl = details.host + '/program-station';
-            } else {
-                return;
             }
         } else if (details.host.includes("localhost")) {
             // todo
-            baseUrl = "todo"
+            baseUrl = "todo";
         }
 
-        //Create the new info packet for the download function
-        let info = {
-            url: baseUrl,
-            properties: {
-                directory: directoryPath,
-                onProgress: undefined
-            }
-        }
+        return baseUrl;
+    }
 
+    async performDownload(info: any, appName: string, details: any, directoryPath: string, downloadWindow: any, localVersion: string, onlineVersion: string): Promise<void> {
         const location = await collectLocation()
         try {
             Sentry.captureMessage(`Updating ${appName} from ${localVersion} to ${onlineVersion} at site ${location} at MAC address ${getInternalMac()}`)
@@ -913,33 +929,14 @@ export default class MainController {
             Sentry.captureException(e)
         }
 
-        //Maintain a trace on the download progress
-        // @ts-ignore
-        info.properties.onProgress = (status): void => {
-            console.log(status)
-
-            try {
-                downloadWindow.webContents.executeJavaScript(`
-                    try {
-                        const dynamicTextElement = document.getElementById('update-message');
-                        dynamicTextElement.innerText = 'Downloading ${appName} update, ${(status.percent * 100).toFixed(2)} %';
-                    } catch (error) {
-                        console.error('Error in executeJavaScript:', error);
-                    }
-                `);
-            } catch (e) {
-                console.log(e);
-            }
-        }
-
-        const download_call = new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             // @ts-ignore
             download(BrowserWindow.fromId(this.mainWindow.id), info.url, info.properties).then((dl) => {
-                console.log("Download complete")
-                downloadWindow.setProgressBar(2)
+                console.log("Download complete");
+                downloadWindow.setProgressBar(2);
                 downloadWindow.webContents.executeJavaScript(`
-                    const dynamicTextElement = document.getElementById('update-message');
-                    dynamicTextElement.innerText = 'Download completed, installing update';`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = 'Download completed, installing update';`
                 );
                 this.mainWindow.webContents.send('status_message', {
                     channelType: "status_update",
@@ -947,17 +944,15 @@ export default class MainController {
                     message: `Download complete, now extracting. ${dl.getSavePath()}`
                 });
 
-                //Unzip the project and add it to the local installation folder
-                extract(dl.getSavePath(), {dir: directoryPath}).then(() => {
+                extract(dl.getSavePath(), { dir: directoryPath }).then(() => {
                     this.mainWindow.webContents.send('status_message', {
                         channelType: "status_update",
                         name: appName,
                         message: 'Extracting complete, cleaning up.'
-                    })
-                    console.log("Extracting complete")
+                    });
+                    console.log("Extracting complete");
 
-                    //Delete the downloaded zip folder
-                    fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
+                    fs.rmSync(dl.getSavePath(), { recursive: true, force: true });
                     if (details.updateOnly) {
                         this.mainWindow.webContents.send('status_message', {
                             channelType: "status_update",
@@ -971,28 +966,24 @@ export default class MainController {
                             message: 'Update clean up complete'
                         });
                     }
-                    console.log("Update clean up complete")
+                    console.log("Update clean up complete");
 
                     try {
-                        Sentry.captureMessage(`Completed ${appName} update from ${localVersion} to ${onlineVersion} at site ${location} with MAC address ${getInternalMac()}`)
+                        Sentry.captureMessage(`Completed ${appName} update from ${localVersion} to ${onlineVersion} at site ${location ?? "unknown"} with MAC address ${getInternalMac()}`);
                     } catch (e) {
-                        Sentry.captureException(e)
+                        Sentry.captureException(e);
                     }
 
-                    resolve("Download Complete");
+                    resolve();
                 }).catch(err => {
                     reject(err);
-                })
-                downloadWindow.destroy()
+                });
+                downloadWindow.destroy();
                 this.downloading = false;
-            })
+            }).catch(err => {
+                reject(err);
+            });
         });
-
-        try {
-            await download_call;
-        } catch {
-            console.log("Download failed.");
-        }
     }
 
     /**
