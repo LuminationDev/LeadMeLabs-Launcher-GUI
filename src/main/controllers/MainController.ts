@@ -712,6 +712,12 @@ export default class MainController {
         }
     }
 
+    /**
+     * Generates the version URL based on the provided details and application name.
+     * @param details Object containing host and wrapperType information.
+     * @param appName Name of the application.
+     * @returns The version URL if it can be generated, otherwise an empty string.
+     */
     generateVersionURL(details: any, appName: string): string {
         let url: string = "";
 
@@ -741,6 +747,12 @@ export default class MainController {
         return url;
     }
 
+    /**
+     * Checks the server status and returns the offline status and backup URL if applicable.
+     * @param details Object containing host information.
+     * @param appName Name of the application.
+     * @returns An object containing the offline status and backup URL.
+     */
     async checkServerStatus(details: any, appName: string): Promise<{ offline: string, backupUrl: string }> {
         let offline = "";
         let backupUrl = "";
@@ -785,6 +797,11 @@ export default class MainController {
         return { offline, backupUrl };
     }
 
+    /**
+     * Fetches the online version from the provided URL.
+     * @param url The URL from which to fetch the online version.
+     * @returns A promise that resolves with the online version string.
+     */
     async fetchOnlineVersion(url: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const protocol = url.startsWith('https') ? https : http;
@@ -817,6 +834,13 @@ export default class MainController {
         });
     }
 
+    /**
+     * Retrieves the local version of the application based on the provided details.
+     * @param details Object containing wrapperType information.
+     * @param appName Name of the application.
+     * @param directoryPath Path to the directory containing the application files.
+     * @returns The local version of the application.
+     */
     getLocalVersion(details: any, appName: string, directoryPath: string): string {
         let localVersion = "";
 
@@ -852,6 +876,14 @@ export default class MainController {
         return localVersion;
     }
 
+    /**
+     * Checks if there is a new version available and updates the application status accordingly.
+     * @param onlineVersion The online version of the application.
+     * @param localVersion The local version of the application.
+     * @param details Object containing updateOnly information.
+     * @param appName Name of the application.
+     * @returns A boolean indicating whether there is a new version available.
+     */
     checkAndUpdateVersion(onlineVersion: string, localVersion: string, details: any, appName: string): boolean {
         console.log("Online version: " + onlineVersion);
         console.log("Local version: " + localVersion);
@@ -882,6 +914,13 @@ export default class MainController {
         return true;
     }
 
+    /**
+     * Generates the base URL for downloading the application based on the host and application name.
+     * @param details Object containing host and wrapperType information.
+     * @param appName Name of the application.
+     * @param offline Indicates if the server is offline.
+     * @returns The base URL for downloading the application.
+     */
     generateBaseUrl(details: any, appName: string, offline: string): string {
         let baseUrl: string = "";
 
@@ -921,6 +960,17 @@ export default class MainController {
         return baseUrl;
     }
 
+    /**
+     * Performs the download and installation of the application update.
+     * @param info Information about the update.
+     * @param appName Name of the application.
+     * @param details Details of the application.
+     * @param directoryPath Path to the directory where the application is installed.
+     * @param downloadWindow Reference to the download window.
+     * @param localVersion Local version of the application.
+     * @param onlineVersion Online version of the application.
+     * @returns A promise that resolves once the download and installation is complete.
+     */
     async performDownload(info: any, appName: string, details: any, directoryPath: string, downloadWindow: any, localVersion: string, onlineVersion: string): Promise<void> {
         const location = await collectLocation()
         try {
