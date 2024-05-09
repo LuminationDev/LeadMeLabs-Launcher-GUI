@@ -1,13 +1,53 @@
 import fs from "fs";
 import path from 'path';
 import { join } from "path";
-import { net as electronNet } from "electron";
+import {app, BrowserWindow, net as electronNet, shell} from "electron";
 import fetch from 'node-fetch';
 import yaml from 'js-yaml';
 import Encryption from "../encryption/Encryption";
 import * as Sentry from "@sentry/electron";
 import os from "os";
 import { AppEntry } from "../interfaces/appEntry";
+
+/**
+ * Create a generic download window.
+ * @param initialContent A string of content to display to the user.
+ */
+export function createDownloadWindow(initialContent: string): BrowserWindow {
+    const downloadWindow = new BrowserWindow({
+        width: 400,
+        height: 150,
+        show: false,
+        resizable: false,
+        webPreferences: {
+            preload: join(__dirname, 'preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+        }
+    });
+
+    downloadWindow.setMenu(null);
+
+    downloadWindow.on('ready-to-show', () => {
+        downloadWindow.show();
+    });
+
+    downloadWindow.webContents.setWindowOpenHandler((details) => {
+        void shell.openExternal(details.url)
+        return { action: 'deny' }
+    });
+
+    downloadWindow.loadFile(join(app.getAppPath(), 'static', 'download.html'));
+
+    downloadWindow.webContents.on('did-finish-load', () => {
+        downloadWindow.webContents.executeJavaScript(`
+                const dynamicTextElement = document.getElementById('update-message');
+                dynamicTextElement.innerText = '${initialContent}';`
+        );
+    });
+
+    return downloadWindow;
+}
 
 /**
  * Check if an online resource is available.
