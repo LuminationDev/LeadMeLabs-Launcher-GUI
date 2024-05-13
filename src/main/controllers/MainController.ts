@@ -414,8 +414,10 @@ export default class MainController {
         const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
         fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
+        var url = this.host.includes("vultrobjects") ? `${this.host}/steamcmd/steamcmd.zip` : `${this.host}/program-steamcmd`
+
         let steamCMDInfo = {
-            url: `${this.host}/program-steamcmd`,
+            url,
             properties: {
                 directory: steamCMDDirectory
             }
