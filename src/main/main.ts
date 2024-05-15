@@ -6,12 +6,19 @@ import MainController from "./controllers/MainController";
 import { collectFeedURL, collectLocation, getLauncherManifestParameter, getInternalMac } from "./util/Utilities";
 import { ManifestMigrator } from "./util/SoftwareMigrator";
 import * as Sentry from '@sentry/electron'
+import fetch from 'node-fetch';
 
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, session, shell, Tray, protocol } = require('electron');
 
 Sentry.init({
   dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
 });
+
+var canAccessVultr: boolean|null = null;
+// preload the var
+getCanAccessVultr().then((result) => {
+  canAccessVultr = result
+})
 
 /**
  * Request the application be a single instance. If there is another attempt to open it the original instance will be
@@ -37,7 +44,7 @@ else {
 autoUpdater.autoDownload = true;
 autoUpdater.setFeedURL({
   provider: 'generic',
-  url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+  url: 'https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher'
 })
 
 // Offline
@@ -47,7 +54,7 @@ autoUpdater.setFeedURL({
 // Local
 // url: 'http://localhost:8082/electron-launcher'
 // Production
-// url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+// url: 'https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher'
 
 /*
  * Hold a reference to the latest version number
@@ -176,11 +183,18 @@ function createWindow () {
     // Send through the current version number
     void sendLauncherDetails();
 
-    getLauncherManifestParameter('mode').then(mode => {
+    getLauncherManifestParameter('mode').then(async (mode)  => {
+      if (!(await getCanAccessVultr())) {
+        autoUpdater.setFeedURL({
+          provider: 'generic',
+          url: 'https://electronlauncher.herokuapp.com/static/electron-launcher'
+        })
+      }
+
       if (mode === 'development') {
         autoUpdater.setFeedURL({
           provider: 'generic',
-          url: 'https://leadme-launcher-development-92514d5e709f.herokuapp.com/static/electron-launcher'
+          url: 'https://leadme-tools.sgp1.vultrobjects.com/leadme-launcher-debug'
         })
       }
 
@@ -316,6 +330,30 @@ async function sendLauncherDetails(): Promise<void> {
     version: app.getVersion(),
     location: await collectLocation()
   });
+}
+
+async function getCanAccessVultr(): Promise<boolean> {
+  if (canAccessVultr != null) {
+    return Promise.resolve(canAccessVultr)
+  }
+  try {
+    const result = await fetch('https://leadme-healthcheck.sgp1.vultrobjects.com/healthcheck',
+        {
+          mode: 'no-cors',
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain"
+          }
+        })
+    var value = result.status < 300
+    if (!value) {
+      Sentry.captureMessage("Vultr not accessible at site: " + await collectLocation())
+    }
+    return Promise.resolve(value)
+  } catch (e) {
+    Sentry.captureException(e)
+    return Promise.resolve(false);
+  }
 }
 
 /**

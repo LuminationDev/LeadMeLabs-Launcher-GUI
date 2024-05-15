@@ -16,10 +16,10 @@ const selectedApplication = computed(() => {
  * Start a process for the application that has been selected, the backend will start a leadme_apps application or
  * follow the altPath if it is supplied/not null.
  */
-const launchApplication = (): void => {
+const launchApplication = async (): Promise<void> => {
   if (selectedApplication.value === undefined) return;
 
-  const host = libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
   if (host === undefined) return;
 
   libraryStore.updateApplicationByName(
@@ -38,6 +38,32 @@ const launchApplication = (): void => {
     alias,
     host: host,
     path: selectedApplication.value.altPath
+  })
+}
+
+const updateApplication = async (): Promise<void> => {
+  if (selectedApplication.value === undefined) return;
+
+  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  if (host === undefined) return;
+
+  libraryStore.updateApplicationByName(
+      selectedApplication.value.name,
+      CONSTANT.MODEL_KEY.KEY_STATUS,
+      CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING);
+
+  const alias = selectedApplication.value.alias !== undefined ? selectedApplication.value.alias : selectedApplication.value.name;
+
+  // @ts-ignore
+  api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+    channelType: CONSTANT.MESSAGE.APPLICATION_UPDATE,
+    id: selectedApplication.value.id,
+    wrapperType: selectedApplication.value.wrapperType,
+    name: selectedApplication.value.name,
+    alias,
+    host: host,
+    path: selectedApplication.value.altPath,
+    updateOnly: true
   })
 }
 
@@ -63,10 +89,10 @@ const stopApplication = (): void => {
  * Send an api call to the backend asking to download an application. The applications' download URL is supplied along
  * with its name and the folder it should be saved in.
  */
-const downloadApplication = (): void => {
+const downloadApplication = async (): Promise<void> => {
   if (selectedApplication.value === undefined) return;
 
-  const host = libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
   if (host === undefined) return;
 
   libraryStore.updateApplicationByName(
@@ -97,13 +123,22 @@ const downloadApplication = (): void => {
   <GenericButton
       v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_INSTALLED
       && !(libraryStore.getSelectedApplication.wrapperType !== undefined &&
-          libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL &&
+          [CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL, CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED].includes(libraryStore.getSelectedApplication.wrapperType) &&
           !libraryStore.getSelectedApplication.setup)"
       class="h-10 w-32 text-base"
       :type="'primary'"
       :callback="launchApplication"
       :spinnerColor="'#000000'"
   >Launch</GenericButton>
+
+  <GenericButton
+      v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_INSTALLED
+        && libraryStore.getSelectedApplication.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED"
+      class="h-10 w-32 text-base"
+      :type="'primary'"
+      :callback="updateApplication"
+      :spinnerColor="'#000000'"
+  >Update</GenericButton>
 
   <GenericButton
       v-if="libraryStore.getSelectedApplicationStatus === CONSTANT.MODEL_VALUE.STATUS_RUNNING"

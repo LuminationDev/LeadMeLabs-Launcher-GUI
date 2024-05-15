@@ -3,6 +3,7 @@ import { Application } from '../models'
 import { reactive, ref } from "vue";
 import * as CONSTANT from '../assets/constants/index';
 import { ModeUrls } from "../interfaces/modeUrls";
+import * as Sentry from "@sentry/electron";
 
 //Preset applications - Use this as an example of the LeadMe ID Library?
 // const values = {
@@ -23,13 +24,13 @@ const leadMeApplications = {
             id: "1",
             name: 'Station',
             alias: 'Station',
-            url: '/program-station'
+            url: '/Station'
         },
         {
             id: "2",
             name: 'NUC',
             alias: 'NUC',
-            url: '/program-nuc'
+            url: '/NUC'
         }
     ]
 }
@@ -76,11 +77,12 @@ const embeddedApplications = {
         //     name: 'Open Brush',
         //     url:'/'
         // },
-        // {
-        //     id: "204",
-        //     name: 'ThingLink & CoSpaces',
-        //     url:'/'
-        // }
+        {
+            id: "204",
+            name: 'WebXR Viewer',
+            alias: "leadme-webxr-viewer",
+            url:'https://leadme-apps.sgp1.vultrobjects.com/leadme-webxr-viewer/'
+        }
     ]
 }
 
@@ -122,7 +124,8 @@ export const useLibraryStore = defineStore({
         applicationParameters: {},
         applicationSetup: reactive([]),
         applications: ref(new Map<string, Application>(Object.entries(values))),
-        schedulerTask: { enabled: false, status: 'Unknown', warning: "" }
+        schedulerTask: { enabled: false, status: 'Unknown', warning: "" },
+        canAccessVultr: null
     }),
     actions: {
         /**
@@ -272,16 +275,25 @@ export const useLibraryStore = defineStore({
          * @param wrapperType
          * @param applicationName
          */
-        getHostURL(wrapperType: string, applicationName: string): string|undefined {
+        async getHostURL(wrapperType: string, applicationName: string): Promise<string | undefined> {
             let modeUrls: ModeUrls|undefined;
             switch (wrapperType) {
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME:
-                    modeUrls = {
-                        production: "https://learninglablauncher.herokuapp.com",
-                        development: "https://learninglablauncherdevelopment.herokuapp.com",
-                        offline: "http://localhost:8088",
-                        local: "http://localhost:8082"
-                    };
+                    if (await this.getCanAccessVultr) {
+                        modeUrls = {
+                            production: "https://leadme-internal.sgp1.vultrobjects.com/",
+                            development: "https://leadme-internal-debug.sgp1.vultrobjects.com/",
+                            offline: "http://localhost:8088/",
+                            local: "http://localhost:8082"
+                        };
+                    } else {
+                        modeUrls = {
+                            production: "https://learninglablauncher.herokuapp.com",
+                            development: "https://learninglablauncherdevelopment.herokuapp.com",
+                            offline: "http://localhost:8088/",
+                            local: "http://localhost:8082"
+                        };
+                    }
                     break;
 
                 //Currently this is just for the QA Tool
@@ -291,7 +303,17 @@ export const useLibraryStore = defineStore({
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
                     //TODO update for Embedded routes
-                    modeUrls = undefined;
+                    const app = embeddedApplications.apps.find(element => element.name === applicationName)
+                    if (app === undefined) {
+                        modeUrls = undefined;
+                        break;
+                    }
+                    modeUrls = {
+                        production: app.url,
+                        development: app.url,
+                        offline: "",
+                        local: ""
+                    };
                     break;
 
                 default:
@@ -311,8 +333,8 @@ export const useLibraryStore = defineStore({
             switch (applicationName) {
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_QA_TOOL:
                     return {
-                        production: "https://leadme-qa-tool-85e3c7ba88eb.herokuapp.com/static",
-                        development: "https://leadme-qa-tool-85e3c7ba88eb.herokuapp.com/static",
+                        production: "https://leadme-tools.sgp1.vultrobjects.com/leadme-qa",
+                        development: "https://leadme-tools.sgp1.vultrobjects.com/leadme-qa",
                         offline: "http://localhost:8088",
                         local: "http://localhost:8082"
                     };
@@ -322,8 +344,8 @@ export const useLibraryStore = defineStore({
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_NETWORK_TOOL:
                     return {
-                        production: "https://leadme-network-tool-f81e92d61350.herokuapp.com/static",
-                        development: "https://leadme-network-tool-f81e92d61350.herokuapp.com/static",
+                        production: "https://leadme-tools.sgp1.vultrobjects.com/leadme-network",
+                        development: "https://leadme-tools.sgp1.vultrobjects.com/leadme-network",
                         offline: "http://localhost:8088",
                         local: "http://localhost:8082"
                     };
@@ -351,6 +373,30 @@ export const useLibraryStore = defineStore({
 
         getSetupConfig(): string[] {
             return this.applicationSetup;
+        },
+
+        async getCanAccessVultr(): Promise<boolean> {
+            if (this.canAccessVultr != null) {
+                return Promise.resolve(this.canAccessVultr)
+            }
+            try {
+                const result = await fetch('https://leadme-healthcheck.sgp1.vultrobjects.com/healthcheck',
+                    {
+                        mode: "no-cors",
+                        headers: {
+                            "Access-Control-Allow-Origin": "*",
+                            "Content-Type": "text/plain"
+                        }
+                    })
+                var value = result.status < 300
+                if (!value) {
+                    Sentry.captureMessage("Vultr not accessible")
+                }
+                return Promise.resolve(value)
+            } catch (e) {
+                Sentry.captureException(e)
+                return Promise.resolve(false);
+            }
         }
     }
 });
