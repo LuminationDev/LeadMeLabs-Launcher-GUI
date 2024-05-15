@@ -123,7 +123,7 @@ jobs:
              brew install s3cmd && 
              cd ~/circleci-working/<<pipeline.id>>/ &&
              s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s del --recursive s3://leadme-tools/<<parameters.directory>>/ &&
-             s3cmd --access_key=$VULTR_ACCESS --limit-rate=1024k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s sync -P ./dist/ s3://leadme-tools/<<parameters.directory>>/
+             s3cmd --access_key=$VULTR_ACCESS --limit-rate=8192k --secret_key=$VULTR_SECRET --region=us-east-1 --host=sgp1.vultrobjects.com --host-bucket=leadme-tools.sgp1.vultrobjects.com -s sync -P ./dist/ s3://leadme-tools/<<parameters.directory>>/
   build-windows:
     machine: true
     resource_class: luminationdev/darragh-comp
