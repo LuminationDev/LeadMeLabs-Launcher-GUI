@@ -195,7 +195,7 @@ export default class MainController {
         let directoryPath: string;
         switch (info.wrapperType) {
             case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
-                directoryPath = join(this.embeddedDirectory, info.name);
+                directoryPath = join(this.embeddedDirectory, "/", info.name);
                 break;
 
             case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:

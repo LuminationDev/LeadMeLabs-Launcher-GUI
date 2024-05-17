@@ -11,7 +11,6 @@
     },
     "win": {
         "certificateSubjectName": "Technology for Education Solutions Pty. Ltd.",
-        "electronLanguages": ["en_UK"],
         "target": "nsis",
         "publish": [
             {
