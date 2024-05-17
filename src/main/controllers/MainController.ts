@@ -625,7 +625,7 @@ export default class MainController {
                 if (stderr) console.error('stderr:', stderr);
             });
         } else {
-            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias}.exe`) : info.path;
+            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias ?? info.name}.exe`) : info.path;
 
             //Read any launch parameters that the manifest may have
             const params = await this.manifestController.getLaunchParameterValues(info.name);
