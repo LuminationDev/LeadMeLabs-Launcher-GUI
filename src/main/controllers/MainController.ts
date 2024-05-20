@@ -195,7 +195,7 @@ export default class MainController {
         let directoryPath: string;
         switch (info.wrapperType) {
             case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
-                directoryPath = join(this.embeddedDirectory, info.name);
+                directoryPath = join(this.embeddedDirectory, "/", info.name);
                 break;
 
             case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
@@ -625,7 +625,7 @@ export default class MainController {
                 if (stderr) console.error('stderr:', stderr);
             });
         } else {
-            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias}.exe`) : info.path;
+            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias ?? info.name}.exe`) : info.path;
 
             //Read any launch parameters that the manifest may have
             const params = await this.manifestController.getLaunchParameterValues(info.name);
