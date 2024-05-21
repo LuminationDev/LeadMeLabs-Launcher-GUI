@@ -10,7 +10,7 @@
         "shortcutName": "LeadMe Launcher"
     },
     "win": {
-        "electronLanguages": ["en_UK"],
+        "certificateSubjectName": "Technology for Education Solutions Pty. Ltd.",
         "target": "nsis",
         "publish": [
             {
