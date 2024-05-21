@@ -3,9 +3,11 @@ import GenericButton from "../components/buttons/GenericButton.vue";
 import Modal from "./Modal.vue";
 import { ref } from "vue";
 import * as CONSTANT from "../assets/constants/index";
-import {useLibraryStore} from "../store/libraryStore";
+import { useLibraryStore } from "../store/libraryStore";
 import PinPrompt from "./PinPrompt.vue";
+import { useModalStore } from "@renderer/store/modalStore";
 
+const modalStore = useModalStore();
 const libraryStore = useLibraryStore();
 
 defineExpose({
@@ -16,10 +18,12 @@ const showModal = ref(false);
 
 function openModal() {
   showModal.value = true;
+  modalStore.openModal = true;
 }
 
 function closeModal() {
   showModal.value = false;
+  modalStore.openModal = false;
 }
 
 function reset() {
@@ -83,7 +87,7 @@ const openPinPromptModal = () => {
       <template v-slot:footer>
         <footer class="mb-2 text-right flex flex-row justify-end">
           <button class="w-20 h-10 mr-4 text-blue-500 text-base rounded-lg hover:bg-gray-200 font-medium"
-                  v-on:click="showModal = false"
+                  v-on:click="closeModal"
           >Cancel</button>
         </footer>
       </template>

@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 export const useModalStore = defineStore({
     id: 'modal',
     state: () => ({
+        openModal: false,
         notificationModelOpen: false,
         notificationModelTitle: "",
         notificationModelMessage: "",
@@ -13,5 +14,8 @@ export const useModalStore = defineStore({
     actions: {
     },
     getters: {
+        getOpenModal(state): boolean {
+            return state.openModal;
+        }
     }
 });

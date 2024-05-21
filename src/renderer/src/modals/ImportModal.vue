@@ -6,7 +6,9 @@ import { ref } from "vue";
 import useVuelidate from "@vuelidate/core";
 import { required, helpers } from "@vuelidate/validators";
 import SetupSingleInput from "../components/inputs/SetupSingleInput.vue";
+import { useModalStore } from "@renderer/store/modalStore";
 
+const modalStore = useModalStore();
 const showImportModal = ref(false);
 const error = ref();
 const name = ref("");
@@ -71,6 +73,7 @@ function checkFileExtension(filePath: String): boolean {
 
 function openModal() {
   showImportModal.value = true;
+  modalStore.openModal = true;
 }
 
 function closeModal() {
@@ -80,6 +83,7 @@ function closeModal() {
     fileInput.value.value = "";
   }
   showImportModal.value = false;
+  modalStore.openModal = false;
 }
 </script>
 
