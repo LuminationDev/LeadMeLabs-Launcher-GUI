@@ -148,8 +148,7 @@ export async function collectFeedURL(): Promise<string | null> {
         }
 
         let dataArray = decryptedData.split('\n'); // convert file data into an array
-        console.log(dataArray);
-        const nucAddress = dataArray.find(item => item.startsWith('nucAddress='));
+        const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
         if (nucAddress) {
             return nucAddress.split('=')[1];
         }
