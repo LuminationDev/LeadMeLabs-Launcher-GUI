@@ -31,13 +31,12 @@ const version1_3_2: release = {
         "Flicker in station list when a lab has six stations",
         "Volume source not selectable for XR Elite headsets"
     ],
-    //TODO update the version codes
     codes: {
-        Launcher: "1.2.27",
-        NUC: "1.1.23",
-        Station: "1.1.27",
-        Tablet: "1.30",
-        QA: "1.0.17",
+        Launcher: "1.3.2",
+        NUC: "1.2.2",
+        Station: "1.2.1",
+        Tablet: "1.32",
+        QA: "1.0.18",
         Config: "1.1.9",
     }
 }
