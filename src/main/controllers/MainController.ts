@@ -255,8 +255,8 @@ export default class MainController {
         }
 
         //Check if the server is online
-        console.log(url)
         if(!await checkFileAvailability(url, 10000)) {
+
             //Server is offline
             const feedUrl = await collectFeedURL();
             if(feedUrl == null) {
@@ -273,7 +273,6 @@ export default class MainController {
 
             //Check if offline line mode is available
             url = this.offlineHost + info.url + info.url + ".zip";
-            console.log(url);
             if(!await checkFileAvailability(url, 10000)) {
                 console.log("Checking backup routes");
 
@@ -651,7 +650,7 @@ export default class MainController {
         let downloadWindow = createDownloadWindow(`Checking for ${appName} update, please wait...`);
 
         //Check if the main server is online
-        const { offline, backupUrl } = await this.checkServerStatus(details, appName);
+        const { offline, backupUrl } = await this.checkServerStatus(url, details, appName);
         if (backupUrl.length > 0) {
             url = backupUrl;
         }
@@ -677,6 +676,8 @@ export default class MainController {
 
         //Generate the download URL
         const baseUrl: string = this.generateBaseUrl(details, appName, offline);
+
+        console.log(baseUrl);
 
         //Create the new info packet for the download function
         let info = {
@@ -742,8 +743,15 @@ export default class MainController {
                 return "";
             }
         } else if (details.host.includes("localhost")) {
-            // todo
-            url = '';
+            if (appName === "NUC") {
+                url = `${details.host}NUC/version`;
+            } else if (appName === "Station") {
+                url = `${details.host}Station/version`;
+            } else if (details.wrapperType === "embedded") {
+                url = `${details.host}version`;
+            } else {
+                return "";
+            }
         }
 
         return url;
@@ -751,15 +759,16 @@ export default class MainController {
 
     /**
      * Checks the server status and returns the offline status and backup URL if applicable.
+     * @param url A string of the online url to test the initial connection with.
      * @param details Object containing host information.
      * @param appName Name of the application.
      * @returns An object containing the offline status and backup URL.
      */
-    async checkServerStatus(details: any, appName: string): Promise<{ offline: string, backupUrl: string }> {
+    async checkServerStatus(url: string, details: any, appName: string): Promise<{ offline: string, backupUrl: string }> {
         let offline = "";
         let backupUrl = "";
 
-        if (!await checkFileAvailability(backupUrl, 5000)) {
+        if (!await checkFileAvailability(url, 5000)) {
             offline = "original";
             const feedUrl = await collectFeedURL();
 
@@ -929,9 +938,9 @@ export default class MainController {
         if (offline.length > 0) {
             if (offline === "original") {
                 if (appName === "NUC") {
-                    baseUrl = details.host + "/NUC/NUC.zip";
+                    baseUrl = details.host + "NUC/NUC.zip";
                 } else if (appName === "Station") {
-                    baseUrl = details.host + "/Station/Station.zip";
+                    baseUrl = details.host + "Station/Station.zip";
                 }
             } else if (offline === "backup") {
                 if (appName === "NUC") {
@@ -955,8 +964,11 @@ export default class MainController {
                 baseUrl = details.host + '/program-station';
             }
         } else if (details.host.includes("localhost")) {
-            // todo
-            baseUrl = "todo";
+            if (appName === "NUC") {
+                baseUrl = details.host + "NUC/NUC.zip";
+            } else if (appName === "Station") {
+                baseUrl = details.host + "Station/Station.zip";
+            }
         }
 
         return baseUrl;

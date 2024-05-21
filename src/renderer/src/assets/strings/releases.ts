@@ -16,6 +16,33 @@ export interface code {
     Config: string
 }
 
+const version1_3_2: release = {
+    version: "1.3.2",
+    date: "Monday 20th May 2024",
+    features: [
+        "Switch hosting to new servers",
+        "Improve overnight updates following Microsoft Windows monthly updates",
+        "Additional manual QA checks for new headsets"
+    ],
+    performance: [
+        "Reduce use of SteamCMD"
+    ],
+    fixes: [
+        "Flicker in station list when a lab has six stations",
+        "Volume source not selectable for XR Elite headsets"
+    ],
+    //TODO update the version codes
+    codes: {
+        Launcher: "1.2.27",
+        NUC: "1.1.23",
+        Station: "1.1.27",
+        Tablet: "1.30",
+        QA: "1.0.17",
+        Config: "1.1.9",
+    }
+}
+
+//region Previous Versions
 const version1_3_0: release = {
     version: "1.3.0",
     date: "Monday 22nd April 2024",
@@ -146,6 +173,7 @@ const version1_2_4: release = {
         Config: "1.1.9",
     }
 }
+//endregion
 
-export const latest_release = "1.3.0";
-export const all_releases = [version1_3_0, version1_2_8, version1_2_7, version1_2_5, version1_2_4]
+export const latest_release = "1.3.2";
+export const all_releases = [version1_3_2, version1_3_0, version1_2_8, version1_2_7, version1_2_5, version1_2_4]
