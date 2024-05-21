@@ -131,10 +131,13 @@ export async function checkForElectronVersion(url: string): Promise<string> {
  */
 export async function collectFeedURL(): Promise<string | null> {
     const stationConfig = join(process.env.APPDATA + '/leadme_apps', `Station/_config/config.env`);
-    const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
 
-    // We are updating the NUC software, bail out here
-    if(!fs.existsSync(stationConfig) || (fs.existsSync(NUCConfig) || !fs.existsSync(NUCConfig))) {
+    // NOTE: The Station cannot be installed using the offline launcher when it is running on the NUC. This is because
+    //       it has no way of knowing the ip address of the NUC. The offline launcher can run on a Station and install
+    //       a station 'locally' instead.
+
+    // If there is no Station config we are updating the NUC software, bail out here
+    if(!fs.existsSync(stationConfig)) {
         return "localhost";
     }
 
@@ -145,7 +148,8 @@ export async function collectFeedURL(): Promise<string | null> {
         }
 
         let dataArray = decryptedData.split('\n'); // convert file data into an array
-        const nucAddress = dataArray.find(item => item.startsWith('NucAddress='));
+        console.log(dataArray);
+        const nucAddress = dataArray.find(item => item.startsWith('nucAddress='));
         if (nucAddress) {
             return nucAddress.split('=')[1];
         }
@@ -153,7 +157,8 @@ export async function collectFeedURL(): Promise<string | null> {
         console.error(err);
     }
 
-    return null;
+    // Return as a last resort
+    return "localhost";
 }
 
 /**
