@@ -3,7 +3,9 @@ import {onBeforeUnmount, onMounted, ref} from "vue";
 import ApplicationImport from "@renderer/modals/ImportModal.vue";
 import ResetManifest from "@renderer/modals/ResetManifest.vue";
 import IconApplicationMenu from "@renderer/assets/vue/IconApplicationMenu.vue";
+import { useModalStore } from "@renderer/store/modalStore";
 
+const modalStore = useModalStore();
 const showDropdown = ref(false);
 const hovered = ref(false);
 
@@ -12,7 +14,11 @@ onBeforeUnmount(() => {
 });
 
 onMounted(() => {
-  document.addEventListener('click', () => showDropdown.value = false)
+  document.addEventListener('click', () => {
+    if (!modalStore.openModal) {
+      showDropdown.value = false
+    }
+  });
 });
 </script>
 
