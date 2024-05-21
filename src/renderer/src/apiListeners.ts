@@ -159,12 +159,15 @@ const autoStartApplications = () => {
     libraryStore.applications.forEach((application: Application) => {
         //Open the application if required by autostart flag
         if (application.autostart) {
+            const alias = application.alias !== undefined ? application.alias : application.name;
             libraryStore.getHostURL(application.wrapperType, application.name).then((host: any) => {
                 // @ts-ignore
                 api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
                     channelType: CONSTANT.MESSAGE.APPLICATION_LAUNCH,
                     id: application.id,
                     host,
+                    alias,
+                    wrapperType: application.wrapperType,
                     name: application.name,
                     path: application.altPath === null ? "" : application.altPath
                 });

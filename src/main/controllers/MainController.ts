@@ -195,7 +195,7 @@ export default class MainController {
         let directoryPath: string;
         switch (info.wrapperType) {
             case CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED:
-                directoryPath = join(this.embeddedDirectory, info.name);
+                directoryPath = join(this.embeddedDirectory, "/", info.name);
                 break;
 
             case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
@@ -348,9 +348,9 @@ export default class MainController {
 
                         //Delete the downloaded zip folder
                         fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
-                    }).then(() => {
-                        this.manifestController.updateAppManifest(info.name, info.alias, "LeadMe", null, null, null);
-                        this.extraDownloadCriteria(info.name, directoryPath);
+                    }).then(async () => {
+                        await this.manifestController.updateAppManifest(info.name, info.alias, "LeadMe", null, null, null);
+                        await this.extraDownloadCriteria(info.name, directoryPath);
                     });
                     break;
 
@@ -400,7 +400,7 @@ export default class MainController {
 
         if (appName !== 'Station') return;
 
-        this.downloadSteamCMD(directoryPath);
+        await this.downloadSteamCMD(directoryPath);
     }
 
     /**
@@ -408,13 +408,15 @@ export default class MainController {
      * exist it will be created.
      * @param directoryPath A string representing the working directory of the LeadMeLauncher program.
      */
-    downloadSteamCMD(directoryPath: string) {
+    async downloadSteamCMD(directoryPath: string) {
         //Create a directory to hold the external applications of SteamCMD
         const steamCMDDirectory = join(directoryPath, 'external', 'steamcmd');
         fs.mkdirSync(steamCMDDirectory, {recursive: true});
 
+        var url = this.host.includes("vultrobjects") ? `${this.host}steamcmd/steamcmd.zip` : `${this.host}/program-steamcmd`
+
         let steamCMDInfo = {
-            url: `${this.host}/program-steamcmd`,
+            url,
             properties: {
                 directory: steamCMDDirectory
             }
@@ -422,7 +424,7 @@ export default class MainController {
 
         //Download/Extra/Clean up SteamCMD
         // @ts-ignore
-        download(BrowserWindow.fromId(this.mainWindow.id), steamCMDInfo.url, steamCMDInfo.properties).then((dl) => {
+        await download(BrowserWindow.fromId(this.mainWindow.id), steamCMDInfo.url, steamCMDInfo.properties).then((dl) => {
             extract(dl.getSavePath(), {dir: steamCMDDirectory}).then(() => {
                 //Delete the downloaded zip folder
                 fs.rmSync(dl.getSavePath(), {recursive: true, force: true})
@@ -622,7 +624,7 @@ export default class MainController {
                 if (stderr) console.error('stderr:', stderr);
             });
         } else {
-            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias}.exe`) : info.path;
+            const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias ?? info.name}.exe`) : info.path;
 
             //Read any launch parameters that the manifest may have
             const params = await this.manifestController.getLaunchParameterValues(info.name);
