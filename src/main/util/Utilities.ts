@@ -134,7 +134,7 @@ export async function collectFeedURL(): Promise<string | null> {
     const NUCConfig = join(process.env.APPDATA + '/leadme_apps', `NUC/_config/config.env`);
 
     // We are updating the NUC software, bail out here
-    if(!fs.existsSync(stationConfig) || fs.existsSync(NUCConfig)) {
+    if(!fs.existsSync(stationConfig) || (fs.existsSync(NUCConfig) || !fs.existsSync(NUCConfig))) {
         return "localhost";
     }
 
