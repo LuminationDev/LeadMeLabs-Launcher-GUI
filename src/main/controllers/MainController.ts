@@ -660,6 +660,7 @@ export default class MainController {
         try {
             onlineVersion = await this.fetchOnlineVersion(url);
         } catch {
+            downloadWindow.destroy();
             console.log("Unable to establish connection to server.");
             return;
         }
@@ -675,7 +676,7 @@ export default class MainController {
         }
 
         //Generate the download URL
-        const baseUrl: string = this.generateBaseUrl(details, appName, offline);
+        const baseUrl: string = await this.generateBaseUrl(details, appName, offline);
 
         console.log(baseUrl);
 
@@ -932,7 +933,7 @@ export default class MainController {
      * @param offline Indicates if the server is offline.
      * @returns The base URL for downloading the application.
      */
-    generateBaseUrl(details: any, appName: string, offline: string): string {
+    async generateBaseUrl(details: any, appName: string, offline: string): Promise<string> {
         let baseUrl: string = "";
 
         if (offline.length > 0) {
@@ -940,13 +941,15 @@ export default class MainController {
                 if (appName === "NUC") {
                     baseUrl = details.host + "NUC/NUC.zip";
                 } else if (appName === "Station") {
-                    baseUrl = details.host + "Station/Station.zip";
+                    const feedUrl = await collectFeedURL();
+                    baseUrl = `http://${feedUrl}:8088/` + "Station/Station.zip";
                 }
             } else if (offline === "backup") {
                 if (appName === "NUC") {
                     baseUrl = details.host + '/program-nuc';
                 } else if (appName === "Station") {
-                    baseUrl = details.host + '/program-station';
+                    const feedUrl = await collectFeedURL();
+                    baseUrl = `http://${feedUrl}:8088` + '/program-station';
                 }
             }
         } else if (details.host.includes("vultrobjects")) {
@@ -999,9 +1002,9 @@ export default class MainController {
                 console.log("Download complete");
                 downloadWindow.setProgressBar(2);
                 downloadWindow.webContents.executeJavaScript(`
-                const dynamicTextElement = document.getElementById('update-message');
-                dynamicTextElement.innerText = 'Download completed, installing update';`
-                );
+                    const dynamicTextElement = document.getElementById('update-message');
+                    dynamicTextElement.innerText = 'Download completed, installing update';
+                `);
                 this.mainWindow.webContents.send('status_message', {
                     channelType: "status_update",
                     name: appName,
@@ -1046,6 +1049,7 @@ export default class MainController {
                 this.downloading = false;
             }).catch(err => {
                 reject(err);
+                downloadWindow.destroy();
             });
         });
     }
