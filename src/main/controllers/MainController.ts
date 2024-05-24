@@ -202,6 +202,7 @@ export default class MainController {
                 let version: string = await checkForElectronVersion(url);
                 if (version === "" || version === null) {
                     downloadWindow.destroy();
+                    this.downloading = false;
                     this.mainWindow.webContents.send('status_message', {
                         channelType: "status_update",
                         name: info.name,
@@ -661,6 +662,7 @@ export default class MainController {
             onlineVersion = await this.fetchOnlineVersion(url);
         } catch {
             downloadWindow.destroy();
+            this.downloading = false;
             console.log("Unable to establish connection to server.");
             return;
         }
@@ -672,6 +674,7 @@ export default class MainController {
         const isUpdateAvailable = this.checkAndUpdateVersion(onlineVersion, localVersion, details, appName);
         if (!isUpdateAvailable) {
             downloadWindow.destroy();
+            this.downloading = false;
             return;
         }
 
@@ -1050,6 +1053,7 @@ export default class MainController {
             }).catch(err => {
                 reject(err);
                 downloadWindow.destroy();
+                this.downloading = false;
             });
         });
     }
