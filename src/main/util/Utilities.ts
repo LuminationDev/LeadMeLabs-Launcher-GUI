@@ -365,3 +365,40 @@ export async function findExecutable(directoryPath: string, exeName: string): Pr
         });
     });
 }
+
+/**
+ * Generates the version URL based on the provided details object.
+ * @param details Object containing host, name and wrapperType information.
+ * @param isVersionUrl A boolean of whether to get the version url (true) or the download url (false).
+ * @returns The version URL if it can be generated, otherwise an empty string.
+ */
+export function generateURL(details: any, isVersionUrl: boolean): string {
+    let host: string;
+    if (details.host.includes("vultrobjects")) {
+        host = "vultr";
+    } else if (details.host.includes("herokuapp")) {
+        host = "heroku";
+    } else if (details.host.includes("localhost")) {
+        host = "localhost";
+    } else {
+        return "";
+    }
+
+    switch (details.wrapperType) {
+        case "leadme":
+            if (host === "heroku") {
+                return `${details.host}/program-${details.name.toLowerCase()}${isVersionUrl ? '-version' : ''}`;
+            } else {
+                return `${details.host}${details.name}/${isVersionUrl ? 'version' : (details.name + '.zip')}`;
+            }
+
+        case "embedded":
+            return `${details.host}${isVersionUrl ? 'version' : 'application.zip'}`;
+
+        case "tool":
+            return `${details.host}/latest.yml`;
+
+        default:
+            return "";
+    }
+}

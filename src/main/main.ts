@@ -70,7 +70,7 @@ autoUpdater.on('update-downloaded', () => {
     });
   }
   if (mainController) {
-    mainController.downloading = false
+    mainController.downloadController.downloading = false
   }
 
   if(downloadWindow) {
@@ -99,7 +99,7 @@ autoUpdater.on('update-downloaded', () => {
 autoUpdater.on('download-progress', (progressObj) => {
   console.log('updating', progressObj)
   if (mainController) {
-    mainController.downloading = true
+    mainController.downloadController.downloading = true
   }
   if(!downloadWindow) {
     createDownloadWindow();
