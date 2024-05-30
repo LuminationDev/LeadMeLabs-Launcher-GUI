@@ -199,6 +199,7 @@ export default class MainController {
                 break;
 
             case CONSTANT.APPLICATION_TYPE.APPLICATION_TOOL:
+                url = this.host + "/latest.yml"
                 let version: string = await checkForElectronVersion(url);
                 if (version === "" || version === null) {
                     downloadWindow.destroy();
@@ -303,7 +304,7 @@ export default class MainController {
                     url = this.host + "Station/Station.zip";
                 } else if (info.wrapperType === "embedded") {
                     url = this.host + "application.zip"
-                } else {
+                } else if (url === this.host) {
                     this.downloading = false;
                     return;
                 }
