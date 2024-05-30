@@ -19,7 +19,14 @@ const selectedApplication = computed(() => {
 const launchApplication = async (): Promise<void> => {
   if (selectedApplication.value === undefined) return;
 
-  const host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  //Imported applications do not have a host associated with them
+  let host;
+  if (selectedApplication.value.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_IMPORTED) {
+    host = "";
+  } else {
+    host = await libraryStore.getHostURL(selectedApplication.value.wrapperType, selectedApplication.value.name);
+  }
+
   if (host === undefined) return;
 
   libraryStore.updateApplicationByName(
