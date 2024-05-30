@@ -82,6 +82,12 @@ const embeddedApplications = {
             name: 'WebXR Viewer',
             alias: "leadme-webxr-viewer",
             url:'https://leadme-apps.sgp1.vultrobjects.com/leadme-webxr-viewer/'
+        },
+        {
+            id: "205",
+            name: 'Base Station FOV Viewer',
+            alias: "base-station-fov-viewer",
+            url:'https://leadme-apps.sgp1.vultrobjects.com/base-station-fov-viewer/'
         }
     ]
 }
@@ -340,7 +346,12 @@ export const useLibraryStore = defineStore({
                     };
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_EXPERIENCE_TOOL:
-                    return undefined;
+                    return {
+                        production: "https://leadme-tools.sgp1.vultrobjects.com/leadme-experiences",
+                        development: "https://leadme-tools.sgp1.vultrobjects.com/leadme-experiences",
+                        offline: "http://localhost:8088",
+                        local: "http://localhost:8082"
+                    };
 
                 case CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_NETWORK_TOOL:
                     return {
@@ -348,7 +359,7 @@ export const useLibraryStore = defineStore({
                         development: "https://leadme-tools.sgp1.vultrobjects.com/leadme-network",
                         offline: "http://localhost:8088",
                         local: "http://localhost:8082"
-                    };
+                    }
 
                 default:
                     return undefined;
