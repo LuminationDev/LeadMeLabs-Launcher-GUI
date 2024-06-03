@@ -166,15 +166,19 @@ workflows:
       - build-windows:
           requires:
             - hold
+      - hold-on-deploy:
+          type: approval
+          requires:
+            - build-windows
       - commit-and-push:
           branch: "main"
           buildType: "Release"
           repository: "LeadMeLabs-Launcher-Hosting"
           requires:
-            - build-windows
+            - hold-on-deploy
       - vultr-upload:
           requires:
-            - build-windows
+            - hold-on-deploy
           directory: "leadme-launcher"
   build_development:
     jobs:
