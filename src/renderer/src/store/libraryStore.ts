@@ -53,7 +53,7 @@ const leadMeTools = {
         {
             id: "103",
             name: CONSTANT.APPLICATION_TYPE.APPLICATION_NAME_EXPERIENCE_TOOL,
-            alias: 'leadme-tools-experiences',
+            alias: 'leadme-experiences',
             url: '/latest.yml'
         }
     ]
