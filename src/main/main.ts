@@ -403,7 +403,11 @@ function setupTrayIcon(): void {
 
   ipcMain.on('maximize', function (event) {
     event.preventDefault()
-    mainWindow.maximize()
+    if (mainWindow.isMaximized()) {
+      mainWindow.restore()
+    } else {
+      mainWindow.maximize()
+    }
   })
 
   ipcMain.on('close', function (event) {
