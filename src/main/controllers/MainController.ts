@@ -654,7 +654,7 @@ export default class MainController {
                                     site = siteEnv.split("=").length > 1 ? siteEnv.split("=")[1] : ""
                                 }
                             }
-                            const response = await fetch("http://127.0.0.1:5001/leadme-labs/us-central1/anonymousLogUpload", {
+                            const response = await fetch("https://us-central1-leadme-labs.cloudfunctions.net/anonymousLogUpload", {
                                 method: "POST",
                                 body: data,
                                 headers: {
