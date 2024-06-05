@@ -9,7 +9,8 @@ export default class ConfigController {
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
-    FIREBASE_BASE_URL: string = 'https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/'
+    FIREBASE_BASE_URL: string = 'https://leadme-labs-default-rtdb.asia-southeast1.firebasedatabase.app/lab_remote_config/';
+    config: Array<string> = [];
 
     constructor(ipcMain: Electron.IpcMain, mainWindow: Electron.BrowserWindow) {
         this.ipcMain = ipcMain;
@@ -60,8 +61,8 @@ export default class ConfigController {
     /**
      * Gets the application configuration details.
      */
-    async getApplicationConfig(_event: IpcMainEvent, info: any): Promise<void> {
-        if (this.checkIfRemoteConfigIsEnabled(_event, info)) {
+    async getApplicationConfig(_event: IpcMainEvent|null, info: any): Promise<void> {
+        if (_event !== null && this.checkIfRemoteConfigIsEnabled(_event, info)) {
             const idTokenResponse = await this.generateIdTokenFromRemoteConfigFile(info.name)
             await this.downloadAndUpdateLocalConfig(info.name, idTokenResponse)
             if (info.name == 'NUC') {
@@ -82,6 +83,7 @@ export default class ConfigController {
                 dataArray.push("ReportRealtimeData=false")
             }
         }
+        this.config = dataArray
 
         //Send the data array back to the front end.
         this.mainWindow.webContents.send('backend_message', {
