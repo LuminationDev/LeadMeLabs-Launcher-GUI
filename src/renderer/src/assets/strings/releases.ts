@@ -16,6 +16,57 @@ export interface code {
     Config: string
 }
 
+const version1_3_4: release = {
+    version: "1.3.4",
+    date: "Monday 17rd June 2024",
+    features: [
+        "Prevent switching between scenes too quickly by disabling dashboard buttons while changes are in progress - this behaviour can be turned off in the settings page on the tablet",
+        "Automatically upload logs two minutes after Station and NUC start up",
+        "Add refresh button to dashboard which refreshes all station and appliance statuses",
+        "Station status syncing improvements"
+    ],
+    performance: [
+        "Improved experience loading time"
+    ],
+    fixes: [
+        "Restoring launcher window size did not work",
+        "Parental mode experience list still applied when parental mode was disabled"
+    ],
+    codes: {
+        Launcher: "1.3.7",
+        NUC: "1.2.6",
+        Station: "1.2.7",
+        Tablet: "1.34",
+        QA: "1.0.21",
+        Config: "1.1.9",
+    }
+}
+
+//region Previous Versions
+const version1_3_3: release = {
+    version: "1.3.3",
+    date: "Monday 3rd June 2024",
+    features: [
+        "Info button on experience tiles to see more information",
+        "Searchable keywords for each experience",
+        "Wifi icon on tablet will now display differently when the tablet is ‘connected without internet’",
+        "Add customisable in-app push notifications to provide quick information to users",
+        "Fetch current active preset for novastar LED walls"
+    ],
+    performance: [],
+    fixes: [
+        "Steam experiences not loading when api.steampowered.com is not allowlisted"
+    ],
+    codes: {
+        Launcher: "1.3.5",
+        NUC: "1.2.3",
+        Station: "1.2.2",
+        Tablet: "1.33",
+        QA: "1.0.18",
+        Config: "1.1.9",
+    }
+}
+
 const version1_3_2: release = {
     version: "1.3.2",
     date: "Monday 20th May 2024",
@@ -41,7 +92,6 @@ const version1_3_2: release = {
     }
 }
 
-//region Previous Versions
 const version1_3_0: release = {
     version: "1.3.0",
     date: "Monday 22nd April 2024",
@@ -174,5 +224,5 @@ const version1_2_4: release = {
 }
 //endregion
 
-export const latest_release = "1.3.2";
-export const all_releases = [version1_3_2, version1_3_0, version1_2_8, version1_2_7, version1_2_5, version1_2_4]
+export const latest_release = "1.3.4";
+export const all_releases = [version1_3_4, version1_3_3, version1_3_2, version1_3_0, version1_2_8, version1_2_7, version1_2_5, version1_2_4]
