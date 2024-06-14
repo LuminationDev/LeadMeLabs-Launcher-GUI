@@ -62,21 +62,24 @@ const leadMeTools = {
 const embeddedApplications = {
     type: CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED,
     apps: [
-        // {
-        //     id: "201",
-        //     name: 'Video Player',
-        //     url:'/'
-        // },
-        // {
-        //     id: "202",
-        //     name: 'VR Video Player',
-        //     url:'/'
-        // },
-        // {
-        //     id: "203",
-        //     name: 'Open Brush',
-        //     url:'/'
-        // },
+        {
+            id: "201",
+            alias: "video-player",
+            name: 'Video Player',
+            url:'https://leadme-apps.sgp1.vultrobjects.com/video-player/'
+        },
+        {
+            id: "202",
+            alias: "vr-video-player",
+            name: 'VR Video Player',
+            url:'https://leadme-apps.sgp1.vultrobjects.com/vr-video-player/'
+        },
+        {
+            id: "203",
+            name: 'Open Brush',
+            alias: "open-brush",
+            url:'https://leadme-apps.sgp1.vultrobjects.com/open-brush/'
+        },
         {
             id: "204",
             name: 'WebXR Viewer',

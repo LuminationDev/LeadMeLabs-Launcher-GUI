@@ -9,19 +9,21 @@ const searchQuery = ref("");
 
 <template>
   <div class="w-full h-full flex flex-col">
-    <div class="flex flex-row justify-between items-center">
+    <div class="flex flex-row justify-between items-center px-4">
       <h2 class="title font-bold text-lg text-center">Applications</h2>
 
       <ExtraMenu />
     </div>
 
     <div class="flex flex-col flex-grow">
-      <!-- Search Input -->
-      <input type="text" v-model="searchQuery" placeholder="Search..." class="w-full mt-5 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-gray-800">
+      <div class="flex flex-col px-4">
+        <!-- Search Input -->
+        <input type="text" v-model="searchQuery" placeholder="Search..." class="w-full mt-5 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-gray-800">
 
-      <hr class="border border-gray-400 my-5">
+        <hr class="border border-gray-400 my-5">
+      </div>
 
-      <div class="flex-col overflow-auto max-h-[400px]">
+      <div class="flex-col overflow-auto max-h-[490px] p-4">
         <SubMenu title="LeadMe" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME"/>
         <SubMenu title="Apps" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED"/>
         <SubMenu title="Imported" :search-query="searchQuery" :application-type="CONSTANT.APPLICATION_TYPE.APPLICATION_IMPORTED"/>
