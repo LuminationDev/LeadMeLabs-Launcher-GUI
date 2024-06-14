@@ -18,7 +18,7 @@ export interface code {
 
 const version1_3_4: release = {
     version: "1.3.4",
-    date: "Monday 17rd June 2024",
+    date: "Monday 17th June 2024",
     features: [
         "Prevent switching between scenes too quickly by disabling dashboard buttons while changes are in progress - this behaviour can be turned off in the settings page on the tablet",
         "Automatically upload logs two minutes after Station and NUC start up",
@@ -33,9 +33,9 @@ const version1_3_4: release = {
         "Parental mode experience list still applied when parental mode was disabled"
     ],
     codes: {
-        Launcher: "1.3.7",
-        NUC: "1.2.6",
-        Station: "1.2.7",
+        Launcher: "1.3.8",
+        NUC: "1.2.8",
+        Station: "1.2.8",
         Tablet: "1.34",
         QA: "1.0.21",
         Config: "1.1.9",
