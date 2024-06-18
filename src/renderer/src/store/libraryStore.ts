@@ -91,6 +91,18 @@ const embeddedApplications = {
             name: 'Base Station FOV Viewer',
             alias: "base-station-fov-viewer",
             url:'https://leadme-apps.sgp1.vultrobjects.com/base-station-fov-viewer/'
+        },
+        {
+            id: "206",
+            name: 'WorkWindow Career Explorer',
+            alias: "workwindow-career-explorer",
+            url:'https://leadme-apps.sgp1.vultrobjects.com/workwindow-career-explorer/'
+        },
+        {
+            id: "207",
+            name: 'WorkWindow Interview Simulator',
+            alias: "workwindow-interview-simulator",
+            url:'https://leadme-apps.sgp1.vultrobjects.com/workwindow-interview-simulator/'
         }
     ]
 }
