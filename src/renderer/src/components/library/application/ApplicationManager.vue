@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import * as CONSTANT from '../../assets/constants/index';
-import Spinner from "../loading/Spinner.vue";
-import GenericButton from "../buttons/GenericButton.vue";
-import ErrorNotification from "../../modals/ErrorNotification.vue";
-import { useLibraryStore } from '../../store/libraryStore';
+import * as CONSTANT from '../../../assets/constants';
+import Spinner from "../../loading/Spinner.vue";
+import GenericButton from "../../buttons/GenericButton.vue";
+import ErrorNotification from "../../../modals/ErrorNotification.vue";
+import { useLibraryStore } from '../../../store/libraryStore';
 
 const libraryStore = useLibraryStore();
 

@@ -4,18 +4,7 @@ import { reactive, ref } from "vue";
 import * as CONSTANT from '../assets/constants/index';
 import { ModeUrls } from "../interfaces/modeUrls";
 import * as Sentry from "@sentry/electron";
-
-//Preset applications - Use this as an example of the LeadMe ID Library?
-// const values = {
-//     '3': new Application(
-//         '3',
-//         'LeadMe VR',
-//         'http://localhost:8082/program-leadmevr',
-//         '',
-//         false,
-//         CONSTANTS.MODEL_VALUE.STATUS_NOT_INSTALLED
-//     )
-// }
+import {Video} from "../interfaces/video";
 
 const leadMeApplications = {
     type: CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME,
@@ -129,14 +118,27 @@ export const useLibraryStore = defineStore({
         mode: 'production',
         appDirectory: '',
         toolDirectory: '',
+        menuType: CONSTANT.IMPORT_TYPE.APPLICATION,
         selectedApplication: <string | undefined> '',
         applicationParameters: {},
         applicationSetup: reactive([]),
         applications: ref(new Map<string, Application>(Object.entries(values))),
+        videos: ref(new Map<string, Video[]>),
+        selectedVideo: <string | undefined> '',
         schedulerTask: { enabled: false, status: 'Unknown', warning: "" },
         canAccessVultr: null
     }),
     actions: {
+        /**
+         * Change the type of item the library is presenting to the user.
+         * @param value A string of the type of item to show - current Applications or Videos
+         */
+        changeLibraryType(value: string) {
+            this.menuType = value;
+            this.selectedApplication = "";
+            this.selectedVideo = "";
+        },
+
         /**
          * After performing a manifest scan or reset, reload the applications.
          */
@@ -168,6 +170,14 @@ export const useLibraryStore = defineStore({
          */
         changeApplication(panel: string) {
             this.selectedApplication = panel
+        },
+
+        /**
+         * Change the current video panel to the supplied one.
+         * @param panel
+         */
+        changeVideo(panel: string) {
+            this.selectedVideo = panel;
         },
 
         /**
@@ -367,9 +377,73 @@ export const useLibraryStore = defineStore({
                 default:
                     return undefined;
             }
+        },
+
+        /**
+         * Get the file extension from the supplied file path
+         * @param filePath A string of the full file path
+         */
+        filterFileExtension(filePath: string) {
+            const lastDotIndex = filePath.lastIndexOf('.');
+            if (lastDotIndex === -1) {
+                return ''; // No extension found
+            }
+            return filePath.slice(lastDotIndex).toLowerCase().replace(".", "");
+        },
+
+        /**
+         * Remove the file extension from the name for display purposes.
+         * @param name A string of the video name.
+         */
+        filterVideoName(name: string) {
+            return name.replace(".mp4", "");
+        },
+
+        /**
+         * Get the parent category for a supplied video
+         * @param videoPath
+         */
+        getVideoCategory(videoPath: string) {
+            for (let category in this.videos) {
+                if (this.videos.hasOwnProperty(category)) {
+                    // Use Array.prototype.find to search for the video by path within the category
+                    const foundVideo = this.videos[category].find(video => video.path === videoPath);
+                    if (foundVideo) {
+                        return category; // Return the found video object
+                    }
+                }
+            }
+
+            return "";
         }
     },
     getters: {
+        getSelectedVideo(): Video | undefined {
+            if(this.selectedVideo === undefined) return undefined;
+
+            for (let category in this.videos) {
+                if (this.videos.hasOwnProperty(category)) {
+                    // Use Array.prototype.find to search for the video by path within the category
+                    const foundVideo = this.videos[category].find(video => video.path === this.selectedVideo);
+                    if (foundVideo) {
+                        return foundVideo; // Return the found video object
+                    }
+                }
+            }
+
+            return undefined;
+        },
+
+        getSelectedVideoName(): string {
+            const video = this.getSelectedVideo
+            return video !== undefined ? video.name : 'Unselected'
+        },
+
+        getSelectedVideoPath(): string {
+            const video = this.getSelectedVideo
+            return video !== undefined ? video.path : 'Unselected'
+        },
+
         getSelectedApplication(): Application | undefined {
             if(this.selectedApplication === undefined) return undefined;
             return this.applications.get(this.selectedApplication)

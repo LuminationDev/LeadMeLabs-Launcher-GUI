@@ -19,6 +19,10 @@ export const backendListeners = (info: any) => {
             installedApplications(info.appDirectory, info.toolDirectory, info.content);
             break;
 
+        case "videos_installed":
+            installedVideos(info);
+            break;
+
         case "update_application_entry":
             libraryStore.updateApplicationByName(info.applicationName, info.parameterKey, info.parameterValue);
             break
@@ -45,6 +49,10 @@ export const backendListeners = (info: any) => {
 
         case "application_imported":
             applicationImported(info);
+            break;
+
+        case "video_imported":
+            videoImported(info);
             break;
 
         case "manifest_scanned":
@@ -152,6 +160,15 @@ const installedApplications = (appDirectoryPath: string, toolDirectoryPath: stri
 }
 
 /**
+ * Assign the collected videos to the libraryStore variable.
+ * @param info An object containing the collected video objects.
+ */
+const installedVideos = (info: any) => {
+    console.log(info.videos);
+    libraryStore.videos = info.videos;
+}
+
+/**
  * A command sent from the backend stating there are no updates available at this time or any update has been installed,
  * and it is now safe to auto start any applications that are required.
  */
@@ -226,7 +243,17 @@ const applicationImported = (info: any) => {
 }
 
 /**
- * The leadme_apps directory has been scanned, inform the user of the outcome of te prcoess and what might need to
+ * Notify the user if the import was successful or not.
+ * @param info
+ */
+const videoImported = (info: any) => {
+    modalStore.notificationModelTitle = "Video Imported";
+    modalStore.notificationModelMessage = info.success ? "Your video has successfully been imported." : "An error has occurred please try again.";
+    modalStore.notificationModelOpen = true;
+}
+
+/**
+ * The leadme_apps directory has been scanned, inform the user of the outcome of te process and what might need to
  * occur next.
  * @param info
  */

@@ -4,6 +4,7 @@ import { join } from "path";
 import { AppEntry, VREntry } from "../interfaces/appEntry";
 import { findExecutable, generateUniqueId, readObjects, writeObjects } from "../util/Utilities";
 import { ConfigFile } from "../interfaces/config";
+import * as CONSTANT from "../../renderer/src/assets/constants";
 
 export default class ManifestController {
     ipcMain: Electron.IpcMain;
@@ -31,9 +32,6 @@ export default class ManifestController {
         if(exists) {
             try {
                 const installed: Array<AppEntry> = await readObjects(filePath);
-
-                console.log(installed);
-
                 this.mainWindow.webContents.send('backend_message',
                     {
                         channelType: "applications_installed",
@@ -181,6 +179,13 @@ export default class ManifestController {
     async importApplication(_event: IpcMainEvent, info: any): Promise<void> {
         let AppId = await this.updateAppManifest(info.name, info.name, "Custom", info.altPath, null, null);
 
+        // Update the manifests if the application is VR (set by user)
+        if (info.isVr) {
+            await this.updateVRManifest(info.name, AppId, info.altPath, true);
+            info.value = JSON.stringify({[CONSTANT.MODEL_KEY.KEY_VR_MANIFEST]: true});
+            await this.setManifestAppParameters(_event, info);
+        }
+
         //Send back the new application and its assigned ID
         this.mainWindow.webContents.send('backend_message', {
             channelType: "application_imported",
@@ -190,6 +195,9 @@ export default class ManifestController {
             action: "import",
             message: `Imported application added: ${info.name}`
         });
+
+        //Send back the new update list of applications
+        await this.installedApplications();
     }
 
     /**

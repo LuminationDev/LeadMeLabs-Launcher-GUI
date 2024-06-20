@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
-import GenericButton from '../buttons/GenericButton.vue';
-import * as CONSTANT from '../../assets/constants/index';
-import { useLibraryStore } from '../../store/libraryStore';
+import GenericButton from '../../buttons/GenericButton.vue';
+import * as CONSTANT from '../../../assets/constants';
+import { useLibraryStore } from '../../../store/libraryStore';
 
 const libraryStore = useLibraryStore();
 const enabled = computed(() => { return libraryStore.schedulerTask.enabled });

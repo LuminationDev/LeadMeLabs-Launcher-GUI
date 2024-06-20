@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import * as CONSTANT from "@renderer/assets/constants";
-import {useLibraryStore} from "@renderer/store/libraryStore";
-import {computed, ref} from "vue";
-import {Application} from "@renderer/models";
+import { useLibraryStore } from "@renderer/store/libraryStore";
+import { computed, ref } from "vue";
+import { Application } from "@renderer/models";
 
 const props = defineProps({
   title: {
