@@ -57,10 +57,10 @@ const videoName = computed(() => {
 </script>
 
 <template>
-  <div v-if="videoList.length > 0" class="flex flex-col [&>div]:my-2">
+  <div v-if="videoList.length > 0" class="flex flex-col">
 
     <!--Title section-->
-    <div class="flex flex-row justify-between cursor-pointer" v-on:click="expanded = !expanded">
+    <div class="flex flex-row justify-between cursor-pointer my-2" v-on:click="expanded = !expanded">
       <div class="font-bold" >
         {{title}}
       </div>
@@ -71,15 +71,17 @@ const videoName = computed(() => {
     </div>
 
     <!--Experience section-->
-    <div v-if="expanded" v-for="video in videoList" :key="video.name">
-      <div
-          class="w-full pl-2 cursor-pointer rounded hover:bg-gray-100"
-          :class="{'bg-gray-100': video.name === videoName}"
-          @click="libraryStore.changeVideo(video.path)">
+    <div v-if="expanded" class="flex flex-col [&>div]:my-2">
+      <div v-for="video in videoList" :key="video.name">
+        <div
+            class="w-full pl-2 cursor-pointer rounded hover:bg-gray-100"
+            :class="{'bg-gray-100': video.name === videoName}"
+            @click="libraryStore.changeVideo(video.path)">
 
-        <div class="flex flex-col">
-          <div>
-            {{ libraryStore.filterVideoName(video.name) }}
+          <div class="flex flex-col">
+            <div>
+              {{ libraryStore.filterVideoName(video.name) }}
+            </div>
           </div>
         </div>
       </div>
