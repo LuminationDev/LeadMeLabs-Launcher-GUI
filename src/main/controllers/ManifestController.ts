@@ -4,7 +4,6 @@ import { join } from "path";
 import { AppEntry, VREntry } from "../interfaces/appEntry";
 import { findExecutable, generateUniqueId, readObjects, writeObjects } from "../util/Utilities";
 import { ConfigFile } from "../interfaces/config";
-import * as CONSTANT from "../../renderer/src/assets/constants";
 
 export default class ManifestController {
     ipcMain: Electron.IpcMain;
@@ -182,7 +181,7 @@ export default class ManifestController {
         // Update the manifests if the application is VR (set by user)
         if (info.isVr) {
             await this.updateVRManifest(info.name, AppId, info.altPath, true);
-            info.value = JSON.stringify({[CONSTANT.MODEL_KEY.KEY_VR_MANIFEST]: true});
+            info.value = JSON.stringify({["vrManifest"]: true});
             await this.setManifestAppParameters(_event, info);
         }
 

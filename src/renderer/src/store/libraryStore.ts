@@ -4,7 +4,7 @@ import { reactive, ref } from "vue";
 import * as CONSTANT from '../assets/constants/index';
 import { ModeUrls } from "../interfaces/modeUrls";
 import * as Sentry from "@sentry/electron";
-import {Video} from "../interfaces/video";
+import { Video } from "../interfaces/video";
 
 const leadMeApplications = {
     type: CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME,
