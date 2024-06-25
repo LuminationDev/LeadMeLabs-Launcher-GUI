@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import GenericButton from "../../components/buttons/GenericButton.vue";
-import * as CONSTANT from "../../assets/constants/index"
+import GenericButton from "../../buttons/GenericButton.vue";
+import * as CONSTANT from "../../../assets/constants"
 import ApplicationScheduler from "./ApplicationScheduler.vue";
-import { useLibraryStore } from "../../store/libraryStore";
+import { useLibraryStore } from "../../../store/libraryStore";
 
 const libraryStore = useLibraryStore();
 

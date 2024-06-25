@@ -1,17 +1,18 @@
 import fs from "fs";
 import path from "path";
 import Encryption from "../encryption/Encryption";
-import { join, resolve } from "path";
-import { exec, execSync, spawn, spawnSync } from "child_process";
 import IpcMainEvent = Electron.IpcMainEvent;
 import fetch from 'node-fetch';
 import * as Sentry from "@sentry/electron";
-import { findExecutableWithNameSetup } from "../util/Utilities";
-import { taskSchedulerItem } from "../util/TaskScheduler";
 import * as CONSTANT from "../assets/constants";
 import ManifestController from "./ManifestController";
 import ConfigController from "./ConfigController";
 import DownloadController from "./DownloadController";
+import VideoController from "./VideoController";
+import { join, resolve } from "path";
+import { exec, execSync, spawn, spawnSync } from "child_process";
+import { findExecutableWithNameSetup } from "../util/Utilities";
+import { taskSchedulerItem } from "../util/TaskScheduler";
 
 Sentry.init({
     dsn: "https://09dcce9f43346e4d8cadf213c0a0f082@o1294571.ingest.sentry.io/4505666781380608",
@@ -26,6 +27,7 @@ export default class MainController {
     manifestController: ManifestController;
     configController: ConfigController;
     downloadController: DownloadController;
+    videoController: VideoController;
     ipcMain: Electron.IpcMain;
     mainWindow: Electron.BrowserWindow;
     appDirectory: string;
@@ -38,6 +40,7 @@ export default class MainController {
         this.manifestController = new ManifestController(ipcMain, mainWindow);
         this.configController = new ConfigController(ipcMain, mainWindow);
         this.downloadController = new DownloadController(ipcMain, mainWindow, this.manifestController);
+        this.videoController = new VideoController(ipcMain, mainWindow);
         this.ipcMain = ipcMain;
         this.mainWindow = mainWindow;
         this.appDirectory = process.env.APPDATA + '/leadme_apps';
@@ -71,6 +74,7 @@ export default class MainController {
     helperListenerDelegate(): void {
         this.ipcMain.on('helper_function', (_event, info) => {
             switch(info.channelType) {
+                //Manifest functions
                 case "query_installed_applications":
                     void this.manifestController.installedApplications();
                     break;
@@ -100,6 +104,7 @@ export default class MainController {
                     void this.manifestController.isElectronSetup(info);
                     break;
 
+                //Config functions
                 case "set_config_application":
                     void this.configController.configApplication(_event, info);
                     break;
@@ -120,6 +125,23 @@ export default class MainController {
                     void this.downloadController.updateApplication(_event, info);
                     break;
 
+                // Video functions
+                case "query_installed_videos":
+                    void this.videoController.collectVideos();
+                    break;
+                case "import_video":
+                case "move_video":
+                    void this.videoController.moveVideo(info);
+                    break;
+                case "delete_video":
+                    void this.videoController.deleteVideo(info);
+                    break;
+
+                //Scheduler functions
+                case "schedule_application":
+                    void taskSchedulerItem(this.mainWindow, info, this.appDirectory);
+                    break;
+
                 case "set_application_image":
                     void this.setApplicationImage(_event, info);
                     break;
@@ -137,10 +159,6 @@ export default class MainController {
                     break;
                 case "electron_setup":
                     void this.setupElectronApplication(_event, info);
-                    break;
-
-                case "schedule_application":
-                    void taskSchedulerItem(this.mainWindow, info, this.appDirectory);
                     break;
 
                 default:

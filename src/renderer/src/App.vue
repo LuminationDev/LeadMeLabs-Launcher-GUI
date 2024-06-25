@@ -14,10 +14,16 @@ Sentry.init({
 
 const libraryStore = useLibraryStore();
 
-//First this to do is check if any applications are installed - only register and trigger it on start up.
+//Check if any applications are installed - only register and trigger it on start up.
 // @ts-ignore
 api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
-  channelType: CONSTANT.MESSAGE.QUERY_INSTALLED
+  channelType: CONSTANT.MESSAGE.QUERY_INSTALLED_APPLICATIONS
+});
+
+//Check if any videos are imported
+// @ts-ignore
+api.ipcRenderer.send(CONSTANT.CHANNEL.HELPER_CHANNEL, {
+  channelType: CONSTANT.MESSAGE.QUERY_INSTALLED_VIDEOS
 });
 
 /**
@@ -32,6 +38,7 @@ api.ipcRenderer.on('backend_message', (event, info) => {
 /**
  * Backend listener, any messages that relate to updating the status of an application.
  */
+//@ts-ignore
 api.ipcRenderer.on('status_message', (event, info) => {
   statusListeners(info);
 });

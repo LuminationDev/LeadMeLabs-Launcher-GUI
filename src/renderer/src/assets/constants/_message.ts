@@ -1,4 +1,4 @@
-export const QUERY_INSTALLED = 'query_installed_applications'
+export const QUERY_INSTALLED_APPLICATIONS = 'query_installed_applications'
 export const QUERY_MANIFEST_APP = 'query_manifest_app'
 export const SCAN_MANIFEST = 'scan_manifest'
 export const CHECK_REMOTE_CONFIG = 'check_remote_config'
@@ -29,3 +29,9 @@ export const ELECTRON_APPLICATION_CHECK_SETUP = 'electron_check_setup'
 
 export const SET_REMOTE_CONFIG = 'set_remote_config'
 export const UPLOAD_EXISTING_CONFIG = 'upload_existing_conifg'
+
+
+export const QUERY_INSTALLED_VIDEOS = 'query_installed_videos'
+export const VIDEO_IMPORT = 'import_video'
+export const VIDEO_DELETE = 'delete_video'
+export const VIDEO_MOVE = 'move_video'
