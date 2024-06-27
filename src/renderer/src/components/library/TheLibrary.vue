@@ -11,24 +11,26 @@ const libraryStore = useLibraryStore();
 </script>
 
 <template>
-  <!--List of Items-->
-  <div class="sidebar w-72 bg-white rounded-3xl">
-    <Sidebar title="">
-      <template #content>
-        <LibraryMenu />
-      </template>
-    </Sidebar>
+  <div class="flex w-full h-full">
+    <!--List of Items-->
+    <div class="sidebar w-72 bg-white rounded-3xl">
+      <Sidebar title="">
+        <template #content>
+          <LibraryMenu />
+        </template>
+      </Sidebar>
+    </div>
+
+    <!--Application Library-->
+    <LibraryInsert v-if="libraryStore.menuType === CONSTANT.IMPORT_TYPE.APPLICATION"
+                   :nothing-selected="libraryStore.selectedApplication === '' || libraryStore.selectedApplication === undefined">
+      <ApplicationPanel />
+    </LibraryInsert>
+
+    <!--Video Library-->
+    <LibraryInsert v-else-if="libraryStore.menuType === CONSTANT.IMPORT_TYPE.VIDEO"
+                   :nothing-selected="libraryStore.selectedVideo === '' || libraryStore.selectedVideo === undefined">
+      <VideoPanel />
+    </LibraryInsert>
   </div>
-
-  <!--Application Library-->
-  <LibraryInsert v-if="libraryStore.menuType === CONSTANT.IMPORT_TYPE.APPLICATION"
-                 :nothing-selected="libraryStore.selectedApplication === '' || libraryStore.selectedApplication === undefined">
-    <ApplicationPanel />
-  </LibraryInsert>
-
-  <!--Video Library-->
-  <LibraryInsert v-else-if="libraryStore.menuType === CONSTANT.IMPORT_TYPE.VIDEO"
-                 :nothing-selected="libraryStore.selectedVideo === '' || libraryStore.selectedVideo === undefined">
-    <VideoPanel />
-  </LibraryInsert>
 </template>
