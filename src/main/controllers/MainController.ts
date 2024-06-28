@@ -378,7 +378,9 @@ export default class MainController {
             if (info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME) {
                 setTimeout(async () => {
                     try {
-                        var fileName = `${new Date().toISOString().split("T")[0].replace(/-/g, "_")}_log`
+                        var date = new Date()
+                        date.setDate(date.getDate() - 1)
+                        var fileName = `${date.toISOString().split("T")[0].replace(/-/g, "_")}_log`
                         var fileNameWithPath = `${process.env.APPDATA}\\leadme_apps\\${info.alias ?? info.name}\\_logs\\${fileName}`
                         var fileNameWithExtension = `${fileNameWithPath}.txt`
                         fs.readFile(fileNameWithExtension, async (err, data) => {
