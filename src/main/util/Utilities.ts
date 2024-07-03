@@ -1,7 +1,7 @@
 import fs from "fs";
-import path from 'path';
-import { join } from "path";
-import {app, BrowserWindow, net as electronNet, shell} from "electron";
+import path, {join} from 'path';
+import semver from "semver/preload";
+import { app, BrowserWindow, net as electronNet, shell } from "electron";
 import fetch from 'node-fetch';
 import yaml from 'js-yaml';
 import Encryption from "../encryption/Encryption";
@@ -389,7 +389,7 @@ export function generateURL(details: any, isVersionUrl: boolean): string {
             if (host === "heroku") {
                 return `${details.host}/program-${details.name.toLowerCase()}${isVersionUrl ? '-version' : ''}`;
             } else {
-                return `${details.host}${details.name}/${isVersionUrl ? 'version' : (details.name + '.zip')}`;
+                return generateMostRecentDotnetUrl(details, isVersionUrl);
             }
 
         case "embedded":
@@ -401,4 +401,77 @@ export function generateURL(details: any, isVersionUrl: boolean): string {
         default:
             return "";
     }
+}
+
+/**
+ * Check the local dotnet version to determine what Vultr URL to generate.
+ *
+ * NOTE: dotnet 8.0 is backwards compatible with 6.0, so a WPF project targeting net6.0-windows will work on dotnet 8.0
+ * however targeting net8.0-windows will not work on a computer with only dotnet 6.0 installed.
+ * @param details
+ * @param isVersionUrl
+ */
+function generateMostRecentDotnetUrl(details: any, isVersionUrl: boolean): string {
+    //Check the most recent dotnet version
+    let dotnet = getMostRecentRuntimeMajorVersion();
+
+    //determine the major version number
+    switch (dotnet) {
+        case "8":
+            //add the extra sub folder
+            return `${details.host}net8.0-windows/${details.name}/${isVersionUrl ? 'version' : (details.name + '.zip')}`;
+
+        case "6":
+        case "":
+        default:
+            return `${details.host}${details.name}/${isVersionUrl ? 'version' : (details.name + '.zip')}`;
+    }
+}
+
+/**
+ * Retrieves the major version number of the most recent .NET runtime version.
+ * The function checks for the existence of runtime directories, reads their contents
+ * to find valid version numbers, and determines the most recent version.
+ *
+ * It currently only checks the path for Microsoft Windows Desktop runtime:
+ * 'C:\\Program Files\\dotnet\\shared\\Microsoft.WindowsDesktop.App'
+ *
+ * The major version number of the most recent runtime version is returned. If no
+ * valid versions are found, an empty string is returned.
+ *
+ * @returns string The major version number of the most recent .NET runtime
+ *                 version, or an empty string if no valid versions are found.
+ *
+ * @example
+ * // Assuming the most recent version is 6.1.2
+ * console.log(getMostRecentRuntimeMajorVersion()); // Output: '6'
+ */
+function getMostRecentRuntimeMajorVersion(): string {
+    // Paths to check for runtime versions
+    const runtimePaths = [
+        // 'C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App',
+        // 'C:\\Program Files\\dotnet\\shared\\Microsoft.AspNetCore.App',
+        'C:\\Program Files\\dotnet\\shared\\Microsoft.WindowsDesktop.App' // only require this one
+    ];
+
+    let mostRecentVersion: string|null = null;
+
+    for (const dirPath of runtimePaths) {
+        if (!fs.existsSync(dirPath)) continue;
+
+        // Read the directory contents, filter valid versions, and sort in descending order
+        const versions = fs.readdirSync(dirPath)
+            .filter(version => semver.valid(version))
+            .sort((a, b) => semver.rcompare(a, b));
+
+        if (versions.length === 0) continue;
+
+        const latestVersion = versions[0];
+
+        if (!mostRecentVersion || semver.gt(latestVersion, mostRecentVersion)) {
+            mostRecentVersion = latestVersion;
+        }
+    }
+
+    return mostRecentVersion ? semver.major(mostRecentVersion).toString() : '';
 }
