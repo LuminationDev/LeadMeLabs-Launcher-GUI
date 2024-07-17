@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import * as CONSTANT from "../../assets/constants/index"
-import ApplicationBar from "./ApplicationButtons.vue";
-import ApplicationImage from "./ApplicationDetails.vue";
-import { useLibraryStore } from '../../store/libraryStore'
-import UploadLogFile from "../../modals/UploadLogFile.vue";
-import EnableRemoteConfig from "../../modals/EnableRemoteConfig.vue";
+import * as CONSTANT from "../../../assets/constants"
+import ApplicationButtons from "./ApplicationButtons.vue";
+import ApplicationDetails from "./ApplicationDetails.vue";
+import { useLibraryStore } from '../../../store/libraryStore'
+import UploadLogFile from "../../../modals/UploadLogFile.vue";
+import EnableRemoteConfig from "../../../modals/EnableRemoteConfig.vue";
 
 const libraryStore = useLibraryStore();
 
@@ -78,8 +78,8 @@ const setVRManifest = (): void => {
       </div>
     </div>
 
-    <ApplicationImage />
+    <ApplicationDetails />
 
-    <ApplicationBar />
+    <ApplicationButtons />
   </div>
 </template>

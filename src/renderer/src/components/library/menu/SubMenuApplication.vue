@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import * as CONSTANT from "@renderer/assets/constants";
-import {useLibraryStore} from "@renderer/store/libraryStore";
-import {computed, ref} from "vue";
-import {Application} from "@renderer/models";
+import { useLibraryStore } from "@renderer/store/libraryStore";
+import { computed, ref } from "vue";
+import { Application } from "@renderer/models";
 
 const props = defineProps({
   title: {
@@ -63,10 +63,10 @@ const applicationName = computed(() => {
 </script>
 
 <template>
-  <div v-if="applicationList.length > 0" class="flex flex-col [&>div]:my-2">
+  <div v-if="applicationList.length > 0" class="flex flex-col">
 
     <!--Title section-->
-    <div class="flex flex-row justify-between cursor-pointer" v-on:click="expanded = !expanded">
+    <div class="flex flex-row justify-between cursor-pointer my-2" v-on:click="expanded = !expanded">
       <div class="font-bold" >
         {{title}}
       </div>
@@ -77,20 +77,22 @@ const applicationName = computed(() => {
     </div>
 
     <!--Experience section-->
-    <div v-if="expanded" v-for="[string, application] in applicationList" :key="string">
-      <div
-          class="w-full pl-2 cursor-pointer rounded hover:bg-gray-100"
-          :class="{'bg-gray-100': application.name === applicationName}"
-          @click="libraryStore.changeApplication(application.id)">
+    <div v-if="expanded" class="flex flex-col [&>div]:my-2">
+      <div v-for="[string, application] in applicationList" :key="string">
+        <div
+            class="w-full pl-2 cursor-pointer rounded hover:bg-gray-100"
+            :class="{'bg-gray-100': application.name === applicationName}"
+            @click="libraryStore.changeApplication(application.id)">
 
-        <div class="flex flex-col">
-          <div :class="{'text-gray-400': ![CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(application.status)}">
-            {{ application.name }}
-          </div>
+          <div class="flex flex-col">
+            <div :class="{'text-gray-400': ![CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(application.status)}">
+              {{ application.name }}
+            </div>
 
-          <div class="text-blue-400 text-xs items-center"
-               v-if="[CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(application.status)">
-            {{application.status === CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING ? '(Installing...)' : '(Running...)'}}
+            <div class="text-blue-400 text-xs items-center"
+                 v-if="[CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(application.status)">
+              {{application.status === CONSTANT.MODEL_VALUE.STATUS_DOWNLOADING ? '(Installing...)' : '(Running...)'}}
+            </div>
           </div>
         </div>
       </div>

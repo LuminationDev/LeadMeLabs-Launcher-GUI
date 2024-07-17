@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import * as CONSTANT from "../../assets/constants/index";
+import * as CONSTANT from "../../../assets/constants";
 import ApplicationManager from './ApplicationManager.vue';
-import StationSetup from "../../modals/StationSetup.vue";
-import NucSetup from "../../modals/NucSetup.vue";
-import CustomSetup from "../../modals/CustomSetup.vue";
+import StationSetup from "../../../modals/StationSetup.vue";
+import NucSetup from "../../../modals/NucSetup.vue";
+import CustomSetup from "../../../modals/CustomSetup.vue";
 import ConfirmPrompt from "@renderer/modals/ConfirmPrompt.vue";
 import ElectronSetup from "@renderer/modals/ElectronSetup.vue";
-import { useLibraryStore } from '../../store/libraryStore';
+import { useLibraryStore } from '../../../store/libraryStore';
 
 const libraryStore = useLibraryStore();
 

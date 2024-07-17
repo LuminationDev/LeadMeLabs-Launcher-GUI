@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import Modal from "./Modal.vue";
 import GenericButton from "@renderer/components/buttons/GenericButton.vue";
-import * as CONSTANT from "@renderer/assets/constants";
+import SetupChoiceSelection from "@renderer/components/inputs/SetupChoiceSelection.vue";
+import useVuelidate from "@vuelidate/core";
 import { ref } from "vue";
 import { useLibraryStore } from "@renderer/store/libraryStore";
+import { helpers, required } from "@vuelidate/validators";
 
 const libraryStore = useLibraryStore();
 
@@ -16,7 +18,7 @@ const props = defineProps({
     type: String,
     required: true
   },
-  message: {
+  videoType: {
     type: String,
     required: true
   },
@@ -24,7 +26,17 @@ const props = defineProps({
     type: Function,
     required: true
   }
-})
+});
+
+const videoType = ref(props.videoType);
+const rules = {
+  videoType: {
+    required: helpers.withMessage("Video type is requires a value", required),
+    $autoDirty: true
+  },
+}
+
+const v$ = useVuelidate(rules, { videoType });
 
 const showModal = ref(false);
 
@@ -37,21 +49,26 @@ function closeModal() {
 }
 
 function confirm() {
+  // @ts-ignore
+  v$.value.$validate()
+  // @ts-ignore
+  if (v$.value.$invalid) {
+    return;
+  }
+
   //Perform the callback
-  props.callback();
+  props.callback(videoType.value);
   closeModal();
 }
 </script>
 
 <template>
   <GenericButton
-      v-if="[CONSTANT.MODEL_VALUE.STATUS_INSTALLED, CONSTANT.MODEL_VALUE.STATUS_RUNNING].includes(libraryStore.getSelectedApplicationStatus) || libraryStore.menuType === CONSTANT.IMPORT_TYPE.VIDEO"
-      class="h-10 w-32 bg-white text-base
-        text-red-400 font-poppins font-semibold
-        rounded-md border-2 border-red-400 hover:bg-red-50"
+      class="h-10 w-32 text-base"
+      :type="'primary'"
       :callback="() => showModal = true"
       :spinnerColor="'#000000'"
-  >Delete</GenericButton>
+  >Move</GenericButton>
 
   <Teleport to="body">
     <Modal :show="showModal" @close="closeModal">
@@ -66,8 +83,17 @@ function confirm() {
       <template v-slot:content>
         <div class="px-8 w-128 pt-5 flex flex-col items-center mb-3">
           <p class="pb-5">
-            {{ message }}
+            The current video is located in the <span class="font-bold">{{props.videoType}}</span> subdirectory, please select one of the following options
+            for the video to be moved into.
           </p>
+
+          <div class="mb-5">
+            <SetupChoiceSelection
+                title=""
+                :choices="['Regular', 'VR', 'Backdrops']"
+                v-model="videoType"
+                :v$="v$.videoType"/>
+          </div>
         </div>
       </template>
 
