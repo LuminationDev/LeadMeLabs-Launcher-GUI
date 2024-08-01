@@ -369,10 +369,10 @@ export async function findExecutable(directoryPath: string, exeName: string): Pr
 /**
  * Generates the version URL based on the provided details object.
  * @param details Object containing host, name and wrapperType information.
- * @param isVersionUrl A boolean of whether to get the version url (true) or the download url (false).
+ * @param urlType version, application or uploading
  * @returns The version URL if it can be generated, otherwise an empty string.
  */
-export function generateURL(details: any, isVersionUrl: boolean): string {
+export function generateURL(details: any, urlType: string): string {
     let host: string;
     if (details.host.includes("vultrobjects")) {
         host = "vultr";
@@ -387,13 +387,37 @@ export function generateURL(details: any, isVersionUrl: boolean): string {
     switch (details.wrapperType) {
         case "leadme":
             if (host === "heroku") {
-                return `${details.host}/program-${details.name.toLowerCase()}${isVersionUrl ? '-version' : ''}`;
+                // technically heroku uploading urls are useless, but they'll never return a 200 so it's not a big concern
+                switch (urlType) {
+                    case 'version':
+                        return `${details.host}/program-${details.name.toLowerCase()}-version'`;
+                    case 'uploading':
+                        return `${details.host}/program-${details.name.toLowerCase()}-uploading`;
+                    case 'application':
+                        return `${details.host}/program-${details.name.toLowerCase()}`;
+                }
             } else {
-                return `${details.host}${details.name}/${isVersionUrl ? 'version' : (details.name + '.zip')}`;
+                switch (urlType) {
+                    case 'version':
+                        return `${details.host}${details.name}/version`;
+                    case 'uploading':
+                        return `${details.host}${details.name}/uploading`;
+                    case 'application':
+                        return`${details.host}${details.name}/${(details.name + '.zip')}`;
+                }
             }
+            return ''
 
         case "embedded":
-            return `${details.host}${isVersionUrl ? 'version' : 'application.zip'}`;
+            switch (urlType) {
+                case 'version':
+                    return `${details.host}version`;
+                case 'uploading':
+                    return `${details.host}uploading`;
+                case 'application':
+                    return `${details.host}application.zip`;
+            }
+            return ''
 
         case "tool":
             return `${details.host}/latest.yml`;

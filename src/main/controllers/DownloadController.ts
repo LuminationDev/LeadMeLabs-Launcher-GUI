@@ -78,6 +78,13 @@ export default class DownloadController {
             return;
         }
 
+        let uploadingUrl = generateURL(info, 'uploading')
+        if (await checkFileAvailability(uploadingUrl, 10000)) {
+            // currently uploading, let's bail
+            this.handleApplicationBeingUploaded(downloadWindow, info.name)
+            return;
+        }
+
         //Create the url to download from vultr
         url = this.host + "application.zip"
 
@@ -96,6 +103,14 @@ export default class DownloadController {
      */
     async downloadToolApplication(info: any) {
         let [downloadWindow, url] = this.setupDownloadVariables(info);
+
+        let uploadingUrl = generateURL(info, 'uploading')
+        if (await checkFileAvailability(uploadingUrl, 10000)) {
+            // currently uploading, let's bail
+            this.handleApplicationBeingUploaded(downloadWindow, info.name)
+            return;
+        }
+
         let version: string = await checkForElectronVersion(url);
         if (version === "" || version === null) {
             this.handleServerOffline(downloadWindow, info.name);
@@ -132,7 +147,15 @@ export default class DownloadController {
 
         //Check if the server is online
         if (await checkFileAvailability(url, 10000)) {
-            url = generateURL(info, false);
+            // file is available, now let's check if a new one is being uploaded and we should try again later
+            let uploadingUrl = generateURL(info, 'uploading')
+            if (await checkFileAvailability(uploadingUrl, 10000)) {
+                // currently uploading, let's bail
+                this.handleApplicationBeingUploaded(downloadWindow, info.name)
+                return;
+            }
+
+            url = generateURL(info, 'application');
             if (url.length === 0) {
                 this.downloading = false;
                 return;
@@ -188,7 +211,7 @@ export default class DownloadController {
         const downloadWindow = createDownloadWindow(`Downloading ${info.name} update, please wait...`);
 
         this.host = info.host;
-        let url: string = generateURL(info, true);
+        let url: string = generateURL(info, 'version');
 
         return [downloadWindow, url];
     }
@@ -229,6 +252,36 @@ export default class DownloadController {
         });
         // Marks the downloading process as complete
         this.downloading = false;
+    }
+
+    /**
+     * Handles the case when the server is offline during a download.
+     * @param downloadWindow - The window displaying the download progress.
+     * @param name - The name of the download being affected by the server offline status.
+     *                        This is used in the status message sent to the main window.
+     */
+    handleApplicationBeingUploaded(downloadWindow: BrowserWindow, name: string) {
+        void downloadWindow.webContents.executeJavaScript(`
+                    try {
+                        const dynamicTextElement = document.getElementById('update-message');
+                        dynamicTextElement.innerText = 'A new version is currently being uploaded. Please try again later.';
+                    } catch (error) {
+                        console.error('Error in executeJavaScript:', error);
+                    }
+                `);
+
+        setTimeout(() => {
+            // Destroys the download window
+            downloadWindow.destroy();
+            // Sends a status message to the main window indicating server offline
+            this.mainWindow.webContents.send('status_message', {
+                channelType: "status_update",
+                name: name,
+                message: 'Server offline'
+            });
+            // Marks the downloading process as complete
+            this.downloading = false;
+        }, 5000)
     }
 
     /**
@@ -366,7 +419,7 @@ export default class DownloadController {
         const directoryPath = details.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_EMBEDDED ? join(this.appDirectory, "Embedded\\" , appName) : join(this.appDirectory, appName);
 
         //Generate the correct URL
-        let url: string = generateURL(details, true);
+        let url: string = generateURL(details, 'version');
 
         //Create the download window
         let downloadWindow = createDownloadWindow(`Checking for ${appName} update, please wait...`);
