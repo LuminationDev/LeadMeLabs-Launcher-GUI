@@ -1,6 +1,6 @@
 {
   "name": "LeadMe",
-  "version": "1.3.11",
+  "version": "1.3.13",
   "description": "The LeadMe launcher",
   "main": "build/main/main.js",
   "scripts": {
