@@ -16,6 +16,103 @@ export interface code {
     Config: string
 }
 
+const version1_4_0: release = {
+    version: "1.4.0",
+    date: "Monday 26th August 2024",
+    features: [
+        "Refined the tablet UI for Station selection to ensure Station cards are now fully visible and no longer cut off",
+        "Updated release notes on the Launcher"
+    ],
+    performance: [
+    ],
+    fixes: [
+        "Resolved an issue where the tablet would crash when selecting ‘End on Select’ to end a session"
+    ],
+    codes: {
+        Launcher: "1.3.13",
+        NUC: "1.2.14",
+        Station: "1.2.15",
+        Tablet: "1.40",
+        QA: "1.0.24",
+        Config: "1.1.9",
+    }
+}
+
+//region Previous Versions
+const version1_3_9: release = {
+    version: "1.3.9",
+    date: "Monday 29th July 2024",
+    features: [
+        "Security updates",
+        "Reboot to BIOS button on Station and NUC",
+        "Open launcher location button",
+        "Detect and report IP address changes on NUC and Station",
+        "Update QA tool for experiences not compatible with XR elite headsets"
+    ],
+    performance: [
+    ],
+    fixes: [
+    ],
+    codes: {
+        Launcher: "1.3.12",
+        NUC: "1.2.14",
+        Station: "1.2.15",
+        Tablet: "1.39",
+        QA: "1.0.24",
+        Config: "1.1.9",
+    }
+}
+
+const version1_3_8: release = {
+    version: "1.3.8",
+    date: "Monday 14th July 2024",
+    features: [
+    ],
+    performance: [
+        "More automated tests in deployments"
+    ],
+    fixes: [
+        "Launch experience pop-up on tablet would not always automatically close after experiences were launched"
+    ],
+    codes: {
+        Launcher: "1.3.11",
+        NUC: "1.2.13",
+        Station: "1.2.12",
+        Tablet: "1.38",
+        QA: "1.0.24",
+        Config: "1.1.9",
+    }
+}
+
+const version1_3_7: release = {
+    version: "1.3.7",
+    date: "Monday 1st July 2024",
+    features: [
+        "Improve minimise functionality to make it easier to reopen programs",
+        "Add QA checks for auto start and startup shortcuts",
+        "Automatically sync lab location data between devices",
+        "Add WorkWindow as an installable experience",
+        "Implement video importing feature in launcher",
+        "View past notifications on tablet"
+    ],
+    performance: [
+        "Faster startup times",
+        "Improve restarts"
+    ],
+    fixes: [
+        "Fix issue when audio source connects at same moment as previous audio sources are being sent from station to NUC",
+        "Various bug fixes"
+    ],
+    codes: {
+        Launcher: "1.3.11",
+        NUC: "1.2.13",
+        Station: "1.2.12",
+        Tablet: "1.37",
+        QA: "1.0.24",
+        Config: "1.1.9",
+    }
+}
+
 const version1_3_4: release = {
     version: "1.3.4",
     date: "Monday 17th June 2024",
@@ -42,7 +139,6 @@ const version1_3_4: release = {
     }
 }
 
-//region Previous Versions
 const version1_3_3: release = {
     version: "1.3.3",
     date: "Monday 3rd June 2024",
@@ -224,5 +320,18 @@ const version1_2_4: release = {
 }
 //endregion
 
-export const latest_release = "1.3.4";
-export const all_releases = [version1_3_4, version1_3_3, version1_3_2, version1_3_0, version1_2_8, version1_2_7, version1_2_5, version1_2_4]
+export const latest_release = "1.4.0";
+export const all_releases: release[] = [
+    version1_4_0,
+    version1_3_9,
+    version1_3_8,
+    version1_3_7,
+    version1_3_4,
+    version1_3_3,
+    version1_3_2,
+    version1_3_0,
+    version1_2_8,
+    version1_2_7,
+    version1_2_5,
+    version1_2_4
+]
