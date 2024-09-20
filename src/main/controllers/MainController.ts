@@ -375,52 +375,6 @@ export default class MainController {
         } else {
             const exePath = info.path == '' ? join(directoryPath, `${info.name}/${info.alias ?? info.name}.exe`) : info.path;
 
-            if (info.wrapperType === CONSTANT.APPLICATION_TYPE.APPLICATION_LEADME) {
-                setTimeout(async () => {
-                    try {
-                        var date = new Date()
-                        date.setDate(date.getDate() - 1)
-                        var fileName = `${date.toISOString().split("T")[0].replace(/-/g, "_")}_log`
-                        var fileNameWithPath = `${process.env.APPDATA}\\leadme_apps\\${info.alias ?? info.name}\\_logs\\${fileName}`
-                        var fileNameWithExtension = `${fileNameWithPath}.txt`
-                        fs.readFile(fileNameWithExtension, async (err, data) => {
-                            if (err) {
-                                console.log('File reading error', err)
-                                return
-                            }
-                            if (this.configController.config.length === 0) {
-                                await this.configController.getApplicationConfig(null, info)
-                            }
-                            var deviceId = ""
-                            var site = ""
-                            if (this.configController.config.length > 0) {
-                                var deviceIdEnv = this.configController.config.find(element => element.startsWith("StationId"))
-                                if (deviceIdEnv) {
-                                    deviceId = deviceIdEnv.split("=").length > 1 ? deviceIdEnv.split("=")[1] : ""
-                                }
-                                var siteEnv = this.configController.config.find(element => element.startsWith("LabLocation"))
-                                if (siteEnv) {
-                                    site = siteEnv.split("=").length > 1 ? siteEnv.split("=")[1] : ""
-                                }
-                            }
-                            const response = await fetch("https://us-central1-leadme-labs.cloudfunctions.net/anonymousLogUpload", {
-                                method: "POST",
-                                body: data,
-                                headers: {
-                                    site,
-                                    device: info.name + deviceId,
-                                    fileName,
-                                    "Content-Type": "text/plain"
-                                }
-                            })
-                            console.log(response)
-                        })
-                    } catch (e) {
-                        Sentry.captureException(e)
-                    }
-                }, 1000 * 60 * 2)
-            }
-
             //Read any launch parameters that the manifest may have
             const params = await this.manifestController.getLaunchParameterValues(info.name);
             spawn(exePath, params, {
